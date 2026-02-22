@@ -1,19 +1,28 @@
-{
-  lib,
-  ulaPrefix,
-  tenantV4Base,
-}:
+{ lib }:
 
 topoRaw:
 
 let
+  assert_ = cond: msg: if cond then true else throw msg;
+
+  ulaPrefix =
+    if topoRaw ? ulaPrefix && builtins.isString topoRaw.ulaPrefix then
+      topoRaw.ulaPrefix
+    else
+      throw "topology-resolve: missing required topoRaw.ulaPrefix";
+
+  tenantV4Base =
+    if topoRaw ? tenantV4Base && builtins.isString topoRaw.tenantV4Base then
+      topoRaw.tenantV4Base
+    else
+      throw "topology-resolve: missing required topoRaw.tenantV4Base";
+
   links = topoRaw.links or { };
   nodes0 = topoRaw.nodes or { };
 
   coreFabricNodeName = topoRaw.coreNodeName or null;
 
   membersOf = l: lib.unique ((l.members or [ ]) ++ (builtins.attrNames (l.endpoints or { })));
-
   endpointsOf = l: l.endpoints or { };
 
   chooseEndpointKey =
@@ -124,21 +133,6 @@ let
     lib.concatMap (l: builtins.attrNames (l.endpoints or { })) (lib.attrValues links)
   );
 
-  tenantVids = lib.unique (
-    lib.filter (x: x != null) (
-      lib.concatMap (
-        l:
-        lib.concatMap (
-          ep:
-          let
-            t = ep.tenant or null;
-          in
-          [ ]
-        ) (lib.attrValues (l.endpoints or { }))
-      ) (lib.attrValues links)
-    )
-  );
-
   isNonNumericLast =
     n:
     let
@@ -150,27 +144,6 @@ let
   coreCtxBases = lib.filter (
     n: coreFabricNodeName != null && lib.hasPrefix "${coreFabricNodeName}-" n && isNonNumericLast n
   ) endpointNodes;
-
-  mkTenantCtxNodes =
-    base:
-    let
-      ctx = lib.removePrefix "${coreFabricNodeName}-" base;
-    in
-    map (
-      vid:
-      let
-        name = "${coreFabricNodeName}-${ctx}-${toString vid}";
-      in
-      if nodes0 ? "${name}" then
-        null
-      else
-        {
-          inherit name;
-          value = {
-            ifs = nodes0.${coreFabricNodeName}.ifs;
-          };
-        }
-    ) tenantVids;
 
   mkMissingNode =
     n:
@@ -184,48 +157,25 @@ let
     then
       {
         name = n;
-        value = {
-          ifs = nodes0.${coreFabricNodeName}.ifs;
-        };
+        value = { ifs = nodes0.${coreFabricNodeName}.ifs; };
       }
     else
       {
         name = n;
-        value = {
-          ifs = {
-            lan = "lan";
-          };
-        };
+        value = { ifs = { lan = "lan"; }; };
       };
 
   missingFromEndpoints = lib.filter (x: x != null) (map mkMissingNode endpointNodes);
 
-  tenantCtxNodes =
-    if
-      coreFabricNodeName != null
-      && nodes0 ? "${coreFabricNodeName}"
-      && (nodes0.${coreFabricNodeName} ? ifs)
-      && tenantVids != [ ]
-    then
-      lib.filter (x: x != null) (lib.concatMap mkTenantCtxNodes coreCtxBases)
-    else
-      [ ];
-
-  missingNodes = missingFromEndpoints ++ tenantCtxNodes;
-
-  nodes1 = nodes0 // (lib.listToAttrs missingNodes);
+  nodes1 = nodes0 // (lib.listToAttrs missingFromEndpoints);
 
   nodes' = lib.mapAttrs (
     n: node:
-    node
-    // {
-      interfaces = interfacesForNode n;
-    }
+    node // { interfaces = interfacesForNode n; }
   ) nodes1;
 
 in
-topoRaw
-// {
+topoRaw // {
   inherit ulaPrefix tenantV4Base;
   nodes = nodes';
 }

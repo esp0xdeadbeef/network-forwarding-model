@@ -125,16 +125,30 @@ in
 
       userRanges =
         let
+          # support both shapes:
+          # - solver-internal model: site.nodes.<n>.networks.ipv4
+          # - compiler IR:          site.domains.tenants[].ipv4
           nodes = site.nodes or { };
+          domains = site.domains or { };
+          tenants = domains.tenants or [ ];
+
+          fromNodes =
+            lib.concatMap (
+              name:
+              let
+                n = nodes.${name};
+                nets = n.networks or null;
+              in
+              if nets == null || !(nets ? ipv4) then [ ] else [ (rangeV4 nets.ipv4) ]
+            ) (builtins.attrNames nodes);
+
+          fromTenants =
+            lib.concatMap (
+              t:
+              if !(builtins.isAttrs t) || !(t ? ipv4) then [ ] else [ (rangeV4 t.ipv4) ]
+            ) tenants;
         in
-        lib.concatMap (
-          name:
-          let
-            n = nodes.${name};
-            nets = n.networks or null;
-          in
-          if nets == null || !(nets ? ipv4) then [ ] else [ (rangeV4 nets.ipv4) ]
-        ) (builtins.attrNames nodes);
+        fromNodes ++ fromTenants;
 
       ps0 = map normPair links;
       ps = lib.sort (x: y: pairKey x < pairKey y) ps0;
