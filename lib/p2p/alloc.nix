@@ -1,3 +1,4 @@
+# ./lib/p2p/alloc.nix
 { lib }:
 
 let
@@ -51,7 +52,10 @@ let
       ]
     );
 
-  pow2 = n: if n <= 0 then 1 else 2 * pow2 (n - 1);
+  # iterative power-of-two (avoids builtins.pow dependency)
+  pow2 =
+    n:
+    builtins.foldl' (acc: _: acc * 2) 1 (lib.range 1 n);
 
   rangeV4 =
     cidr:
@@ -125,9 +129,6 @@ in
 
       userRanges =
         let
-          # support both shapes:
-          # - solver-internal model: site.nodes.<n>.networks.ipv4
-          # - compiler IR:          site.domains.tenants[].ipv4
           nodes = site.nodes or { };
           domains = site.domains or { };
           tenants = domains.tenants or [ ];

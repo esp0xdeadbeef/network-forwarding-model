@@ -66,7 +66,7 @@ let
     in
     builtins.seq _ok (join ":" (take 3 hextets));
 
-  # derive node names from roles (no naming assumptions)
+  # derive node names from roles
   nodeNamesByRole =
     role: nodes:
     builtins.attrNames (lib.filterAttrs (_: n: (n.role or null) == role) nodes);
@@ -86,76 +86,182 @@ let
     in
     builtins.head (lib.sort (a: b: a < b) xs);
 
-  # synthesize nodes from compiler IR
+  # ---- IR helpers ----
+
+  getP2PPool =
+    siteKey: s:
+    let
+      # new compiler output uses:
+      #   addressPools.p2p.{ipv4,ipv6}
+      # legacy solver-internal / old compiler output used:
+      #   transit.addressAuthority
+      p =
+        if s ? addressPools && builtins.isAttrs s.addressPools && s.addressPools ? p2p then
+          s.addressPools.p2p
+        else if s ? transit && builtins.isAttrs s.transit && s.transit ? addressAuthority then
+          s.transit.addressAuthority
+        else
+          null;
+    in
+    requireAttr "${siteKey}.addressPools.p2p (or transit.addressAuthority)" p;
+
+  # linearize transit.ordering if it is a single chain
+  # returns null if it cannot be uniquely linearized
+  linearizeOrdering =
+    pairs:
+    if pairs == null || !(builtins.isList pairs) || pairs == [ ] then
+      null
+    else
+      let
+        # normalize to { a, b } edges
+        edges =
+          lib.concatMap (
+            p:
+            if !(builtins.isList p) || builtins.length p != 2 then
+              [ ]
+            else
+              let
+                a = builtins.elemAt p 0;
+                b = builtins.elemAt p 1;
+              in
+              [ { inherit a b; } ]
+          ) pairs;
+
+        nodes = lib.unique (lib.concatMap (e: [ e.a e.b ]) edges);
+
+        outMap =
+          builtins.foldl'
+            (acc: e: acc // { "${e.a}" = (acc."${e.a}" or [ ]) ++ [ e.b ]; })
+            { }
+            edges;
+
+        inMap =
+          builtins.foldl'
+            (acc: e: acc // { "${e.b}" = (acc."${e.b}" or [ ]) ++ [ e.a ]; })
+            { }
+            edges;
+
+        outDeg = n: builtins.length (outMap."${n}" or [ ]);
+        inDeg = n: builtins.length (inMap."${n}" or [ ]);
+
+        starts = lib.filter (n: inDeg n == 0 && outDeg n == 1) nodes;
+        ends = lib.filter (n: outDeg n == 0 && inDeg n == 1) nodes;
+
+        uniqueStart = if builtins.length starts == 1 then builtins.head starts else null;
+        uniqueEnd = if builtins.length ends == 1 then builtins.head ends else null;
+
+        # each internal node must have in=1 out=1 for a pure chain
+        isChainNode =
+          n:
+          if n == uniqueStart then (inDeg n == 0 && outDeg n == 1)
+          else if n == uniqueEnd then (inDeg n == 1 && outDeg n == 0)
+          else (inDeg n == 1 && outDeg n == 1);
+
+        _shapeOk =
+          uniqueStart != null
+          && uniqueEnd != null
+          && lib.all isChainNode nodes;
+
+        # follow the chain
+        follow =
+          cur: seen:
+          if cur == null || lib.elem cur seen then
+            null
+          else if cur == uniqueEnd then
+            seen ++ [ cur ]
+          else
+            let
+              nexts = outMap."${cur}" or [ ];
+              next = if builtins.length nexts == 1 then builtins.head nexts else null;
+            in
+            if next == null then null else follow next (seen ++ [ cur ]);
+
+        chain = if _shapeOk then follow uniqueStart [ ] else null;
+
+        # ensure chain covers all nodes referenced by ordering
+        coversAll =
+          chain != null
+          && builtins.length (lib.unique chain) == builtins.length (lib.unique nodes);
+      in
+      if coversAll then chain else null;
+
+  # synthesize nodes from compiler IR deterministically
   mkNodesFromIR =
     siteKey: s:
     let
-      cc = s.communicationContract or { };
-      enf = cc.enforcement or { };
-      auth = enf.authorityRoles or { };
-
-      policyName = auth.internalRib or null;
-      upstreamName = auth.externalRib or (enf.transitForwarder.sink or null);
-
-      # units mentioned anywhere in ordering
       ordering = s.transit.ordering or [ ];
       orderedUnits = lib.unique (lib.flatten ordering);
 
-      # access units from attachment[]
       attachments = s.attachment or [ ];
       accessUnits = lib.unique (map (a: a.unit) attachments);
 
-      # heuristic: core candidates are ordered units minus explicitly named policy/upstream/access
-      excluded =
-        lib.unique (
-          (lib.optional (policyName != null) policyName)
-          ++ (lib.optional (upstreamName != null) upstreamName)
-          ++ accessUnits
-        );
+      loopUnits =
+        if s ? routerLoopbacks && builtins.isAttrs s.routerLoopbacks then
+          builtins.attrNames s.routerLoopbacks
+        else
+          [ ];
 
-      coreCandidates = lib.filter (n: !(lib.elem n excluded)) orderedUnits;
+      allUnits = lib.unique (orderedUnits ++ accessUnits ++ loopUnits);
 
       mk = name: role: { inherit role; };
 
-      base =
-        lib.listToAttrs (map (n: { name = n; value = { }; }) (lib.unique (orderedUnits ++ accessUnits)));
+      base = lib.listToAttrs (map (n: { name = n; value = { }; }) allUnits);
 
-      withRoles =
-        base
-        // (if policyName != null then { "${policyName}" = mk policyName "policy"; } else { })
-        // (if upstreamName != null then { "${upstreamName}" = mk upstreamName "upstream-selector"; } else { });
+      chain = linearizeOrdering ordering;
+
+      # roles from chain positions if possible; otherwise deterministic fallbacks.
+      chainCore = if chain != null && builtins.length chain >= 1 then builtins.elemAt chain 0 else null;
+      chainUpstream = if chain != null && builtins.length chain >= 2 then builtins.elemAt chain 1 else null;
+      chainPolicy = if chain != null && builtins.length chain >= 3 then builtins.elemAt chain 2 else null;
+
+      # deterministic fallbacks (prefer non-access nodes)
+      nonAccess = lib.filter (n: !(lib.elem n accessUnits)) allUnits;
+
+      fallbackCore = firstSorted "core node candidate" (if nonAccess != [ ] then nonAccess else allUnits);
+      fallbackUpstream = firstSorted "upstream-selector node candidate" (if nonAccess != [ ] then nonAccess else allUnits);
+      fallbackPolicy = firstSorted "policy node candidate" (if nonAccess != [ ] then nonAccess else allUnits);
+
+      coreName = if chainCore != null && !(lib.elem chainCore accessUnits) then chainCore else fallbackCore;
+      upstreamName =
+        if chainUpstream != null && chainUpstream != coreName && !(lib.elem chainUpstream accessUnits) then
+          chainUpstream
+        else
+          fallbackUpstream;
+      policyName =
+        if chainPolicy != null && chainPolicy != coreName && chainPolicy != upstreamName && !(lib.elem chainPolicy accessUnits) then
+          chainPolicy
+        else
+          fallbackPolicy;
 
       withAccess =
         builtins.foldl'
           (acc: n: acc // { "${n}" = mk n "access"; })
-          withRoles
+          base
           accessUnits;
 
-      # pick one or more cores; at least one required by invariants
-      withCore =
-        if coreCandidates == [ ] then
-          # last resort: if nothing left, pick first from orderedUnits
-          let c = firstSorted "core candidate (from transit.ordering)" orderedUnits;
-          in withAccess // { "${c}" = mk c "core"; }
-        else
-          builtins.foldl'
-            (acc: n: acc // { "${n}" = mk n "core"; })
-            withAccess
-            coreCandidates;
+      withCore = withAccess // { "${coreName}" = mk coreName "core"; };
+      withUpstream = withCore // { "${upstreamName}" = mk upstreamName "upstream-selector"; };
+      withPolicy = withUpstream // { "${policyName}" = mk policyName "policy"; };
+
+      # any remaining units not explicitly assigned but present in ordering become core (deterministic)
+      remainingCores =
+        lib.filter (n: !(lib.elem n (accessUnits ++ [ coreName upstreamName policyName ]))) orderedUnits;
+
+      withRemainingCores =
+        builtins.foldl'
+          (acc: n: acc // { "${n}" = mk n "core"; })
+          withPolicy
+          (lib.sort (a: b: a < b) remainingCores);
     in
-    withCore;
+    withRemainingCores;
 
   solveOne =
     siteKey: s:
     let
-      # compiler IR (confirmed)
-      p2pPool = s.transit.addressAuthority or null;
-      linkPairs = s.transit.ordering or null;
+      linkPairs = requireAttr "${siteKey}.transit.ordering" (s.transit.ordering or null);
+      p2pPool = getP2PPool siteKey s;
 
-      _pairsOk = requireAttr "${siteKey}.transit.ordering" linkPairs;
-      _poolOk  = requireAttr "${siteKey}.transit.addressAuthority" p2pPool;
-
-      # derive nodes/anchors from enforcement + ordering + attachment
+      # derive nodes/anchors from ordering + attachment + routerLoopbacks
       nodes = mkNodesFromIR siteKey s;
 
       # derive ulaPrefix + tenantV4Base from tenant domains
@@ -209,9 +315,9 @@ let
     in
     topoResolved;
 
-  _all = inv.checkAll { inherit sites; };
-
-  routedSites = builtins.seq _all (lib.mapAttrs solveOne sites);
+  routedSites0 = lib.mapAttrs solveOne sites;
+  _all = inv.checkAll { sites = routedSites0; };
+  routedSites = builtins.seq _all routedSites0;
 
   siteOrThrow =
     let ks = builtins.attrNames routedSites;

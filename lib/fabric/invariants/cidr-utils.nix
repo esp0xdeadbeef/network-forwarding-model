@@ -1,3 +1,4 @@
+# ./lib/fabric/invariants/cidr-utils.nix
 { lib }:
 
 let
@@ -33,8 +34,6 @@ let
     (((builtins.elemAt o 0) * 256 + (builtins.elemAt o 1)) * 256 + (builtins.elemAt o 2)) * 256
     + (builtins.elemAt o 3);
 
-  pow2 = n: if n <= 0 then 1 else 2 * pow2 (n - 1);
-
   hexToInt = s: if s == "" then 0 else (builtins.fromTOML "x = 0x${s}").x;
 
   parseHextet =
@@ -63,6 +62,8 @@ let
       throw "cidr-utils: bad IPv6 '${s}'";
 
   v6ToInt128 = segs: builtins.foldl' (acc: x: acc * 65536 + x) 0 segs;
+
+  pow2 = n: builtins.pow 2 n;
 
   cidrRange =
     cidr:

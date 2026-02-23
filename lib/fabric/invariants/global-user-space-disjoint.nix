@@ -1,62 +1,12 @@
+# ./lib/fabric/invariants/global-user-space-disjoint.nix
 { lib }:
 
 let
+  cidr = import ./cidr-utils.nix { inherit lib; };
+
   assert_ = cond: msg: if cond then true else throw msg;
 
-  isV4 = cidr: lib.hasInfix "." cidr;
-
-  splitCidr =
-    cidr:
-    let
-      parts = lib.splitString "/" cidr;
-    in
-    if builtins.length parts != 2 then
-      throw "invariants(global-user-space): invalid CIDR '${cidr}'"
-    else
-      {
-        ip = builtins.elemAt parts 0;
-        prefix = lib.toInt (builtins.elemAt parts 1);
-      };
-
-  parseOctet =
-    s:
-    let
-      n = lib.toInt s;
-    in
-    if n < 0 || n > 255 then throw "invariants(global-user-space): bad IPv4 octet '${s}'" else n;
-
-  parseV4 =
-    s:
-    let
-      p = lib.splitString "." s;
-    in
-    if builtins.length p != 4 then
-      throw "invariants(global-user-space): bad IPv4 '${s}'"
-    else
-      map parseOctet p;
-
-  v4ToInt =
-    o:
-    (((builtins.elemAt o 0) * 256 + (builtins.elemAt o 1)) * 256 + (builtins.elemAt o 2)) * 256
-    + (builtins.elemAt o 3);
-
-  pow2 = n: if n <= 0 then 1 else 2 * pow2 (n - 1);
-
-  v4Range =
-    cidr:
-    let
-      c = splitCidr cidr;
-      base = v4ToInt (parseV4 c.ip);
-      size = pow2 (32 - c.prefix);
-    in
-    {
-      start = base;
-      end = base + size - 1;
-      cidr = cidr;
-      prefix = c.prefix;
-    };
-
-  overlaps = a: b: !(a.end < b.start || b.end < a.start);
+  overlaps = a: b: a.family == b.family && !(a.end < b.start || b.end < a.start);
 
   isNetworkAttr =
     name: v:
@@ -75,7 +25,6 @@ let
     if site ? enterprise && builtins.isString site.enterprise then
       site.enterprise
     else
-
       let
         parts = lib.splitString "." siteKey;
       in
@@ -97,9 +46,24 @@ let
       }
     ) { } (builtins.attrNames sites);
 
+  pairs =
+    xs:
+    lib.concatMap (
+      i:
+      let
+        a = builtins.elemAt xs i;
+      in
+      map (
+        j:
+        let
+          b = builtins.elemAt xs j;
+        in
+        { inherit a b; }
+      ) (lib.range (i + 1) (builtins.length xs - 1))
+    ) (lib.range 0 (builtins.length xs - 2));
+
 in
 {
-
   checkAll =
     { sites }:
 
@@ -112,106 +76,59 @@ in
           entSites = byEnt.${entName};
           siteNames = builtins.attrNames entSites;
 
-          entries = lib.concatMap (
-            siteKey:
-            let
-              site = entSites.${siteKey};
-              nodes = site.nodes or { };
-            in
+          entries =
             lib.concatMap (
-              nodeName:
+              siteKey:
               let
-                n = nodes.${nodeName};
-                nets = networksOf n;
+                site = entSites.${siteKey};
+                nodes = site.nodes or { };
               in
               lib.concatMap (
-                netName:
+                nodeName:
                 let
-                  net = nets.${netName};
+                  n = nodes.${nodeName};
+                  nets = networksOf n;
                 in
-                lib.flatten [
-                  (lib.optional (net ? ipv4) {
-                    cidr = toString net.ipv4;
-                    owner = "${siteKey}: node '${nodeName}' network '${netName}' ipv4";
-                  })
-                  (lib.optional (net ? ipv6) {
-                    cidr = toString net.ipv6;
-                    owner = "${siteKey}: node '${nodeName}' network '${netName}' ipv6";
-                  })
-                ]
-              ) (builtins.attrNames nets)
-            ) (builtins.attrNames nodes)
-          ) siteNames;
+                lib.concatMap (
+                  netName:
+                  let
+                    net = nets.${netName};
+                  in
+                  lib.flatten [
+                    (lib.optional (net ? ipv4) {
+                      cidr = toString net.ipv4;
+                      owner = "${siteKey}: node '${nodeName}' network '${netName}' ipv4";
+                      range = cidr.cidrRange net.ipv4;
+                    })
+                    (lib.optional (net ? ipv6) {
+                      cidr = toString net.ipv6;
+                      owner = "${siteKey}: node '${nodeName}' network '${netName}' ipv6";
+                      range = cidr.cidrRange net.ipv6;
+                    })
+                  ]
+                ) (builtins.attrNames nets)
+              ) (builtins.attrNames nodes)
+            ) siteNames;
 
-          v4Entries = lib.filter (e: isV4 e.cidr) entries;
-          v6Entries = lib.filter (e: !(isV4 e.cidr)) entries;
+          ps = pairs entries;
 
-          v4WithRanges = map (e: e // { range = v4Range e.cidr; }) v4Entries;
-
-          v4Pairs = lib.concatMap (
-            i:
-            let
-              a = builtins.elemAt v4WithRanges i;
-            in
-            map (
-              j:
-              let
-                b = builtins.elemAt v4WithRanges j;
-              in
-              {
-                inherit a b;
-              }
-            ) (lib.range (i + 1) (builtins.length v4WithRanges - 1))
-          ) (lib.range 0 (builtins.length v4WithRanges - 2));
-
-          _v4Check = lib.all (
+          _ = lib.all (
             p:
             assert_ (!(overlaps p.a.range p.b.range)) ''
               invariants(global-user-space):
 
               (enterprise: ${entName})
 
-              overlapping IPv4 prefixes detected:
+              overlapping user prefixes detected:
 
                 ${p.a.cidr}  (${p.a.owner})
                 ${p.b.cidr}  (${p.b.owner})
             ''
-          ) v4Pairs;
-
-          _v6State = builtins.foldl' (
-            acc: e:
-            let
-              k = e.cidr;
-            in
-            if acc.seen ? "${k}" then
-              throw ''
-                invariants(global-user-space):
-
-                (enterprise: ${entName})
-
-                duplicate IPv6 prefix detected within enterprise:
-
-                  ${k}
-
-                first seen in:
-                  ${acc.seen.${k}}
-
-                duplicated in:
-                  ${e.owner}
-              ''
-            else
-              {
-                seen = acc.seen // {
-                  "${k}" = e.owner;
-                };
-              }
-          ) { seen = { }; } v6Entries;
-
+          ) ps;
         in
-        builtins.seq _v4Check (builtins.seq _v6State true);
+        true;
 
       _all = lib.forEach (builtins.attrNames byEnt) checkOneEnterprise;
-
     in
     builtins.deepSeq _all true;
 }

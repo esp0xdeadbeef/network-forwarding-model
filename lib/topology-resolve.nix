@@ -1,3 +1,4 @@
+# ./lib/topology-resolve.nix
 { lib }:
 
 topoRaw:
@@ -133,36 +134,21 @@ let
     lib.concatMap (l: builtins.attrNames (l.endpoints or { })) (lib.attrValues links)
   );
 
-  isNonNumericLast =
-    n:
-    let
-      ps = lib.splitString "-" n;
-      last = if ps == [ ] then "" else lib.last ps;
-    in
-    builtins.match "^[0-9]+$" last == null;
-
-  coreCtxBases = lib.filter (
-    n: coreFabricNodeName != null && lib.hasPrefix "${coreFabricNodeName}-" n && isNonNumericLast n
-  ) endpointNodes;
-
   mkMissingNode =
     n:
     if nodes0 ? "${n}" then
       null
-    else if
-      coreFabricNodeName != null
-      && lib.hasPrefix "${coreFabricNodeName}-" n
-      && nodes0 ? "${coreFabricNodeName}"
-      && (nodes0.${coreFabricNodeName} ? ifs)
-    then
-      {
-        name = n;
-        value = { ifs = nodes0.${coreFabricNodeName}.ifs; };
-      }
     else
+      let
+        isCoreCtx =
+          coreFabricNodeName != null
+          && lib.hasPrefix "${coreFabricNodeName}-" n;
+      in
       {
         name = n;
-        value = { ifs = { lan = "lan"; }; };
+        value =
+          (if isCoreCtx then { role = "core"; } else { })
+          // { };
       };
 
   missingFromEndpoints = lib.filter (x: x != null) (map mkMissingNode endpointNodes);
