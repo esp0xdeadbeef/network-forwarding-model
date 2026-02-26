@@ -160,8 +160,14 @@ let
     node // { interfaces = interfacesForNode n; }
   ) nodes1;
 
+  routing = import ./routing/static.nix { inherit lib; };
+
+  topo1 =
+    topoRaw
+    // {
+      inherit ulaPrefix tenantV4Base;
+      nodes = nodes';
+    };
+
 in
-topoRaw // {
-  inherit ulaPrefix tenantV4Base;
-  nodes = nodes';
-}
+routing.attach topo1
