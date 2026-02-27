@@ -1,3 +1,4 @@
+# ./flake.nix
 {
   description = "network-solver";
 
@@ -17,8 +18,8 @@
       packages = forAll (system:
         let
           pkgs = import nixpkgs { inherit system; };
-        in {
-
+        in
+        {
           debug = pkgs.writeShellApplication {
             name = "network-solver-debug";
             runtimeInputs = [ pkgs.jq ];
@@ -63,6 +64,13 @@
               INPUTS_NIX="$1"
               IR_JSON="$(mktemp)"
 
+              cleanup() {
+                if [ -n "''${IR_JSON:-}" ] && [ -f "''${IR_JSON:-}" ]; then
+                  rm -f "$IR_JSON"
+                fi
+              }
+              trap cleanup EXIT
+
               nix run --no-warn-dirty \
                 ${network-compiler}#compile -- \
                 "$INPUTS_NIX" > "$IR_JSON"
@@ -77,14 +85,12 @@
       apps = forAll (system: {
         debug = {
           type = "app";
-          program =
-            "${self.packages.${system}.debug}/bin/network-solver-debug";
+          program = "${self.packages.${system}.debug}/bin/network-solver-debug";
         };
 
         compile-and-solve = {
           type = "app";
-          program =
-            "${self.packages.${system}.compile-and-solve}/bin/compile-and-solve";
+          program = "${self.packages.${system}.compile-and-solve}/bin/compile-and-solve";
         };
       });
     };

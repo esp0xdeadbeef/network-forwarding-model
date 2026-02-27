@@ -23,45 +23,13 @@ let
       byLinkName = "${nodeName}-${linkName}";
       byLink = if eps ? "${byLinkName}" then byLinkName else null;
 
-      bySemanticName =
-        let
-          nm = l.name or null;
-          k = if nm == null then null else "${nodeName}-${nm}";
-        in
-        if k != null && eps ? "${k}" then k else null;
-
-      parts = lib.splitString "-" nodeName;
-      lastPart = if parts == [ ] then "" else lib.last parts;
-
-      hasNumericSuffix = builtins.match "^[0-9]+$" lastPart != null;
-
-      baseName =
-        if hasNumericSuffix && (lib.length parts) > 1 then
-          lib.concatStringsSep "-" (lib.init parts)
-        else
-          null;
-
-      byBaseSuffix = if baseName != null && eps ? "${baseName}" then baseName else null;
-
       pref = "${nodeName}-";
       prefKeys = lib.filter (k: lib.hasPrefix pref k) keys;
-
-      bySinglePrefix = if lib.length prefKeys == 1 then lib.head prefKeys else null;
-
-      bySortedPrefix = if prefKeys == [ ] then null else lib.head (lib.sort (a: b: a < b) prefKeys);
+      byPrefix = if prefKeys == [ ] then null else lib.head (lib.sort (a: b: a < b) prefKeys);
     in
-    if exact != null then
-      exact
-    else if byLink != null then
-      byLink
-    else if bySemanticName != null then
-      bySemanticName
-    else if byBaseSuffix != null then
-      byBaseSuffix
-    else if bySinglePrefix != null then
-      bySinglePrefix
-    else
-      bySortedPrefix;
+    if exact != null then exact
+    else if byLink != null then byLink
+    else byPrefix;
 
   getEp =
     linkName: l: nodeName:
@@ -75,7 +43,6 @@ let
     { links, from, to }:
     let
       names = builtins.attrNames links;
-
       hits =
         lib.filter (
           lname:
@@ -110,32 +77,13 @@ let
   tenantRanges4 = topo: map (t: t.ipv4) (topo.compilerIR.domains.tenants or [ ]);
   tenantRanges6 = topo: map (t: t.ipv6) (topo.compilerIR.domains.tenants or [ ]);
 
-  assert_ = cond: msg: if cond then true else throw msg;
-
-  exactlyOne =
-    what: xs:
-    let
-      _ = assert_ (builtins.length xs == 1)
-        "routing(static): expected exactly one ${what}, got: ${lib.concatStringsSep ", " xs}";
-    in
-    builtins.head xs;
-
   roleNames =
     topo: role:
     builtins.attrNames (lib.filterAttrs (_: n: (n.role or null) == role) (topo.nodes or { }));
 
-  requireHop =
-    { from, to, hop, fam }:
-    let
-      _linkOk = assert_ (hop.linkName != null)
-        "routing(static): missing p2p link between '${from}' and '${to}' (needed for IPv${toString fam})";
-      _viaOk =
-        assert_ (
-          (if fam == 4 then hop.via4 else hop.via6) != null
-        )
-        "routing(static): missing next-hop address (IPv${toString fam}) on '${to}' for link '${hop.linkName}' (from '${from}')";
-    in
-    builtins.seq _linkOk _viaOk;
+  firstOrNull = xs: if xs == [ ] then null else lib.head (lib.sort (a: b: a < b) xs);
+
+  roleOrNull = topo: role: firstOrNull (roleNames topo role);
 
   roleOf = topo: nodeName: (topo.nodes.${nodeName}.role or null);
 
@@ -151,22 +99,21 @@ in
         if topo ? policyNodeName && topo.policyNodeName != null then
           topo.policyNodeName
         else
-          exactlyOne "policy node" (roleNames topo "policy");
+          roleOrNull topo "policy";
 
       upstreamNode =
         if topo ? upstreamSelectorNodeName && topo.upstreamSelectorNodeName != null then
           topo.upstreamSelectorNodeName
         else
-          exactlyOne "upstream-selector node" (roleNames topo "upstream-selector");
+          roleOrNull topo "upstream-selector";
 
       coreNode =
         if topo ? coreNodeName && topo.coreNodeName != null then
           topo.coreNodeName
         else
-          exactlyOne "core node" (roleNames topo "core");
+          roleOrNull topo "core";
 
-      accessNode =
-        exactlyOne "access node (static routing mode requires one)" (roleNames topo "access");
+      accessNode = roleOrNull topo "access";
 
       t4 = tenantRanges4 topo;
       t6 = tenantRanges6 topo;
@@ -203,88 +150,80 @@ in
           role = roleOf topo nodeName;
 
           nhToAccess =
-            if nodeName == accessNode then
+            if accessNode == null || nodeName == accessNode then
               { linkName = null; via4 = null; via6 = null; }
             else
               nextHop { inherit links; from = nodeName; to = accessNode; };
 
           nhToPolicy =
-            if nodeName == policyNode then
+            if policyNode == null || nodeName == policyNode then
               { linkName = null; via4 = null; via6 = null; }
             else
               nextHop { inherit links; from = nodeName; to = policyNode; };
 
           nhToUpstream =
-            if nodeName == upstreamNode then
+            if upstreamNode == null || nodeName == upstreamNode then
               { linkName = null; via4 = null; via6 = null; }
             else
               nextHop { inherit links; from = nodeName; to = upstreamNode; };
 
           nhToCore =
-            if nodeName == coreNode then
+            if coreNode == null || nodeName == coreNode then
               { linkName = null; via4 = null; via6 = null; }
             else
               nextHop { inherit links; from = nodeName; to = coreNode; };
 
         in
         if role == "access" then
-          let
-            _ = requireHop { from = nodeName; to = policyNode; hop = nhToPolicy; fam = 4; };
-            _6 = requireHop { from = nodeName; to = policyNode; hop = nhToPolicy; fam = 6; };
-          in
           {
             tenantLink = null;
             routes4Tenant = [ ];
             routes6Tenant = [ ];
 
             defaultLink = nhToPolicy.linkName;
-            routes4Default = [ (mkRoute4 default4 nhToPolicy.via4) ];
-            routes6Default = [ (mkRoute6 default6 nhToPolicy.via6) ];
+            routes4Default =
+              if nhToPolicy.via4 == null then [ ] else [ (mkRoute4 default4 nhToPolicy.via4) ];
+            routes6Default =
+              if nhToPolicy.via6 == null then [ ] else [ (mkRoute6 default6 nhToPolicy.via6) ];
           }
 
         else if role == "policy" then
-          let
-            _a4 = requireHop { from = nodeName; to = accessNode; hop = nhToAccess; fam = 4; };
-            _a6 = requireHop { from = nodeName; to = accessNode; hop = nhToAccess; fam = 6; };
-            _u4 = requireHop { from = nodeName; to = upstreamNode; hop = nhToUpstream; fam = 4; };
-            _u6 = requireHop { from = nodeName; to = upstreamNode; hop = nhToUpstream; fam = 6; };
-          in
           {
             tenantLink = nhToAccess.linkName;
-            routes4Tenant = map (p: mkRoute4 p nhToAccess.via4) t4;
-            routes6Tenant = map (p: mkRoute6 p nhToAccess.via6) t6;
+            routes4Tenant =
+              if nhToAccess.via4 == null then [ ] else map (p: mkRoute4 p nhToAccess.via4) t4;
+            routes6Tenant =
+              if nhToAccess.via6 == null then [ ] else map (p: mkRoute6 p nhToAccess.via6) t6;
 
             defaultLink = nhToUpstream.linkName;
-            routes4Default = [ (mkRoute4 default4 nhToUpstream.via4) ];
-            routes6Default = [ (mkRoute6 default6 nhToUpstream.via6) ];
+            routes4Default =
+              if nhToUpstream.via4 == null then [ ] else [ (mkRoute4 default4 nhToUpstream.via4) ];
+            routes6Default =
+              if nhToUpstream.via6 == null then [ ] else [ (mkRoute6 default6 nhToUpstream.via6) ];
           }
 
         else if role == "upstream-selector" then
-          let
-            _p4 = requireHop { from = nodeName; to = policyNode; hop = nhToPolicy; fam = 4; };
-            _p6 = requireHop { from = nodeName; to = policyNode; hop = nhToPolicy; fam = 6; };
-            _c4 = requireHop { from = nodeName; to = coreNode; hop = nhToCore; fam = 4; };
-            _c6 = requireHop { from = nodeName; to = coreNode; hop = nhToCore; fam = 6; };
-          in
           {
             tenantLink = nhToPolicy.linkName;
-            routes4Tenant = map (p: mkRoute4 p nhToPolicy.via4) t4;
-            routes6Tenant = map (p: mkRoute6 p nhToPolicy.via6) t6;
+            routes4Tenant =
+              if nhToPolicy.via4 == null then [ ] else map (p: mkRoute4 p nhToPolicy.via4) t4;
+            routes6Tenant =
+              if nhToPolicy.via6 == null then [ ] else map (p: mkRoute6 p nhToPolicy.via6) t6;
 
             defaultLink = nhToCore.linkName;
-            routes4Default = [ (mkRoute4 default4 nhToCore.via4) ];
-            routes6Default = [ (mkRoute6 default6 nhToCore.via6) ];
+            routes4Default =
+              if nhToCore.via4 == null then [ ] else [ (mkRoute4 default4 nhToCore.via4) ];
+            routes6Default =
+              if nhToCore.via6 == null then [ ] else [ (mkRoute6 default6 nhToCore.via6) ];
           }
 
         else if role == "core" then
-          let
-            _u4 = requireHop { from = nodeName; to = upstreamNode; hop = nhToUpstream; fam = 4; };
-            _u6 = requireHop { from = nodeName; to = upstreamNode; hop = nhToUpstream; fam = 6; };
-          in
           {
             tenantLink = nhToUpstream.linkName;
-            routes4Tenant = map (p: mkRoute4 p nhToUpstream.via4) t4;
-            routes6Tenant = map (p: mkRoute6 p nhToUpstream.via6) t6;
+            routes4Tenant =
+              if nhToUpstream.via4 == null then [ ] else map (p: mkRoute4 p nhToUpstream.via4) t4;
+            routes6Tenant =
+              if nhToUpstream.via6 == null then [ ] else map (p: mkRoute6 p nhToUpstream.via6) t6;
 
             defaultLink = null;
             routes4Default = [ { dst = default4; } ];
