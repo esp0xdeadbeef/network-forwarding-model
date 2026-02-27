@@ -60,7 +60,6 @@ let
     let
       ip = stripMask tenant6;
       hextets = split ":" ip;
-      # expected something like fd42:dead:beef:10:: ...
       _ok = assert_ (builtins.length hextets >= 3)
         "network-solver: cannot derive ulaPrefix from '${toString tenant6}' (expected IPv6 CIDR with >= 3 hextets)";
     in
@@ -91,10 +90,6 @@ let
   getP2PPool =
     siteKey: s:
     let
-      # new compiler output uses:
-      #   addressPools.p2p.{ipv4,ipv6}
-      # legacy solver-internal / old compiler output used:
-      #   transit.addressAuthority
       p =
         if s ? addressPools && builtins.isAttrs s.addressPools && s.addressPools ? p2p then
           s.addressPools.p2p
@@ -105,15 +100,12 @@ let
     in
     requireAttr "${siteKey}.addressPools.p2p (or transit.addressAuthority)" p;
 
-  # linearize transit.ordering if it is a single chain
-  # returns null if it cannot be uniquely linearized
   linearizeOrdering =
     pairs:
     if pairs == null || !(builtins.isList pairs) || pairs == [ ] then
       null
     else
       let
-        # normalize to { a, b } edges
         edges =
           lib.concatMap (
             p:
@@ -150,7 +142,6 @@ let
         uniqueStart = if builtins.length starts == 1 then builtins.head starts else null;
         uniqueEnd = if builtins.length ends == 1 then builtins.head ends else null;
 
-        # each internal node must have in=1 out=1 for a pure chain
         isChainNode =
           n:
           if n == uniqueStart then (inDeg n == 0 && outDeg n == 1)
@@ -162,7 +153,6 @@ let
           && uniqueEnd != null
           && lib.all isChainNode nodes;
 
-        # follow the chain
         follow =
           cur: seen:
           if cur == null || lib.elem cur seen then
@@ -178,14 +168,12 @@ let
 
         chain = if _shapeOk then follow uniqueStart [ ] else null;
 
-        # ensure chain covers all nodes referenced by ordering
         coversAll =
           chain != null
           && builtins.length (lib.unique chain) == builtins.length (lib.unique nodes);
       in
       if coversAll then chain else null;
 
-  # synthesize nodes from compiler IR deterministically
   mkNodesFromIR =
     siteKey: s:
     let
@@ -209,12 +197,10 @@ let
 
       chain = linearizeOrdering ordering;
 
-      # roles from chain positions if possible; otherwise deterministic fallbacks.
       chainCore = if chain != null && builtins.length chain >= 1 then builtins.elemAt chain 0 else null;
       chainUpstream = if chain != null && builtins.length chain >= 2 then builtins.elemAt chain 1 else null;
       chainPolicy = if chain != null && builtins.length chain >= 3 then builtins.elemAt chain 2 else null;
 
-      # deterministic fallbacks (prefer non-access nodes)
       nonAccess = lib.filter (n: !(lib.elem n accessUnits)) allUnits;
 
       fallbackCore = firstSorted "core node candidate" (if nonAccess != [ ] then nonAccess else allUnits);
@@ -243,7 +229,6 @@ let
       withUpstream = withCore // { "${upstreamName}" = mk upstreamName "upstream-selector"; };
       withPolicy = withUpstream // { "${policyName}" = mk policyName "policy"; };
 
-      # any remaining units not explicitly assigned but present in ordering become core (deterministic)
       remainingCores =
         lib.filter (n: !(lib.elem n (accessUnits ++ [ coreName upstreamName policyName ]))) orderedUnits;
 
@@ -261,10 +246,8 @@ let
       linkPairs = requireAttr "${siteKey}.transit.ordering" (s.transit.ordering or null);
       p2pPool = getP2PPool siteKey s;
 
-      # derive nodes/anchors from ordering + attachment + routerLoopbacks
       nodes = mkNodesFromIR siteKey s;
 
-      # derive ulaPrefix + tenantV4Base from tenant domains
       tenants = (s.domains.tenants or [ ]);
       _tenOk = assert_ (tenants != [ ]) "network-solver: site '${siteKey}' has no domains.tenants; cannot derive prefixes";
 
@@ -282,10 +265,7 @@ let
         links = linkPairs;
         linkPairs = linkPairs;
         p2p-pool = p2pPool;
-
         inherit nodes;
-
-        # keep compiler IR around for alloc's collision skipping with tenants
         domains = s.domains or null;
       };
 
@@ -319,16 +299,7 @@ let
   _all = inv.checkAll { sites = routedSites0; };
   routedSites = builtins.seq _all routedSites0;
 
-  siteOrThrow =
-    let ks = builtins.attrNames routedSites;
-    in
-    if builtins.length ks == 1 then
-      routedSites.${builtins.head ks}
-    else
-      throw "network-solver: expected exactly one site in input, got: ${lib.concatStringsSep ", " ks}";
-
 in
 {
   sites = routedSites;
-  site = siteOrThrow;
 }
