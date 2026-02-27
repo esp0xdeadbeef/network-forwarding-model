@@ -12,16 +12,19 @@
       packages = forAll (system:
         let pkgs = import nixpkgs { inherit system; };
         in {
+
           debug = pkgs.writeShellApplication {
             name = "network-solver-debug";
             runtimeInputs = [ pkgs.jq ];
             text = ''
               set -euo pipefail
               if [ $# -lt 1 ]; then
-                echo "usage: nix run .#debug -- <ir.json>" >&2
+                echo "usage: nix run ${self}#debug -- <ir.json>" >&2
                 exit 1
               fi
+
               IR="$1"
+
               nix eval --impure --json --expr '
                 let
                   pkgs = import ${nixpkgs} { system = "'${system}'"; };
@@ -40,19 +43,19 @@
             text = ''
               set -euo pipefail
               if [ $# -lt 1 ]; then
-                echo "usage: nix run .#compile-and-solve -- <compiler-inputs.nix>" >&2
+                echo "usage: nix run ${self}#compile-and-solve -- <compiler-inputs.nix>" >&2
                 exit 1
               fi
 
               INPUTS_NIX="$1"
 
-              # Compiler from GitHub (no local coupling)
               IR_JSON="$(mktemp)"
+
               nix run --no-warn-dirty \
                 github:esp0xdeadbeef/network-compiler#compile -- \
                 "$INPUTS_NIX" > "$IR_JSON"
 
-              nix run .#debug -- "$IR_JSON"
+              nix run ${self}#debug -- "$IR_JSON"
             '';
           };
 
@@ -64,6 +67,7 @@
           type = "app";
           program = "${self.packages.${system}.debug}/bin/network-solver-debug";
         };
+
         compile-and-solve = {
           type = "app";
           program = "${self.packages.${system}.compile-and-solve}/bin/compile-and-solve";
