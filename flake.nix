@@ -1,23 +1,31 @@
 {
   description = "network-solver";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
-  outputs = { self, nixpkgs }:
+    network-compiler.url = "github:esp0xdeadbeef/network-compiler";
+    network-compiler.inputs.nixpkgs.follows = "nixpkgs";
+  };
+
+  outputs = { self, nixpkgs, network-compiler }:
     let
       systems = [ "x86_64-linux" "aarch64-linux" ];
       forAll = f: nixpkgs.lib.genAttrs systems (system: f system);
     in
     {
       packages = forAll (system:
-        let pkgs = import nixpkgs { inherit system; };
+        let
+          pkgs = import nixpkgs { inherit system; };
         in {
 
           debug = pkgs.writeShellApplication {
             name = "network-solver-debug";
             runtimeInputs = [ pkgs.jq ];
+
             text = ''
               set -euo pipefail
+
               if [ $# -lt 1 ]; then
                 echo "usage: nix run ${self}#debug -- <ir.json>" >&2
                 exit 1
@@ -40,19 +48,20 @@
           compile-and-solve = pkgs.writeShellApplication {
             name = "compile-and-solve";
             runtimeInputs = [ pkgs.jq ];
+
             text = ''
               set -euo pipefail
+
               if [ $# -lt 1 ]; then
                 echo "usage: nix run ${self}#compile-and-solve -- <compiler-inputs.nix>" >&2
                 exit 1
               fi
 
               INPUTS_NIX="$1"
-
               IR_JSON="$(mktemp)"
 
               nix run --no-warn-dirty \
-                github:esp0xdeadbeef/network-compiler#compile -- \
+                ${network-compiler}#compile -- \
                 "$INPUTS_NIX" > "$IR_JSON"
 
               nix run ${self}#debug -- "$IR_JSON"
@@ -65,12 +74,14 @@
       apps = forAll (system: {
         debug = {
           type = "app";
-          program = "${self.packages.${system}.debug}/bin/network-solver-debug";
+          program =
+            "${self.packages.${system}.debug}/bin/network-solver-debug";
         };
 
         compile-and-solve = {
           type = "app";
-          program = "${self.packages.${system}.compile-and-solve}/bin/compile-and-solve";
+          program =
+            "${self.packages.${system}.compile-and-solve}/bin/compile-and-solve";
         };
       });
     };
