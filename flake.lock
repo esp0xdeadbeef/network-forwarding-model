@@ -1,5 +1,26 @@
 {
   "nodes": {
+    "network-compiler": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ],
+        "nixpkgs-network": "nixpkgs-network"
+      },
+      "locked": {
+        "lastModified": 1771813550,
+        "narHash": "sha256-w9x9tfXZIczTnP/04gy6bs/6i04kcbBWBiFoaQlFHxU=",
+        "owner": "esp0xdeadbeef",
+        "repo": "network-compiler",
+        "rev": "145281deca3c458c48a4e18ee21c62cd67890ca7",
+        "type": "github"
+      },
+      "original": {
+        "owner": "esp0xdeadbeef",
+        "repo": "network-compiler",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1771369470,
@@ -16,8 +37,26 @@
         "type": "github"
       }
     },
+    "nixpkgs-network": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1722112448,
+        "narHash": "sha256-Ugp/K1wA7N0u0xE27YP/fvFaZqK9dYKSjJ/OoTdQ7rc=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "ac56c456ebe4901c561d3ebf1c98fbd970aea753",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "ac56c456ebe4901c561d3ebf1c98fbd970aea753",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
+        "network-compiler": "network-compiler",
         "nixpkgs": "nixpkgs"
       }
     }

@@ -37,7 +37,10 @@
                 let
                   pkgs = import ${nixpkgs} { system = "'${system}'"; };
                   lib = pkgs.lib;
-                  solver = import ./. { inherit lib; };
+
+                  # IMPORTANT: import from flake store path, NOT cwd
+                  solver = import ${self} { inherit lib; };
+
                   input = builtins.fromJSON (builtins.readFile "'"$IR"'");
                 in
                   solver { inherit input; }
