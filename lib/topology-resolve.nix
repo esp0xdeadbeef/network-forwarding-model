@@ -1,4 +1,3 @@
-# ./lib/topology-resolve.nix
 { lib }:
 
 topoRaw:

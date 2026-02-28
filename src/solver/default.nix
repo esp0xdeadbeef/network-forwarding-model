@@ -10,6 +10,8 @@ let
     else throw "network-solver: sites.${enterprise} must be an attrset";
 
   solveSite = import ./site.nix { inherit lib; };
+
+  siteIds = lib.sort (a: b: a < b) (builtins.attrNames sites);
 in
 builtins.foldl'
   (acc: siteId:
@@ -22,4 +24,4 @@ builtins.foldl'
         };
     })
   { }
-  (builtins.attrNames sites)
+  siteIds

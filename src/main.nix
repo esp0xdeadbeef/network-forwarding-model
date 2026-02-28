@@ -3,60 +3,54 @@
 { input }:
 
 let
-  _withInputContext =
-    builtins.addErrorContext
-      ("network-solver: input IR (for deterministic debugging)\n\n" + builtins.toJSON input)
-      true;
+  inputJson = builtins.toJSON input;
 
-  sitesByEnterprise =
-    if input ? sites && builtins.isAttrs input.sites then
-      input.sites
-    else
-      throw "network-solver: expected compiler IR with top-level attribute 'sites'";
+  dump = x: builtins.toJSON x;
 
   solveEnterprise = import ./solver { inherit lib; };
 
   invariants = import ../lib/fabric/invariants/default.nix { inherit lib; };
 
-  solverGitRev =
-    let
-      v = builtins.getEnv "GIT_REV";
-    in
-    if v == "" then null else v;
+  sitesByEnterprise =
+    if input ? sites && builtins.isAttrs input.sites then
+      input.sites
+    else
+      throw ''
+        network-solver: expected compiler IR with top-level attribute 'sites'
 
-  solverGitDirty =
-    let
-      v = builtins.getEnv "GIT_DIRTY";
-    in
-    if v == "" then null else (v == "1" || v == "true" || v == "yes");
-
-  solverMeta = {
-    schemaVersion = 1;
-    solver = "network-solver";
-    git = {
-      rev = solverGitRev;
-      dirty = solverGitDirty;
-    };
-  };
-
-  inputMeta =
-    if input ? meta && builtins.isAttrs input.meta then input.meta else null;
+        ===== FULL INPUT IR =====
+        ${inputJson}
+      '';
 
   validateSite =
-    { siteKey, site }:
+    { ent, siteId, site }:
     let
       eval = builtins.tryEval (invariants.checkSite { inherit site; });
     in
     if eval.success then
-      {
-        ok = true;
-      }
+      { ok = true; }
     else
-      {
-        ok = false;
-        error = "invariants.checkSite failed";
-        siteKey = siteKey;
-      };
+      throw ''
+        network-solver: invariants failed
+
+        ===== ENTERPRISE =====
+        ${ent}
+
+        ===== SITE =====
+        ${siteId}
+
+        ===== INVARIANT ERROR (raw) =====
+        ${if eval ? value then dump eval.value else "<no value>"}
+
+        ===== SOLVED SITE IR =====
+        ${dump site}
+
+        ===== SOLVED ENTERPRISE IR =====
+        ${dump { "${ent}" = { "${siteId}" = site; }; }}
+
+        ===== FULL INPUT IR =====
+        ${inputJson}
+      '';
 
   solveAndValidateEnterprise =
     ent:
@@ -67,40 +61,24 @@ let
           sites = sitesByEnterprise.${ent};
         };
 
-      perSiteResults =
+      siteIds = lib.sort (a: b: a < b) (builtins.attrNames solved);
+
+      validated =
         builtins.foldl'
           (acc: siteId:
             let
-              siteKey = "${ent}.${siteId}";
               site0 = solved.${siteId};
-              res = validateSite { inherit siteKey; site = site0; };
-              site1 =
-                site0
-                // {
-                  _verification = (site0._verification or { }) // {
-                    invariants = res;
-                  };
-                };
+              _ = validateSite { inherit ent siteId; site = site0; };
             in
-            acc
-            // {
-              sites = (acc.sites or { }) // { "${siteId}" = site1; };
-              results = (acc.results or { }) // { "${siteKey}" = res; };
-            })
+            acc // { "${siteId}" = site0; }
+          )
           { }
-          (builtins.attrNames solved);
-
-      _enforce =
-        let
-          failed =
-            lib.filterAttrs (_: v: !(v.ok or false)) (perSiteResults.results or { });
-        in
-        if failed == { } then
-          true
-        else
-          throw ("network-solver: invariants failed\n\n" + builtins.toJSON failed);
+          siteIds;
     in
-    builtins.seq _enforce (perSiteResults.sites or { });
+      validated;
+
+  enterpriseNames =
+    lib.sort (a: b: a < b) (builtins.attrNames sitesByEnterprise);
 
   solvedSitesByEnterprise =
     builtins.foldl'
@@ -109,16 +87,16 @@ let
           "${ent}" = solveAndValidateEnterprise ent;
         })
       { }
-      (builtins.attrNames sitesByEnterprise);
+      enterpriseNames;
 
 in
-builtins.seq _withInputContext {
-  meta =
-    solverMeta
-    // {
-      provenance =
-        if inputMeta == null then null else inputMeta;
+{
+  meta = {
+    solver = {
+      name = "network-solver";
+      schemaVersion = 2;
     };
+  };
 
   sites = solvedSitesByEnterprise;
 }

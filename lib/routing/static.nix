@@ -1,4 +1,5 @@
 # ./lib/routing/static.nix
+# ./lib/routing/static.nix
 { lib }:
 
 let
@@ -77,8 +78,8 @@ let
           isWanLink l && (lib.elem nodeName m || eps ? "${nodeName}"))
       (builtins.attrNames links);
 
-  tenantRanges4 = topo: map (t: t.ipv4) (topo.compilerIR.domains.tenants or [ ]);
-  tenantRanges6 = topo: map (t: t.ipv6) (topo.compilerIR.domains.tenants or [ ]);
+  tenantRanges4 = topo: map (t: t.ipv4) ((topo.domains or { }).tenants or [ ]);
+  tenantRanges6 = topo: map (t: t.ipv6) ((topo.domains or { }).tenants or [ ]);
 
   roleNames = topo: role:
     builtins.attrNames (lib.filterAttrs (_: n: (n.role or null) == role) (topo.nodes or { }));
@@ -247,13 +248,6 @@ in
         _routingMaps = {
           mode = "static";
           defaults = { inherit default4 default6; };
-          tenants = { ipv4 = t4; ipv6 = t6; };
-          assumptions = {
-            singleAccess = accessNode;
-            policy = policyNode;
-            upstreamSelector = upstreamNode;
-            core = coreNode;
-          };
           nat = topo._nat or null;
           traversal = topo._traversal or null;
           enforcement = topo._enforcement or null;

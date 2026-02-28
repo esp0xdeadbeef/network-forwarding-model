@@ -1,4 +1,3 @@
-# ./src/solver/site.nix
 { lib }:
 { enterprise, siteId, site }:
 
@@ -205,9 +204,10 @@ let
         };
       }) allUnits);
 
+  domains = site.domains or { };
   tenants =
-    if site ? domains && site.domains ? tenants && builtins.isList site.domains.tenants
-    then site.domains.tenants
+    if domains ? tenants && builtins.isList domains.tenants
+    then domains.tenants
     else [ ];
 
   deriveTenantV4Bases =
@@ -245,7 +245,7 @@ let
     linkPairs = ordering;
     p2p-pool = p2pPool;
     inherit nodes;
-    domains = site.domains or null;
+    inherit domains;
   };
 
   p2pLinks = allocP2P.alloc { site = siteForAlloc; };
@@ -348,8 +348,29 @@ let
     ingress = natIngress;
   };
 
+  ruleKey =
+    r:
+    let
+      p = toString (r.source.priority or 0);
+      i = toString (r.source.index or 0);
+      id = toString (r.source.id or r.id or "");
+    in
+    "${zpad 10 p}|${zpad 10 i}|${id}";
+
+  zpad =
+    w: s:
+    let
+      len = builtins.stringLength s;
+      zeros = builtins.concatStringsSep "" (builtins.genList (_: "0") (lib.max 0 (w - len)));
+    in
+    zeros + s;
+
   enforcementRules =
-    (communication.allowedRelations or [ ]);
+    let
+      rs0 = communication.allowedRelations or [ ];
+      rs1 = lib.filter builtins.isAttrs rs0;
+    in
+    lib.sort (a: b: ruleKey a < ruleKey b) rs1;
 
   traversal = {
     mode = "ordering-chain";
@@ -360,14 +381,15 @@ let
     coreUnitHint = coreByOrdering;
   };
 
-  compilerIR = builtins.removeAttrs site [ "id" "enterprise" ];
+  # Keep a compact per-site debug snapshot without polluting runtime fields.
+  compilerIRDebug = builtins.removeAttrs site [ "id" "enterprise" ];
 
   topoRaw = {
     siteName = siteId;
     inherit tenantV4Base ulaPrefix;
     inherit nodes;
     inherit links;
-    inherit compilerIR;
+    inherit domains;
 
     _nat = natRealized;
     _enforcement = {
@@ -395,6 +417,10 @@ let
   withVerification =
     cleaned
     // {
+      _debug = (cleaned._debug or { }) // {
+        compilerIR = compilerIRDebug; # TODO DONE: Move `compilerIR` out of runtime fields
+      };
+
       _verification = (cleaned._verification or { }) // {
         solver = {
           nat = natRealized;
