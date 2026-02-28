@@ -1,31 +1,17 @@
-## Landmarks
-- Treat routerLoopbacks as immutable identities
-- Validate loopbacks ∈ addressPools.local
+[ ] Realize NAT semantics: resolve communicationContract.nat into explicit core NAT ownership and mode ("none" | "custom").
 
-## Topology
-- Deterministic p2p allocation
-- Emit explicit adjacency graph
-- Validate transit ordering
+[ ] Materialize multi-WAN behavior: allocate per-upstream local/LL addresses and bind WAN interfaces deterministically.
 
-## Forwarding Domains
-- Introduce forwardingDomains abstraction
-- Derive isolation + allowed edges from communicationContract
+[ ] Project communication contracts into enforcement: compile allowedRelations into policy-node enforcement rules.
 
-## Policy
-- Normalize allowedRelations into resolved policy graph
-- Detect conflicts and ambiguity
+[ ] Convert transit ordering into enforced traversal semantics (mustTraverse / forwarding stages).
 
-## NAT
-- Resolve ingress NAT placement
-- Emit explicit NAT flow definitions
+[ ] Realize overlays: instantiate overlay endpoints, tunnel bindings, and route injection instead of metadata-only definitions.
 
-## Routing Intent
-- Compute prefix ownership & propagation graph
-- Detect asymmetric paths during solve
+[ ] Operationalize unit isolation: map isolated containers to explicit VRFs / routing domains.
 
-## Multi-Enterprise
-- Enforce namespace isolation
-- Prevent unintended prefix overlap
+[ ] Preserve provenance: include solver git revision and input/compiler metadata in output meta section.
 
-## Debug
-- Add explain/debug output mode
+[ ] Emit invariant verification results (topology validity, NAT placement, traversal guarantees).
+
+[ ] On solver failure, dump full input IR for deterministic debugging and reproduction.

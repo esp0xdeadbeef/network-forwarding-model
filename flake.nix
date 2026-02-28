@@ -5,16 +5,33 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
+    # Match network-compiler's pinned lib.network
+    nixpkgs-network.url = "github:NixOS/nixpkgs/ac56c456ebe4901c561d3ebf1c98fbd970aea753";
+
     network-compiler.url = "github:esp0xdeadbeef/network-compiler";
     network-compiler.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nixpkgs, network-compiler }:
+  outputs = { self, nixpkgs, nixpkgs-network, network-compiler }:
     let
       systems = [ "x86_64-linux" "aarch64-linux" ];
       forAll = f: nixpkgs.lib.genAttrs systems (system: f system);
     in
     {
+      # Expose solver as flake lib entrypoint with patched lib.network
+      lib = forAll (system:
+        let
+          pkgs = import nixpkgs { inherit system; };
+          patchedPkgs = import nixpkgs-network { inherit system; };
+
+          lib =
+            pkgs.lib // {
+              network = patchedPkgs.lib.network;
+            };
+        in
+          import ./src/main.nix { inherit lib; }
+      );
+
       packages = forAll (system:
         let
           pkgs = import nixpkgs { inherit system; };
@@ -36,11 +53,8 @@
 
               nix eval --impure --json --expr '
                 let
-                  pkgs = import ${nixpkgs} { system = "'${system}'"; };
-                  lib = pkgs.lib;
-
-                  # IMPORTANT: import from flake store path, NOT cwd
-                  solver = import ${self} { inherit lib; };
+                  flake = builtins.getFlake (toString ${self});
+                  solver = flake.lib."'${system}'";
 
                   input = builtins.fromJSON (builtins.readFile "'"$IR"'");
                 in

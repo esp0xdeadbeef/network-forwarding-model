@@ -1,4 +1,6 @@
 # ./lib/fabric/invariants/cidr-utils.nix
+# IPv4 uses 32-bit ints; IPv6 uses fixed-width expanded strings.
+# Avoids builtins.bitShiftLeft (not available on older Nix).
 { lib }:
 
 let
@@ -15,6 +17,7 @@ let
         prefix = lib.toInt (builtins.elemAt parts 1);
       };
 
+  # ---------------- IPv4 helpers ----------------
   parseOctet =
     s:
     let
@@ -34,36 +37,95 @@ let
     (((builtins.elemAt o 0) * 256 + (builtins.elemAt o 1)) * 256 + (builtins.elemAt o 2)) * 256
     + (builtins.elemAt o 3);
 
-  hexToInt = s: if s == "" then 0 else (builtins.fromTOML "x = 0x${s}").x;
+  pow2Small =
+    n:
+    builtins.foldl' (acc: _: acc * 2) 1 (lib.range 1 n);
 
-  parseHextet =
-    s:
-    let
-      n = hexToInt s;
-    in
-    if n < 0 || n > 65535 then throw "cidr-utils: bad IPv6 hextet '${s}'" else n;
+  # ---------------- IPv6 helpers (no int128, no bitShiftLeft) ----------------
+  haveNetwork = (lib ? network) && (lib.network ? ipv6) && (lib.network.ipv6 ? fromString);
 
-  expandIPv6 =
+  ipv6Parse =
     s:
-    let
-      parts = lib.splitString "::" s;
-    in
-    if builtins.length parts == 1 then
-      map parseHextet (lib.splitString ":" s)
-    else if builtins.length parts == 2 then
-      let
-        left = if builtins.elemAt parts 0 == "" then [ ] else lib.splitString ":" (builtins.elemAt parts 0);
-        right =
-          if builtins.elemAt parts 1 == "" then [ ] else lib.splitString ":" (builtins.elemAt parts 1);
-        missing = 8 - (builtins.length left + builtins.length right);
-      in
-      (map parseHextet left) ++ (builtins.genList (_: 0) missing) ++ (map parseHextet right)
+    if haveNetwork then
+      lib.network.ipv6.fromString (toString s)
     else
-      throw "cidr-utils: bad IPv6 '${s}'";
+      throw "cidr-utils: missing lib.network.ipv6.fromString (use flake patched nixpkgs-network)";
 
-  v6ToInt128 = segs: builtins.foldl' (acc: x: acc * 65536 + x) 0 segs;
+  zpad =
+    w: s:
+    let
+      len = builtins.stringLength s;
+      zeros = builtins.concatStringsSep "" (builtins.genList (_: "0") (lib.max 0 (w - len)));
+    in
+    zeros + s;
 
-  pow2 = n: builtins.pow 2 n;
+  toHexLower = n: lib.toLower (lib.trivial.toHexString n);
+
+  v6ToFixed =
+    segs:
+    lib.concatStringsSep ":" (map (x: zpad 4 (toHexLower x)) segs);
+
+  v6FirstLast =
+    { segs, prefix }:
+    let
+      apply =
+        { isLast }:
+        builtins.genList
+          (i:
+            let
+              rem0 = prefix - (i * 16);
+              rem =
+                if rem0 < 0 then 0
+                else if rem0 > 16 then 16
+                else rem0;
+
+              v = builtins.elemAt segs i;
+
+              ones =
+                if rem == 0 then
+                  0
+                else
+                  (pow2Small rem) - 1;
+
+              # left shift without bitShiftLeft
+              maskNet =
+                if rem == 0 then
+                  0
+                else
+                  ones * (pow2Small (16 - rem));
+
+              base = builtins.bitAnd v maskNet;
+
+              hostMask =
+                if rem == 16 then
+                  0
+                else
+                  (pow2Small (16 - rem)) - 1;
+
+              withHost =
+                if isLast then
+                  builtins.bitOr base hostMask
+                else
+                  base;
+
+              fillAll =
+                if rem == 16 then
+                  v
+                else if rem == 0 then
+                  (if isLast then 65535 else 0)
+                else
+                  withHost;
+            in
+            fillAll)
+          8;
+
+      firstSegs = apply { isLast = false; };
+      lastSegs = apply { isLast = true; };
+    in
+    {
+      first = v6ToFixed firstSegs;
+      last = v6ToFixed lastSegs;
+    };
 
   cidrRange =
     cidr:
@@ -73,7 +135,7 @@ let
     if lib.hasInfix "." c.ip then
       let
         base = v4ToInt (parseV4 c.ip);
-        size = pow2 (32 - c.prefix);
+        size = pow2Small (32 - c.prefix);
       in
       {
         family = 4;
@@ -82,14 +144,14 @@ let
       }
     else
       let
-        segs = expandIPv6 c.ip;
-        base = v6ToInt128 segs;
-        size = pow2 (128 - c.prefix);
+        parsed = ipv6Parse "${toString c.ip}/${toString c.prefix}";
+        segs = parsed._address or (throw "cidr-utils: lib.network.ipv6.fromString missing _address");
+        fl = v6FirstLast { inherit segs; prefix = c.prefix; };
       in
       {
         family = 6;
-        start = base;
-        end = base + size - 1;
+        start = fl.first;
+        end = fl.last;
       };
 
 in

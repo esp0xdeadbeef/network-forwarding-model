@@ -102,6 +102,11 @@ let
       addr6 = ep.addr6 or null;
       addr6Public = ep.addr6Public or null;
 
+      ll6 = ep.ll6 or null;
+
+      upstream = l.upstream or null;
+      overlay = l.overlay or null;
+
       routes4 = ep.routes4 or [ ];
       routes6 = ep.routes6 or [ ];
       ra6Prefixes = ep.ra6Prefixes or [ ];
