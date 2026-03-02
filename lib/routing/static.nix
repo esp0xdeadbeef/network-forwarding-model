@@ -1,6 +1,8 @@
 { lib }:
 
 let
+  resolveLoopbacks = import ./resolve-loopbacks.nix { inherit lib; };
+
   stripMask = s:
     let parts = lib.splitString "/" (toString s);
     in if builtins.length parts == 0 then toString s else builtins.elemAt parts 0;
@@ -17,7 +19,10 @@ let
       byLink = if eps ? "${byLinkName}" then byLinkName else null;
       pref = "${nodeName}-";
       prefKeys = lib.filter (k: lib.hasPrefix pref k) keys;
-      byPrefix = if prefKeys == [ ] then null else lib.head (lib.sort (a: b: a < b) prefKeys);
+      byPrefix =
+        if prefKeys == [ ]
+        then null
+        else lib.head (lib.sort (a: b: a < b) prefKeys);
     in
       if exact != null then exact else if byLink != null then byLink else byPrefix;
 
@@ -49,8 +54,14 @@ let
     in
       {
         linkName = lname;
-        via4 = if epTo ? addr4 && epTo.addr4 != null then stripMask epTo.addr4 else null;
-        via6 = if epTo ? addr6 && epTo.addr6 != null then stripMask epTo.addr6 else null;
+        via4 =
+          if epTo ? addr4 && epTo.addr4 != null
+          then stripMask epTo.addr4
+          else null;
+        via6 =
+          if epTo ? addr6 && epTo.addr6 != null
+          then stripMask epTo.addr6
+          else null;
       };
 
   mkRoute4 = dst: via4: { inherit dst via4; };
@@ -113,7 +124,7 @@ in
         if linkName == null then node else
         let
           ifs = node.interfaces or { };
-          cur = ifs.${linkName} or null;
+          cur = if ifs ? "${linkName}" then ifs.${linkName} else null;
         in
           if cur == null then node else
           node // {
@@ -158,12 +169,16 @@ in
             routes4Tenant = [ ];
             routes6Tenant = [ ];
             defaultLink = nhToPolicy.linkName;
-            routes4Default = if nhToPolicy.via4 == null then [ ] else [ (mkRoute4 default4 nhToPolicy.via4) ];
-            routes6Default = if nhToPolicy.via6 == null then [ ] else [ (mkRoute6 default6 nhToPolicy.via6) ];
+            routes4Default =
+              if nhToPolicy.via4 == null then [ ] else [ (mkRoute4 default4 nhToPolicy.via4) ];
+            routes6Default =
+              if nhToPolicy.via6 == null then [ ] else [ (mkRoute6 default6 nhToPolicy.via6) ];
           } else if role == "policy" then {
             tenantLink = nhToAccess.linkName;
-            routes4Tenant = if nhToAccess.via4 == null then [ ] else map (p: mkRoute4 p nhToAccess.via4) t4;
-            routes6Tenant = if nhToAccess.via6 == null then [ ] else map (p: mkRoute6 p nhToAccess.via6) t6;
+            routes4Tenant =
+              if nhToAccess.via4 == null then [ ] else map (p: mkRoute4 p nhToAccess.via4) t4;
+            routes6Tenant =
+              if nhToAccess.via6 == null then [ ] else map (p: mkRoute6 p nhToAccess.via6) t6;
 
             defaultLink =
               if upstreamNode == null then nhToCore.linkName else nhToUpstream.linkName;
@@ -179,11 +194,15 @@ in
               else (if nhToUpstream.via6 == null then [ ] else [ (mkRoute6 default6 nhToUpstream.via6) ]);
           } else if role == "upstream-selector" then {
             tenantLink = nhToPolicy.linkName;
-            routes4Tenant = if nhToPolicy.via4 == null then [ ] else map (p: mkRoute4 p nhToPolicy.via4) t4;
-            routes6Tenant = if nhToPolicy.via6 == null then [ ] else map (p: mkRoute6 p nhToPolicy.via6) t6;
+            routes4Tenant =
+              if nhToPolicy.via4 == null then [ ] else map (p: mkRoute4 p nhToPolicy.via4) t4;
+            routes6Tenant =
+              if nhToPolicy.via6 == null then [ ] else map (p: mkRoute6 p nhToPolicy.via6) t6;
             defaultLink = nhToCore.linkName;
-            routes4Default = if nhToCore.via4 == null then [ ] else [ (mkRoute4 default4 nhToCore.via4) ];
-            routes6Default = if nhToCore.via6 == null then [ ] else [ (mkRoute6 default6 nhToCore.via6) ];
+            routes4Default =
+              if nhToCore.via4 == null then [ ] else [ (mkRoute4 default4 nhToCore.via4) ];
+            routes6Default =
+              if nhToCore.via6 == null then [ ] else [ (mkRoute6 default6 nhToCore.via6) ];
           } else if role == "core" then {
             tenantLink =
               if upstreamNode == null then nhToPolicy.linkName else nhToUpstream.linkName;
@@ -210,42 +229,44 @@ in
             routes6Default = [ ];
           };
 
-      stepNode = acc: nodeName:
-        let
-          node = acc.${nodeName};
+      nodes1 =
+        builtins.foldl'
+          (acc: nodeName:
+            let
+              node = acc.${nodeName};
 
-          # NOTE: routing truth separates:
-          # - connected routes (iface.connected4/connected6) emitted by topology-resolve
-          # - intent/static routes (iface.routes4/iface.routes6) emitted here
-          cleared =
-            node // {
-              interfaces =
-                lib.mapAttrs (_: iface: iface // { routes4 = [ ]; routes6 = [ ]; })
-                  (node.interfaces or { });
-            };
+              cleared =
+                node // {
+                  interfaces =
+                    lib.mapAttrs (_: iface: iface // { routes4 = [ ]; routes6 = [ ]; })
+                      (node.interfaces or { });
+                };
 
-          r = mkNodeRoutes nodeName;
+              r = mkNodeRoutes nodeName;
 
-          node1 = setIfaceRoutes cleared r.tenantLink r.routes4Tenant r.routes6Tenant;
+              node1 = setIfaceRoutes cleared r.tenantLink r.routes4Tenant r.routes6Tenant;
 
-          node2 =
-            if (roleOf topo nodeName) == "core" then
-              let
-                wanIfaces = wanLinksForNode { inherit links nodeName; };
-              in
-                if wanIfaces == [ ] then node1
-                else setIfaceRoutesMany node1 wanIfaces r.routes4Default r.routes6Default
-            else
-              setIfaceRoutes node1 r.defaultLink r.routes4Default r.routes6Default;
+              node2 =
+                if (roleOf topo nodeName) == "core" then
+                  let
+                    wanIfaces = wanLinksForNode { inherit links nodeName; };
+                  in
+                    if wanIfaces == [ ] then node1
+                    else setIfaceRoutesMany node1 wanIfaces r.routes4Default r.routes6Default
+                else
+                  setIfaceRoutes node1 r.defaultLink r.routes4Default r.routes6Default;
 
-        in
-          acc // { "${nodeName}" = node2; };
+            in
+              acc // { "${nodeName}" = node2; })
+          nodes0
+          (builtins.attrNames nodes0);
 
-      nodes1 = builtins.foldl' stepNode nodes0 (builtins.attrNames nodes0);
+      topo1 = topo // { nodes = nodes1; };
+
+      topo2 = resolveLoopbacks.attach topo1;
 
     in
-      topo // {
-        nodes = nodes1;
+      topo2 // {
         _routingMaps = {
           mode = "static";
           connected = "explicit";
@@ -254,6 +275,7 @@ in
             v6 = "connected6";
           };
           defaults = { inherit default4 default6; };
+          loopbacks = topo2._loopbackResolution or null;
           nat = topo._nat or null;
           traversal = topo._traversal or null;
           enforcement = topo._enforcement or null;
