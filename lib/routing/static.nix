@@ -1,5 +1,3 @@
-# ./lib/routing/static.nix
-# ./lib/routing/static.nix
 { lib }:
 
 let
@@ -216,6 +214,9 @@ in
         let
           node = acc.${nodeName};
 
+          # NOTE: routing truth separates:
+          # - connected routes (iface.connected4/connected6) emitted by topology-resolve
+          # - intent/static routes (iface.routes4/iface.routes6) emitted here
           cleared =
             node // {
               interfaces =
@@ -247,6 +248,11 @@ in
         nodes = nodes1;
         _routingMaps = {
           mode = "static";
+          connected = "explicit";
+          connectedFields = {
+            v4 = "connected4";
+            v6 = "connected6";
+          };
           defaults = { inherit default4 default6; };
           nat = topo._nat or null;
           traversal = topo._traversal or null;
