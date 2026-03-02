@@ -109,6 +109,8 @@ let
     in
     if builtins.length parts == 2 then builtins.elemAt parts 1 else null;
 
+  mkConnectedRoute = dst: { inherit dst; proto = "connected"; };
+
   mkIface =
     linkName: l: nodeName:
     let
@@ -125,6 +127,22 @@ let
 
       finalAddr4 = if useDhcp then null else rawAddr4;
       finalDhcp = if useDhcp then true else (ep.dhcp or false);
+
+      rawAddr6 = ep.addr6 or null;
+      rawAddr6Public = ep.addr6Public or null;
+
+      ra6 = ep.ra6Prefixes or [ ];
+
+      connected4 =
+        if finalAddr4 == null then
+          [ ]
+        else
+          [ (mkConnectedRoute finalAddr4) ];
+
+      connected6 =
+        (lib.optional (rawAddr6 != null) (mkConnectedRoute rawAddr6))
+        ++ (lib.optional (rawAddr6Public != null) (mkConnectedRoute rawAddr6Public))
+        ++ (map mkConnectedRoute ra6);
     in
     {
       kind = l.kind or null;
@@ -135,17 +153,20 @@ let
       export = ep.export or false;
 
       addr4 = finalAddr4;
-      addr6 = ep.addr6 or null;
-      addr6Public = ep.addr6Public or null;
+      addr6 = rawAddr6;
+      addr6Public = rawAddr6Public;
 
       ll6 = ep.ll6 or null;
 
       upstream = l.upstream or null;
       overlay = l.overlay or null;
 
+      connected4 = connected4;
+      connected6 = connected6;
+
       routes4 = ep.routes4 or [ ];
       routes6 = ep.routes6 or [ ];
-      ra6Prefixes = ep.ra6Prefixes or [ ];
+      ra6Prefixes = ra6;
 
       acceptRA = ep.acceptRA or false;
       dhcp = finalDhcp;
@@ -155,14 +176,14 @@ let
     nodeName:
     let
       linkNamesSorted = lib.sort (a: b: a < b) (lib.attrNames links);
-      hasAnyEndpoint = linkName: l: (chooseEndpointKey linkName l nodeName) != null;
     in
     lib.filter (
       lname:
       let
         l = links.${lname};
       in
-      (lib.elem nodeName (membersOf l)) || (hasAnyEndpoint lname l)
+      (lib.elem nodeName (membersOf l))
+      || ((chooseEndpointKey lname l nodeName) != null)
     ) linkNamesSorted;
 
   interfacesForNode =
