@@ -58,15 +58,16 @@
             in mkWanPeerNode nm)
           upstreamList);
 
+      # P2P WAN addressing: /31 (v4) and /127 (v6) on BOTH endpoints.
       mkWanAddr4 =
-        idx:
-        let base = "${stripMask localPool.ipv4}/32";
-        in addr.hostCidr (100 + idx) base;
+        host:
+        let base = "${stripMask localPool.ipv4}/31";
+        in addr.hostCidr host base;
 
       mkWanAddr6 =
-        idx:
-        let base = "${stripMask localPool.ipv6}/128";
-        in addr.hostCidr (100 + idx) base;
+        host:
+        let base = "${stripMask localPool.ipv6}/127";
+        in addr.hostCidr host base;
 
       mkWanLL6 =
         idx: addr.hostCidr (idx + 1) "fe80::/128";
@@ -76,6 +77,10 @@
         let
           nm = if builtins.isAttrs u && u ? name then toString u.name else toString u;
           peer = mkWanPeerName nm;
+
+          # Allocate 2 hosts per WAN link (even/odd) so each link is a unique /31 + /127.
+          h0 = 100 + (2 * idx);
+          h1 = h0 + 1;
         in
         {
           name = "wan-${coreUnit}-${nm}";
@@ -89,11 +94,15 @@
               "${coreUnit}" = {
                 gateway = true;
                 export = true;
-                addr4 = if localPool ? ipv4 then mkWanAddr4 idx else null;
-                addr6 = if localPool ? ipv6 then mkWanAddr6 idx else null;
+                addr4 = if localPool ? ipv4 then mkWanAddr4 h0 else null;
+                addr6 = if localPool ? ipv6 then mkWanAddr6 h0 else null;
                 ll6 = mkWanLL6 idx;
               };
-              "${peer}" = { };
+              "${peer}" = {
+                addr4 = if localPool ? ipv4 then mkWanAddr4 h1 else null;
+                addr6 = if localPool ? ipv6 then mkWanAddr6 h1 else null;
+                ll6 = mkWanLL6 (idx + 1000);
+              };
             };
           };
         };
