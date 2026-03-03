@@ -7,7 +7,6 @@
       site,
       localPool,
 
-      # Back-compat: caller may pass either rolesResult or roleFromInput/nodesBase explicitly
       rolesResult ? null,
       roleFromInput ? (if rolesResult != null then rolesResult.roleFromInput else (_: null)),
       nodesBase ? (site.units or site.nodes or { }),
@@ -58,19 +57,26 @@
             in mkWanPeerNode nm)
           upstreamList);
 
-      # P2P WAN addressing: /31 (v4) and /127 (v6) on BOTH endpoints.
+      # Use /30 (IPv4) and /126 (IPv6) so the "core" side
+      # always gets the first usable address (.1 / ::1),
+      # and the peer gets the second usable (.2 / ::2).
+      mkWanNetBase =
+        idx:
+        100 + (4 * idx);
+
       mkWanAddr4 =
-        host:
-        let base = "${stripMask localPool.ipv4}/31";
-        in addr.hostCidr host base;
+        hostIndex:
+        let base = "${stripMask localPool.ipv4}/30";
+        in addr.hostCidr hostIndex base;
 
       mkWanAddr6 =
-        host:
-        let base = "${stripMask localPool.ipv6}/127";
-        in addr.hostCidr host base;
+        hostIndex:
+        let base = "${stripMask localPool.ipv6}/126";
+        in addr.hostCidr hostIndex base;
 
       mkWanLL6 =
-        idx: addr.hostCidr (idx + 1) "fe80::/128";
+        hostIndex:
+        addr.hostCidr (hostIndex + 1) "fe80::/128";
 
       mkWanLink =
         idx: u:
@@ -78,9 +84,11 @@
           nm = if builtins.isAttrs u && u ? name then toString u.name else toString u;
           peer = mkWanPeerName nm;
 
-          # Allocate 2 hosts per WAN link (even/odd) so each link is a unique /31 + /127.
-          h0 = 100 + (2 * idx);
-          h1 = h0 + 1;
+          base = mkWanNetBase idx;
+
+          # .0 = network, .1 = core, .2 = peer, .3 = broadcast
+          hCore = base + 1;
+          hPeer = base + 2;
         in
         {
           name = "wan-${coreUnit}-${nm}";
@@ -94,14 +102,14 @@
               "${coreUnit}" = {
                 gateway = true;
                 export = true;
-                addr4 = if localPool ? ipv4 then mkWanAddr4 h0 else null;
-                addr6 = if localPool ? ipv6 then mkWanAddr6 h0 else null;
-                ll6 = mkWanLL6 idx;
+                addr4 = if localPool ? ipv4 then mkWanAddr4 hCore else null;
+                addr6 = if localPool ? ipv6 then mkWanAddr6 hCore else null;
+                ll6 = mkWanLL6 hCore;
               };
               "${peer}" = {
-                addr4 = if localPool ? ipv4 then mkWanAddr4 h1 else null;
-                addr6 = if localPool ? ipv6 then mkWanAddr6 h1 else null;
-                ll6 = mkWanLL6 (idx + 1000);
+                addr4 = if localPool ? ipv4 then mkWanAddr4 hPeer else null;
+                addr6 = if localPool ? ipv6 then mkWanAddr6 hPeer else null;
+                ll6 = mkWanLL6 hPeer;
               };
             };
           };
