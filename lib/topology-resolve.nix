@@ -5,25 +5,8 @@ topoRaw:
 let
   assert_ = cond: msg: if cond then true else throw msg;
 
-  ulaPrefix =
-    if topoRaw ? ulaPrefix && builtins.isString topoRaw.ulaPrefix then
-      topoRaw.ulaPrefix
-    else
-      throw "topology-resolve: missing required topoRaw.ulaPrefix";
-
-  tenantV4Base =
-    if topoRaw ? tenantV4Base && builtins.isString topoRaw.tenantV4Base then
-      topoRaw.tenantV4Base
-    else
-      throw "topology-resolve: missing required topoRaw.tenantV4Base";
-
   links = topoRaw.links or { };
   nodes0 = topoRaw.nodes or { };
-
-  _nonEmptyLinks =
-    assert_ (builtins.isAttrs links && (builtins.attrNames links) != [ ]) ''
-      topology-resolve: rendered topology must contain at least one link
-    '';
 
   _nodesAttrs =
     assert_ (builtins.isAttrs nodes0) "topology-resolve: topoRaw.nodes must be an attrset";
@@ -47,12 +30,7 @@ let
         in
         if k != null && eps ? "${k}" then k else null;
     in
-    if exact != null then
-      exact
-    else if byLink != null then
-      byLink
-    else
-      bySemanticName;
+    if exact != null then exact else if byLink != null then byLink else bySemanticName;
 
   getEp =
     linkName: l: nodeName:
@@ -67,40 +45,6 @@ let
       throw "topology-resolve: missing endpoint for member '${nodeName}' on link '${linkName}'"
     else
       { };
-
-  enforceWanContract =
-    linkName: l:
-    if (l.kind or null) != "wan" then
-      true
-    else
-      let
-        eps = endpointsOf l;
-        epNames = builtins.attrNames eps;
-
-        _two =
-          assert_ (builtins.length epNames == 2) ''
-            topology-resolve: WAN link must have exactly 2 endpoints
-
-              link: ${linkName}
-              endpoints: ${lib.concatStringsSep ", " epNames}
-          '';
-
-        unknown = lib.filter (n: !(nodes0 ? "${n}")) epNames;
-
-        _known =
-          assert_ (unknown == [ ]) ''
-            topology-resolve: WAN link references unknown node(s)
-
-              link: ${linkName}
-              unknown: ${lib.concatStringsSep ", " unknown}
-          '';
-      in
-      builtins.seq _two (builtins.seq _known true);
-
-  _wanChecked =
-    builtins.deepSeq
-      (lib.forEach (builtins.attrNames links) (ln: enforceWanContract ln links.${ln}))
-      true;
 
   maskOf =
     cidr:
@@ -134,10 +78,7 @@ let
       ra6 = ep.ra6Prefixes or [ ];
 
       connected4 =
-        if finalAddr4 == null then
-          [ ]
-        else
-          [ (mkConnectedRoute finalAddr4) ];
+        if finalAddr4 == null then [ ] else [ (mkConnectedRoute finalAddr4) ];
 
       connected6 =
         (lib.optional (rawAddr6 != null) (mkConnectedRoute rawAddr6))
@@ -179,11 +120,8 @@ let
     in
     lib.filter (
       lname:
-      let
-        l = links.${lname};
-      in
-      (lib.elem nodeName (membersOf l))
-      || ((chooseEndpointKey lname l nodeName) != null)
+      let l = links.${lname};
+      in (lib.elem nodeName (membersOf l)) || ((chooseEndpointKey lname l nodeName) != null)
     ) linkNamesSorted;
 
   interfacesForNode =
@@ -195,43 +133,26 @@ let
       }) (linkNamesForNode nodeName)
     );
 
-  endpointNodes = lib.unique (
-    lib.concatMap (l: builtins.attrNames (l.endpoints or { })) (lib.attrValues links)
-  );
-
-  unknownEndpointNodes = lib.filter (n: !(nodes0 ? "${n}")) endpointNodes;
-
-  _noUnknownEndpointNodes =
-    assert_ (unknownEndpointNodes == [ ]) ''
-      topology-resolve: link endpoints reference unknown node(s) (topology inference is disabled)
-
-      unknown: ${lib.concatStringsSep ", " unknownEndpointNodes}
-    '';
-
-  stripLinuxSpecific =
-    node:
-    builtins.removeAttrs node [ "routingDomain" ];
+  stripLinuxSpecific = node: builtins.removeAttrs node [ "routingDomain" ];
 
   nodes' =
     lib.mapAttrs
       (n: node:
-        (stripLinuxSpecific node)
-        // {
-          interfaces = interfacesForNode n;
-        })
+        (stripLinuxSpecific node) // { interfaces = interfacesForNode n; })
       nodes0;
-
-  routing = import ./routing/static.nix { inherit lib; };
 
   topo1 =
     topoRaw
     // {
-      inherit ulaPrefix tenantV4Base;
       nodes = nodes';
+      links = links;
     };
 
+  resolveLoopbacks = import ./routing/resolve-loopbacks.nix { inherit lib; };
+  routingStatic = import ./routing/static.nix { inherit lib; };
+
+  topo2 = resolveLoopbacks.attach topo1;
+  topo3 = routingStatic.attach topo2;
+
 in
-builtins.seq _nonEmptyLinks
-  (builtins.seq _wanChecked
-    (builtins.seq _noUnknownEndpointNodes
-      (routing.attach topo1)))
+topo3

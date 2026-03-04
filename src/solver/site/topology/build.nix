@@ -9,13 +9,6 @@ let
 
   firstOrNull = xs: if xs == [ ] then null else builtins.elemAt xs 0;
 
-  requireStr =
-    what: v:
-    if v == null || !(builtins.isString v) || v == "" then
-      throw "network-solver: missing required ${what}"
-    else
-      v;
-
 in
 {
   build =
@@ -35,7 +28,6 @@ in
       siteName = toString (site.siteName or "${enterprise}.${siteId}");
 
       tenants = ((site.domains or { }).tenants or [ ]);
-
       t0 = firstOrNull tenants;
 
       tenantV4Base =
@@ -82,20 +74,22 @@ in
             else if site ? nodes && builtins.isAttrs site.nodes && site.nodes ? "${n}" then site.nodes.${n}
             else { };
         in
-        base
-        // {
+        base // {
           role = role;
           containers = base.containers or [ "default" ];
         };
 
-      nodesUnits = lib.listToAttrs (map (n: { name = n; value = mkUnitNode n; }) unitNames);
+      nodesUnits =
+        lib.listToAttrs (map (n: { name = n; value = mkUnitNode n; }) unitNames);
 
-      nodesMerged = nodesUnits // (wanResult.wanPeerNodes or { });
+      # IMPORTANT: Solver no longer injects any synthetic wan-peer nodes.
+      nodesMerged = nodesUnits;
 
+      # ordering is list of 2-element pairs
       linkPairs =
-        map
-          (e: [ (toString e.a) (toString e.b) ])
-          (rolesResult.orderingEdges or [ ]);
+        lib.filter
+          (p: builtins.isList p && builtins.length p == 2)
+          ordering;
 
       p2pSiteForAlloc =
         {
@@ -132,6 +126,23 @@ in
         in
         if ups == [ ] then null else builtins.elemAt (lib.sort (a: b: a < b) ups) 0;
 
+      # BGP config may live in site.routing.bgp or site.communicationContract.routing.bgp
+      routingCfg =
+        (site.routing or { })
+        // {
+          bgp =
+            if site ? routing && builtins.isAttrs site.routing && site.routing ? bgp then
+              site.routing.bgp
+            else if site ? communicationContract
+              && builtins.isAttrs site.communicationContract
+              && site.communicationContract ? routing
+              && builtins.isAttrs site.communicationContract.routing
+              && site.communicationContract.routing ? bgp then
+              site.communicationContract.routing.bgp
+            else
+              { };
+        };
+
       topoRaw =
         (if enforcementResult != null then enforcementResult else { })
         // {
@@ -150,23 +161,20 @@ in
           nodes = nodesMerged;
           links = linksMerged;
 
+          routing = routingCfg;
+
           compilerIR = site;
         };
 
       routed = topoResolve topoRaw;
 
-      # IMPORTANT: keep output JSON-serializable (nix eval --json).
-      # Queries are provided as a pure data summary (no lambdas).
       query = import ../../../../lib/query/summary.nix { inherit lib routed; };
 
     in
     routed
     // {
       inherit query;
-
       compilerIR = topoRaw.compilerIR;
-
-      traversal =
-        if rolesResult ? traversal then rolesResult.traversal else null;
+      traversal = if rolesResult ? traversal then rolesResult.traversal else null;
     };
 }
