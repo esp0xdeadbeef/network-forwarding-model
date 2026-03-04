@@ -37,6 +37,7 @@ Emits canonical, fully decided network graph.
       Choose one canonical representation and remove the others.
 
 - [ ] Generate BGP neighbors per node
+      Each node get's its own `AS<ID>` and p2p via the topolinks.
       Neighbors should be derived from actual topology links.
       Each node should only list peers it is directly connected to.
 
