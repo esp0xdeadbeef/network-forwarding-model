@@ -1,4 +1,3 @@
-# ./lib/routing/static.nix
 { lib }:
 
 let
@@ -21,7 +20,7 @@ let
   neighborsOf =
     { links, node }:
     let
-      names = builtins.attrNames links;
+      names = lib.sort (a: b: a < b) (builtins.attrNames links);
       step = acc: lname:
         let
           l = links.${lname};
@@ -29,7 +28,7 @@ let
         in
         if lib.elem node m then acc ++ (lib.filter (x: x != node) m) else acc;
     in
-    lib.unique (builtins.foldl' step [ ] names);
+    lib.sort (a: b: a < b) (lib.unique (builtins.foldl' step [ ] names));
 
   shortestPath =
     { links, src, dst }:
@@ -154,14 +153,27 @@ let
     let
       ifs = node.interfaces or { };
       cur = ifs.${linkName} or { };
-      r4 = (cur.routes4 or [ ]) ++ add4;
-      r6 = (cur.routes6 or [ ]) ++ add6;
+      curRoutes =
+        if cur ? routes && builtins.isAttrs cur.routes then
+          {
+            ipv4 = cur.routes.ipv4 or [ ];
+            ipv6 = cur.routes.ipv6 or [ ];
+          }
+        else
+          {
+            ipv4 = cur.routes4 or [ ];
+            ipv6 = cur.routes6 or [ ];
+          };
+      r4 = curRoutes.ipv4 ++ add4;
+      r6 = curRoutes.ipv6 ++ add6;
     in
     node // {
       interfaces = ifs // {
         "${linkName}" = cur // {
-          routes4 = r4;
-          routes6 = r6;
+          routes = {
+            ipv4 = r4;
+            ipv6 = r6;
+          };
         };
       };
     };

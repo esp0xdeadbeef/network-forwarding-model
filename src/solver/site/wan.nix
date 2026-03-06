@@ -22,6 +22,16 @@
         in
         if builtins.length parts == 0 then toString cidr else builtins.elemAt parts 0;
 
+      tenantFromUplink =
+        uplink:
+        if uplink ? ingressSubject
+           && uplink.ingressSubject ? kind
+           && uplink.ingressSubject.kind == "tenant"
+           && uplink.ingressSubject ? name
+           && uplink.ingressSubject.name != null
+        then uplink.ingressSubject.name
+        else "unclassified";
+
       allUnits = builtins.attrNames nodesBase;
 
       coreUnits = lib.filter (u: (roleFromInput u) == "core") allUnits;
@@ -139,10 +149,6 @@
         else
           [ ];
 
-      uplinkNamesForCore =
-        core:
-        map (u: u.name) (uplinkSpecsForCore core);
-
       uplinkCores =
         lib.filter (core: builtins.length (uplinkSpecsForCore core) > 0) sortedCoreUnits;
 
@@ -214,18 +220,11 @@
           core = spec.core;
           uplink = spec.uplink;
           uplinkName = uplink.name;
-
-          tenantSubject =
-            if uplink ? ingressSubject
-              && builtins.isAttrs uplink.ingressSubject
-              && (uplink.ingressSubject.kind or null) == "tenant"
-            then
-              uplink.ingressSubject.name or null
-            else
-              null;
+          linkName = "wan-${core}-${uplinkName}";
+          tenant = tenantFromUplink uplink;
         in
         {
-          name = "wan-${core}-${uplinkName}";
+          name = linkName;
           value = {
             kind = "wan";
             type = "wan";
@@ -237,11 +236,11 @@
             endpoints = {
               "${core}" = {
                 node = core;
-                interface = "wan-${core}-${uplinkName}";
+                interface = linkName;
                 uplink = uplinkName;
                 gateway = true;
                 export = true;
-                tenant = tenantSubject;
+                tenant = tenant;
                 addr4 = if localPool ? ipv4 then mkWanAddr4 hCore else null;
                 addr6 = if localPool ? ipv6 then mkWanAddr6 hCore else null;
                 ll6 = mkWanLL6 hCore;
@@ -252,12 +251,15 @@
 
       wanLinks = lib.listToAttrs (lib.imap0 mkWanLink wanSpecs);
 
+      uplinkNames =
+        lib.sort (a: b: a < b) (lib.unique (builtins.attrNames uplinkCoreByName));
+
     in
     builtins.seq _haveCore (builtins.seq _haveUplinkCore {
       coreUnits = sortedCoreUnits;
       uplinkCores = uplinkCores;
       uplinkCoreByName = uplinkCoreByName;
-      uplinkNames = builtins.attrNames uplinkCoreByName;
+      uplinkNames = uplinkNames;
       wanLinks = wanLinks;
     });
 }

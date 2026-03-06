@@ -1,3 +1,4 @@
+# ./lib/routing/resolve-loopbacks.nix
 { lib }:
 
 let
@@ -73,7 +74,7 @@ let
   neighborsOf =
     { links, node }:
     let
-      names = builtins.attrNames links;
+      names = lib.sort (a: b: a < b) (builtins.attrNames links);
       step = acc: lname:
         let
           l = links.${lname};
@@ -83,7 +84,7 @@ let
           then acc ++ (lib.filter (x: x != node) m)
           else acc;
     in
-      lib.unique (builtins.foldl' step [ ] names);
+      lib.sort (a: b: a < b) (lib.unique (builtins.foldl' step [ ] names));
 
   shortestPath =
     { links, src, dst }:
@@ -146,8 +147,17 @@ in
           ifs = node.interfaces or { };
           cur = if ifs ? "${linkName}" then ifs.${linkName} else null;
 
-          curRoutes4 = if cur != null && cur ? routes4 then cur.routes4 else [ ];
-          curRoutes6 = if cur != null && cur ? routes6 then cur.routes6 else [ ];
+          curRoutes =
+            if cur != null && cur ? routes && builtins.isAttrs cur.routes then
+              {
+                ipv4 = cur.routes.ipv4 or [ ];
+                ipv6 = cur.routes.ipv6 or [ ];
+              }
+            else
+              {
+                ipv4 = cur.routes4 or [ ];
+                ipv6 = cur.routes6 or [ ];
+              };
 
           new4 = if add4 == null then [ ] else add4;
           new6 = if add6 == null then [ ] else add6;
@@ -156,8 +166,10 @@ in
           node // {
             interfaces = ifs // {
               "${linkName}" = cur // {
-                routes4 = curRoutes4 ++ new4;
-                routes6 = curRoutes6 ++ new6;
+                routes = {
+                  ipv4 = curRoutes.ipv4 ++ new4;
+                  ipv6 = curRoutes.ipv6 ++ new6;
+                };
               };
             };
           };

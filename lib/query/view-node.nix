@@ -1,4 +1,3 @@
-# ./lib/query/view-node.nix
 { lib }:
 
 nodeName: topo:
@@ -23,6 +22,19 @@ let
   haveVidSuffix = isCoreContext && (builtins.match "^[0-9]+$" lastPart != null);
 
   vid = if haveVidSuffix then lib.toInt lastPart else null;
+
+  ifaceRoutes =
+    iface:
+    if iface ? routes && builtins.isAttrs iface.routes then
+      {
+        ipv4 = iface.routes.ipv4 or [ ];
+        ipv6 = iface.routes.ipv6 or [ ];
+      }
+    else
+      {
+        ipv4 = iface.routes4 or [ ];
+        ipv6 = iface.routes6 or [ ];
+      };
 
   keepRoute4 =
     r:
@@ -57,10 +69,15 @@ let
     if vid == null then
       iface
     else
+      let
+        rs = ifaceRoutes iface;
+      in
       iface
       // {
-        routes4 = builtins.filter keepRoute4 (iface.routes4 or [ ]);
-        routes6 = builtins.filter keepRoute6 (iface.routes6 or [ ]);
+        routes = {
+          ipv4 = builtins.filter keepRoute4 rs.ipv4;
+          ipv6 = builtins.filter keepRoute6 rs.ipv6;
+        };
       };
 
   rewriteVlanId =

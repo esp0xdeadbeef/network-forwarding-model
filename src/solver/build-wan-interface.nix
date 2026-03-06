@@ -4,8 +4,10 @@ let
   tenantSubject =
     if uplink ? ingressSubject && uplink.ingressSubject ? kind
        && uplink.ingressSubject.kind == "tenant"
+       && uplink.ingressSubject ? name
+       && uplink.ingressSubject.name != null
     then uplink.ingressSubject.name
-    else null;
+    else "unclassified";
 in
 {
   acceptRA = false;
@@ -20,18 +22,11 @@ in
   link = linkName;
   ll6 = ll6;
   overlay = null;
-  ra6Prefixes = [];
-  routes4 = [];
-  routes6 = [
-    {
-      dst = addr6;
-      proto = "connected";
-    }
-    {
-      dst = "::/0";
-      proto = "uplink";
-    }
-  ];
+  ra6Prefixes = [ ];
+  routes = {
+    ipv4 = [ ];
+    ipv6 = [ ];
+  };
   tenant = tenantSubject;
   type = "wan";
   uplink = uplink.name;

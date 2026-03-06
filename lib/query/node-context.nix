@@ -48,6 +48,19 @@ let
   tenant4Dst = if vid == null then null else "${routed.tenantV4Base}.${toString vid}.0/24";
   tenant6Dst = if vid == null then null else "${routed.ulaPrefix}:${toString vid}::/64";
 
+  ifaceRoutes =
+    iface:
+    if iface ? routes && builtins.isAttrs iface.routes then
+      {
+        ipv4 = iface.routes.ipv4 or [ ];
+        ipv6 = iface.routes.ipv6 or [ ];
+      }
+    else
+      {
+        ipv4 = iface.routes4 or [ ];
+        ipv6 = iface.routes6 or [ ];
+      };
+
   keepTenantRoute4 = r: if vid == null then true else (r ? dst) && r.dst == tenant4Dst;
 
   keepTenantRoute6 = r: if vid == null then true else (r ? dst) && r.dst == tenant6Dst;
@@ -57,10 +70,15 @@ let
     if vid == null then
       iface
     else if (iface.kind or null) == "p2p" then
+      let
+        rs = ifaceRoutes iface;
+      in
       iface
       // {
-        routes4 = builtins.filter keepTenantRoute4 (iface.routes4 or [ ]);
-        routes6 = builtins.filter keepTenantRoute6 (iface.routes6 or [ ]);
+        routes = {
+          ipv4 = builtins.filter keepTenantRoute4 rs.ipv4;
+          ipv6 = builtins.filter keepTenantRoute6 rs.ipv6;
+        };
       }
     else
       iface;
@@ -79,10 +97,15 @@ let
 
   sanitizeIface =
     iface:
+    let
+      rs = ifaceRoutes iface;
+    in
     iface
     // {
-      routes4 = builtins.filter (keepRoute4 iface) (iface.routes4 or [ ]);
-      routes6 = builtins.filter (keepRoute6 iface) (iface.routes6 or [ ]);
+      routes = {
+        ipv4 = builtins.filter (keepRoute4 iface) rs.ipv4;
+        ipv6 = builtins.filter (keepRoute6 iface) rs.ipv6;
+      };
     };
 
   rewriteVlanId =

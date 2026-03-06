@@ -1,11 +1,8 @@
-# ./src/main.nix
 { lib }:
 { input }:
 
 let
   inputJson = builtins.toJSON input;
-
-  dump = x: builtins.toJSON x;
 
   solveEnterprise = import ./solver { inherit lib; };
 
@@ -24,33 +21,7 @@ let
 
   validateSite =
     { ent, siteId, site }:
-    let
-      eval = builtins.tryEval (invariants.checkSite { inherit site; });
-    in
-    if eval.success then
-      { ok = true; }
-    else
-      throw ''
-        network-solver: invariants failed
-
-        ===== ENTERPRISE =====
-        ${ent}
-
-        ===== SITE =====
-        ${siteId}
-
-        ===== INVARIANT ERROR (raw) =====
-        ${if eval ? value then dump eval.value else "<no value>"}
-
-        ===== SOLVED SITE IR =====
-        ${dump site}
-
-        ===== SOLVED ENTERPRISE IR =====
-        ${dump { "${ent}" = { "${siteId}" = site; }; }}
-
-        ===== FULL INPUT IR =====
-        ${inputJson}
-      '';
+    invariants.checkSite { inherit site; };
 
   solveAndValidateEnterprise =
     ent:
@@ -89,8 +60,27 @@ let
       { }
       enterpriseNames;
 
+  flattenedSolvedSites =
+    builtins.foldl'
+      (acc: ent:
+        let
+          sites = solvedSitesByEnterprise.${ent};
+          siteIds = lib.sort (a: b: a < b) (builtins.attrNames sites);
+        in
+        builtins.foldl'
+          (acc2: siteId:
+            acc2 // {
+              "${ent}.${siteId}" = sites.${siteId};
+            })
+          acc
+          siteIds)
+      { }
+      enterpriseNames;
+
+  _finalValidation = invariants.checkAll { sites = flattenedSolvedSites; };
+
 in
-{
+builtins.seq _finalValidation {
   meta = {
     solver = {
       name = "network-solver";

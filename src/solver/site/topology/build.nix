@@ -9,6 +9,35 @@ let
 
   firstOrNull = xs: if xs == [ ] then null else builtins.elemAt xs 0;
 
+  normalizeInterfaceRoutes =
+    iface:
+    let
+      routes =
+        if iface ? routes && builtins.isAttrs iface.routes then
+          {
+            ipv4 = iface.routes.ipv4 or [ ];
+            ipv6 = iface.routes.ipv6 or [ ];
+          }
+        else
+          {
+            ipv4 = iface.routes4 or [ ];
+            ipv6 = iface.routes6 or [ ];
+          };
+    in
+    (builtins.removeAttrs iface [ "routes4" "routes6" ])
+    // {
+      routes = routes;
+    };
+
+  normalizeNode =
+    node:
+    let
+      ifs = node.interfaces or { };
+    in
+    node // {
+      interfaces = lib.mapAttrs (_: iface: normalizeInterfaceRoutes iface) ifs;
+    };
+
 in
 {
   build =
@@ -157,8 +186,12 @@ in
 
       routed0 = topoResolve topoRaw;
 
+      routed1 = routed0 // {
+        nodes = lib.mapAttrs (_: node: normalizeNode node) (routed0.nodes or { });
+      };
+
       routed =
-        builtins.removeAttrs routed0 [
+        builtins.removeAttrs routed1 [
           "_enforcement"
           "_nat"
           "p2p-pool"
@@ -166,23 +199,23 @@ in
           "ulaPrefix"
         ]
         // {
-          siteName = routed0.siteName or siteName;
+          siteName = routed1.siteName or siteName;
           enterprise = enterprise;
           siteId = siteId;
-          coreNodeNames = routed0.coreNodeNames or coreNodeNames;
-          policyNodeName = routed0.policyNodeName or policyNodeName;
-          upstreamSelectorNodeName = routed0.upstreamSelectorNodeName or upstreamSelectorNodeName;
-          uplinkCoreNames = routed0.uplinkCoreNames or (wanResult.uplinkCores or [ ]);
-          uplinkNames = routed0.uplinkNames or (wanResult.uplinkNames or [ ]);
+          coreNodeNames = routed1.coreNodeNames or coreNodeNames;
+          policyNodeName = routed1.policyNodeName or policyNodeName;
+          upstreamSelectorNodeName = routed1.upstreamSelectorNodeName or upstreamSelectorNodeName;
+          uplinkCoreNames = routed1.uplinkCoreNames or (wanResult.uplinkCores or [ ]);
+          uplinkNames = routed1.uplinkNames or (wanResult.uplinkNames or [ ]);
           nat = {
-            mode = (routed0._nat.mode or "none");
-            owner = routed0._nat.owner or null;
-            ingress = routed0._nat.ingress or [ ];
+            mode = (routed1._nat.mode or "none");
+            owner = routed1._nat.owner or null;
+            ingress = routed1._nat.ingress or [ ];
           };
           policy = {
-            owner = routed0._enforcement.owner or null;
-            rules = routed0._enforcement.rules or [ ];
-            validExternalRefs = routed0._enforcement.validExternalRefs or [ ];
+            owner = routed1._enforcement.owner or null;
+            rules = routed1._enforcement.rules or [ ];
+            validExternalRefs = routed1._enforcement.validExternalRefs or [ ];
           };
           aggregation = {
             mode = "none";
