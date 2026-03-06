@@ -16,12 +16,6 @@ let
         ${builtins.toJSON input}
       '';
 
-  compilerMeta =
-    if input ? meta && builtins.isAttrs input.meta && input.meta ? compiler && builtins.isAttrs input.meta.compiler then
-      input.meta.compiler
-    else
-      { };
-
   solvedSitesByEnterprise =
     builtins.mapAttrs
       (ent: sites:
@@ -50,7 +44,6 @@ let
 in
 {
   meta = {
-    compiler = compilerMeta;
     solver = {
       name = "network-solver";
       schemaVersion = 2;
