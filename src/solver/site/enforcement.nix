@@ -23,12 +23,42 @@
         else
           "none";
 
+      uplinkCoreByName = wanResult.uplinkCoreByName or { };
+
+      allUplinks = builtins.attrNames uplinkCoreByName;
+
+      maybeExternalRefsFrom =
+        x:
+        if !(builtins.isAttrs x) then
+          [ ]
+        else
+          lib.filter
+            (v: v != null && v != "")
+            [
+              (x.external or null)
+              (x.fromExternal or null)
+              (x.toExternal or null)
+              (x.uplink or null)
+            ];
+
+      natOwner =
+        let
+          refs =
+            lib.unique (
+              maybeExternalRefsFrom nat0
+              ++ lib.concatMap maybeExternalRefsFrom natIngress
+            );
+
+          knownRefs = lib.filter (r: uplinkCoreByName ? "${r}") refs;
+        in
+        if knownRefs == [ ] then
+          null
+        else
+          uplinkCoreByName.${builtins.elemAt (lib.sort (a: b: a < b) knownRefs) 0};
+
       natRealized = {
         mode = natMode;
-        owner =
-          if wanResult ? coreUnit && wanResult.coreUnit != null
-          then toString wanResult.coreUnit
-          else null;
+        owner = natOwner;
         ingress = natIngress;
       };
 
@@ -60,9 +90,10 @@
         lib.sort (a: b: ruleKey a < ruleKey b) rs1;
 
       policyOwner =
-        if rolesResult ? policyUnit && rolesResult.policyUnit != null
-        then toString rolesResult.policyUnit
-        else null;
+        if rolesResult ? policyUnit && rolesResult.policyUnit != null then
+          toString rolesResult.policyUnit
+        else
+          null;
 
     in
     {
@@ -71,6 +102,7 @@
       _enforcement = {
         owner = policyOwner;
         rules = enforcementRules;
+        validExternalRefs = allUplinks;
       };
     };
 }

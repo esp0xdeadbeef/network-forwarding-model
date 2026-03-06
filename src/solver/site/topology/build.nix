@@ -47,19 +47,24 @@ in
           throw "network-solver: cannot derive ulaPrefix (missing site.ulaPrefix and domains.tenants[0].ipv6)";
 
       chainUnits =
-        if rolesResult ? traversal && rolesResult.traversal ? chain
-        then rolesResult.traversal.chain
-        else [ ];
+        if rolesResult ? traversal && rolesResult.traversal ? chain then
+          rolesResult.traversal.chain
+        else
+          [ ];
 
       inferredUnits =
-        if rolesResult ? traversal && rolesResult.traversal ? inferred
-        then builtins.attrNames rolesResult.traversal.inferred
-        else [ ];
+        if rolesResult ? traversal && rolesResult.traversal ? inferred then
+          builtins.attrNames rolesResult.traversal.inferred
+        else
+          [ ];
 
       unitsFromInput =
-        if site ? units && builtins.isAttrs site.units then builtins.attrNames site.units
-        else if site ? nodes && builtins.isAttrs site.nodes then builtins.attrNames site.nodes
-        else [ ];
+        if site ? units && builtins.isAttrs site.units then
+          builtins.attrNames site.units
+        else if site ? nodes && builtins.isAttrs site.nodes then
+          builtins.attrNames site.nodes
+        else
+          [ ];
 
       unitNames =
         lib.unique (unitsFromInput ++ chainUnits ++ inferredUnits);
@@ -70,9 +75,12 @@ in
           n = toString u;
           role = rolesResult.roleFromInput n;
           base =
-            if site ? units && builtins.isAttrs site.units && site.units ? "${n}" then site.units.${n}
-            else if site ? nodes && builtins.isAttrs site.nodes && site.nodes ? "${n}" then site.nodes.${n}
-            else { };
+            if site ? units && builtins.isAttrs site.units && site.units ? "${n}" then
+              site.units.${n}
+            else if site ? nodes && builtins.isAttrs site.nodes && site.nodes ? "${n}" then
+              site.nodes.${n}
+            else
+              { };
         in
         base // {
           role = role;
@@ -82,10 +90,8 @@ in
       nodesUnits =
         lib.listToAttrs (map (n: { name = n; value = mkUnitNode n; }) unitNames);
 
-      # IMPORTANT: Solver no longer injects any synthetic wan-peer nodes.
       nodesMerged = nodesUnits;
 
-      # ordering is list of 2-element pairs
       linkPairs =
         lib.filter
           (p: builtins.isList p && builtins.length p == 2)
@@ -106,42 +112,29 @@ in
         // (wanResult.wanLinks or { })
         // (site.links or { });
 
-      coreNodeName =
-        if wanResult ? coreUnit && wanResult.coreUnit != null then toString wanResult.coreUnit
+      coreNodeNames =
+        let
+          cores = lib.filter (u: (rolesResult.roleFromInput u) == "core") unitNames;
+        in
+        lib.sort (a: b: a < b) (map toString cores);
+
+      _haveCores =
+        if coreNodeNames == [ ] then
+          throw "network-solver: missing core unit for coreNodeNames"
         else
-          let
-            cores = lib.filter (u: (rolesResult.roleFromInput u) == "core") unitNames;
-          in
-          if cores == [ ] then throw "network-solver: missing core unit for coreNodeName"
-          else builtins.elemAt (lib.sort (a: b: a < b) cores) 0;
+          true;
 
       policyNodeName =
-        if rolesResult ? policyUnit && rolesResult.policyUnit != null
-        then toString rolesResult.policyUnit
-        else null;
+        if rolesResult ? policyUnit && rolesResult.policyUnit != null then
+          toString rolesResult.policyUnit
+        else
+          null;
 
       upstreamSelectorNodeName =
         let
           ups = lib.filter (u: (rolesResult.roleFromInput u) == "upstream-selector") unitNames;
         in
         if ups == [ ] then null else builtins.elemAt (lib.sort (a: b: a < b) ups) 0;
-
-      # BGP config may live in site.routing.bgp or site.communicationContract.routing.bgp
-      routingCfg =
-        (site.routing or { })
-        // {
-          bgp =
-            if site ? routing && builtins.isAttrs site.routing && site.routing ? bgp then
-              site.routing.bgp
-            else if site ? communicationContract
-              && builtins.isAttrs site.communicationContract
-              && site.communicationContract ? routing
-              && builtins.isAttrs site.communicationContract.routing
-              && site.communicationContract.routing ? bgp then
-              site.communicationContract.routing.bgp
-            else
-              { };
-        };
 
       topoRaw =
         (if enforcementResult != null then enforcementResult else { })
@@ -150,31 +143,59 @@ in
           enterprise = enterprise;
           siteId = siteId;
 
-          coreNodeName = coreNodeName;
+          coreNodeNames = coreNodeNames;
           policyNodeName = policyNodeName;
           upstreamSelectorNodeName = upstreamSelectorNodeName;
+          uplinkCoreNames = wanResult.uplinkCores or [ ];
+          uplinkNames = wanResult.uplinkNames or [ ];
 
           p2p-pool = p2pPool;
 
-          domains = site.domains or { };
-
           nodes = nodesMerged;
           links = linksMerged;
-
-          routing = routingCfg;
-
-          compilerIR = site;
         };
 
-      routed = topoResolve topoRaw;
+      routed0 = topoResolve topoRaw;
+
+      routed =
+        builtins.removeAttrs routed0 [
+          "_enforcement"
+          "_nat"
+          "p2p-pool"
+          "tenantV4Base"
+          "ulaPrefix"
+        ]
+        // {
+          siteName = routed0.siteName or siteName;
+          enterprise = enterprise;
+          siteId = siteId;
+          coreNodeNames = routed0.coreNodeNames or coreNodeNames;
+          policyNodeName = routed0.policyNodeName or policyNodeName;
+          upstreamSelectorNodeName = routed0.upstreamSelectorNodeName or upstreamSelectorNodeName;
+          uplinkCoreNames = routed0.uplinkCoreNames or (wanResult.uplinkCores or [ ]);
+          uplinkNames = routed0.uplinkNames or (wanResult.uplinkNames or [ ]);
+          nat = {
+            mode = (routed0._nat.mode or "none");
+            owner = routed0._nat.owner or null;
+            ingress = routed0._nat.ingress or [ ];
+          };
+          policy = {
+            owner = routed0._enforcement.owner or null;
+            rules = routed0._enforcement.rules or [ ];
+            validExternalRefs = routed0._enforcement.validExternalRefs or [ ];
+          };
+          aggregation = {
+            mode = "none";
+          };
+        };
 
       query = import ../../../../lib/query/summary.nix { inherit lib routed; };
 
     in
-    routed
-    // {
-      inherit query;
-      compilerIR = topoRaw.compilerIR;
-      traversal = if rolesResult ? traversal then rolesResult.traversal else null;
-    };
+    builtins.seq _haveCores (
+      routed
+      // {
+        inherit query;
+      }
+    );
 }
