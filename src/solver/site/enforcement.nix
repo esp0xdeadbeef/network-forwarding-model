@@ -1,108 +1,52 @@
 { lib }:
 
 {
-  build =
-    {
-      lib,
-      site,
-      rolesResult,
-      wanResult,
-    }:
-
+  build = { lib, site, rolesResult, wanResult }:
     let
       communication = site.communicationContract or { };
-
-      nat0 = communication.nat or { };
-      natIngress = nat0.ingress or [ ];
-
-      natMode =
-        if (nat0.enabled or false) == true then
-          "custom"
-        else if builtins.length natIngress > 0 then
-          "custom"
-        else
-          "none";
-
+      nat = communication.nat or { };
+      ingress = nat.ingress or [ ];
       uplinkCoreByName = wanResult.uplinkCoreByName or { };
 
-      allUplinks = builtins.attrNames uplinkCoreByName;
-
-      maybeExternalRefsFrom =
+      refsOf =
         x:
-        if !(builtins.isAttrs x) then
+        if !builtins.isAttrs x then
           [ ]
         else
-          lib.filter
-            (v: v != null && v != "")
-            [
-              (x.external or null)
-              (x.fromExternal or null)
-              (x.toExternal or null)
-              (x.uplink or null)
-            ];
-
-      natOwner =
-        let
-          refs =
-            lib.unique (
-              maybeExternalRefsFrom nat0
-              ++ lib.concatMap maybeExternalRefsFrom natIngress
-            );
-
-          knownRefs = lib.filter (r: uplinkCoreByName ? "${r}") refs;
-        in
-        if knownRefs == [ ] then
-          null
-        else
-          uplinkCoreByName.${builtins.elemAt (lib.sort (a: b: a < b) knownRefs) 0};
-
-      natRealized = {
-        mode = natMode;
-        owner = natOwner;
-        ingress = natIngress;
-      };
+          lib.filter (v: v != null && v != "") [
+            (x.external or null)
+            (x.fromExternal or null)
+            (x.toExternal or null)
+            (x.uplink or null)
+          ];
 
       zpad =
         w: s:
         let
-          str = toString s;
-          len = builtins.stringLength str;
-          zeros =
-            builtins.concatStringsSep ""
-              (builtins.genList (_: "0") (lib.max 0 (w - len)));
+          s' = toString s;
+          n = builtins.stringLength s';
         in
-        zeros + str;
+        builtins.concatStringsSep "" (builtins.genList (_: "0") (lib.max 0 (w - n))) + s';
 
-      ruleKey =
-        r:
-        let
-          p = toString (r.source.priority or 0);
-          i = toString (r.source.index or 0);
-          id = toString (r.source.id or r.id or "");
-        in
-        "${zpad 10 p}|${zpad 10 i}|${id}";
+      ruleKey = r:
+        "${zpad 10 (r.source.priority or 0)}|${zpad 10 (r.source.index or 0)}|${toString (r.source.id or r.id or "")}";
 
-      enforcementRules =
-        let
-          rs0 = communication.allowedRelations or [ ];
-          rs1 = lib.filter builtins.isAttrs rs0;
-        in
-        lib.sort (a: b: ruleKey a < ruleKey b) rs1;
-
-      policyOwner =
-        if rolesResult ? policyUnit && rolesResult.policyUnit != null then
-          toString rolesResult.policyUnit
-        else
-          null;
-
+      refs = lib.unique (refsOf nat ++ lib.concatMap refsOf ingress);
+      knownRefs = lib.filter (r: uplinkCoreByName ? "${r}") refs;
     in
     {
-      _nat = natRealized;
+      _nat = {
+        mode = if (nat.enabled or false) || ingress != [ ] then "custom" else "none";
+        owner =
+          if knownRefs == [ ] then null
+          else uplinkCoreByName.${builtins.head (lib.sort (a: b: a < b) knownRefs)};
+        inherit ingress;
+      };
 
       _enforcement = {
-        owner = policyOwner;
-        rules = enforcementRules;
-        validExternalRefs = allUplinks;
+        owner = if rolesResult.policyUnit == null then null else toString rolesResult.policyUnit;
+        rules = lib.sort (a: b: ruleKey a < ruleKey b) (lib.filter builtins.isAttrs (communication.allowedRelations or [ ]));
+        validExternalRefs = builtins.attrNames uplinkCoreByName;
       };
     };
 }

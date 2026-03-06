@@ -1,50 +1,38 @@
+# ./src/util/derive.nix
 { lib }:
 
 let
   split = sep: s: lib.splitString sep (toString s);
-  join  = sep: xs: lib.concatStringsSep sep xs;
-
-  stripMask =
-    cidr:
+  stripMask = cidr:
     let parts = split "/" cidr;
-    in if parts == [ ] then toString cidr else builtins.elemAt parts 0;
-in {
+    in if parts == [ ] then toString cidr else builtins.head parts;
+in
+{
   roleForUnit =
     n:
-    let
-      s = toString n;
-      has = pat: lib.hasInfix pat s;
+    let s = toString n;
     in
-    if has "upstream-selector" || has "upstream_selector" then
-      "upstream-selector"
-    else if has "policy" then
-      "policy"
-    else if has "access" then
-      "access"
-    else if has "core" then
-      "core"
-    else
-      null;
+    if lib.hasInfix "upstream-selector" s || lib.hasInfix "upstream_selector" s then "upstream-selector"
+    else if lib.hasInfix "policy" s then "policy"
+    else if lib.hasInfix "access" s then "access"
+    else if lib.hasInfix "core" s then "core"
+    else null;
 
   tenantV4BaseFrom =
     tenant4:
-    let
-      ip = stripMask tenant4;
-      octs = split "." ip;
+    let octs = split "." (stripMask tenant4);
     in
     if builtins.length octs == 4 then
-      join "." (builtins.genList (i: builtins.elemAt octs i) 2)
+      lib.concatStringsSep "." [ (builtins.elemAt octs 0) (builtins.elemAt octs 1) ]
     else
       throw "network-solver: cannot derive tenantV4Base";
 
   ulaPrefixFrom =
     tenant6:
-    let
-      ip = stripMask tenant6;
-      hextets = split ":" ip;
+    let hextets = split ":" (stripMask tenant6);
     in
     if builtins.length hextets >= 3 then
-      join ":" (builtins.genList (i: builtins.elemAt hextets i) 3)
+      lib.concatStringsSep ":" [ (builtins.elemAt hextets 0) (builtins.elemAt hextets 1) (builtins.elemAt hextets 2) ]
     else
       throw "network-solver: cannot derive ulaPrefix";
 }

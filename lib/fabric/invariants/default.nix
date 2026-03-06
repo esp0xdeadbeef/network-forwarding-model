@@ -1,56 +1,41 @@
+# ./lib/fabric/invariants/default.nix
 { lib }:
 
 let
-
   collect = import ../../lib/collect-nix-files.nix { inherit lib; };
 
-  files = lib.filter (p: baseNameOf p != "default.nix") (collect [ ./. ]);
+  modules =
+    map
+      (p: import p { inherit lib; })
+      (lib.filter
+        (p:
+          baseNameOf p != "default.nix"
+          && (builtins.readDir (builtins.dirOf p)).${baseNameOf p} == "regular")
+        (collect [ ./. ]));
 
-  isRegular =
-    p:
-    let
-      dir = builtins.readDir (builtins.dirOf p);
-      bn = baseNameOf p;
-    in
-    (dir ? "${bn}") && dir."${bn}" == "regular";
-
-  modules = map (p: import p { inherit lib; }) (lib.filter isRegular files);
-
-  callCheckSite =
+  runSite =
     site:
-    lib.forEach modules (
-      m:
-      if m ? check then
-        let
-          args = builtins.functionArgs m.check;
-        in
-        if args ? site then
-          m.check { inherit site; }
-        else if args ? nodes then
-          m.check { nodes = site.nodes or { }; }
-        else
-          throw ''
-            invariant loader error:
-
-            The invariant '${toString m}' defines `check` but does not accept
-            `{ site }` nor `{ nodes }`.
-
-            Valid signatures:
-              check = { site }: ...
-              check = { nodes }: ...
-
-            This invariant is currently being skipped silently.
-          ''
-      else
+    lib.forEach modules (m:
+      if !(m ? check) then
         true
-    );
+      else
+        let args = builtins.functionArgs m.check;
+        in
+        if args ? site then m.check { inherit site; }
+        else if args ? nodes then m.check { nodes = site.nodes or { }; }
+        else throw ''
+          invariant loader error:
 
-  callCheckAll =
-    sites: lib.forEach modules (m: if m ? checkAll then m.checkAll { inherit sites; } else true);
+          The invariant '${toString m}' defines `check` but does not accept
+          `{ site }` nor `{ nodes }`.
+
+          Valid signatures:
+            check = { site }: ...
+            check = { nodes }: ...
+        '');
 
 in
 {
-  checkSite = { site }: builtins.deepSeq (callCheckSite site) true;
-
-  checkAll = { sites }: builtins.deepSeq (callCheckAll sites) true;
+  checkSite = { site }: builtins.deepSeq (runSite site) true;
+  checkAll = { sites }: builtins.deepSeq (lib.forEach modules (m: if m ? checkAll then m.checkAll { inherit sites; } else true)) true;
 }

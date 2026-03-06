@@ -1,3 +1,2 @@
 { lib, routed }:
-
-lib.mapAttrs (_: node: node.interfaces or { }) routed.nodes
+lib.mapAttrs (_: node: node.interfaces or { }) (routed.nodes or { })

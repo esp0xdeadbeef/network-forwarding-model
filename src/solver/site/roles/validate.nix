@@ -1,25 +1,8 @@
 { lib }:
-
 { siteName, units, roleFromInput }:
 
 let
-  unitNames = lib.attrNames units;
-
-  missing =
-    lib.filter
-      (u:
-        let r = roleFromInput u;
-        in r == null || r == "")
-      unitNames;
-
-  rolesByUnit =
-    lib.listToAttrs
-      (map
-        (u: {
-          name = u;
-          value = roleFromInput u;
-        })
-        unitNames);
+  missing = lib.filter (u: let r = roleFromInput u; in r == null || r == "") (builtins.attrNames units);
 in
 if missing == [ ] then
   true
@@ -33,7 +16,7 @@ else
     ${builtins.toJSON units}
 
     inferredRoles:
-    ${builtins.toJSON rolesByUnit}
+    ${builtins.toJSON (builtins.mapAttrs (_: roleFromInput) units)}
 
     units missing roles:
     ${builtins.concatStringsSep ", " missing}

@@ -1,4 +1,2 @@
 { lib }:
-{ input }:
-
-(import ./main.nix { inherit lib; }) { inherit input; }
+import ./main.nix { inherit lib; }
