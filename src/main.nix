@@ -1,4 +1,3 @@
-# ./src/main.nix
 { lib }:
 { input }:
 
@@ -16,6 +15,12 @@ let
         ===== FULL INPUT IR =====
         ${builtins.toJSON input}
       '';
+
+  compilerMeta =
+    if input ? meta && builtins.isAttrs input.meta && input.meta ? compiler && builtins.isAttrs input.meta.compiler then
+      input.meta.compiler
+    else
+      { };
 
   solvedSitesByEnterprise =
     builtins.mapAttrs
@@ -44,9 +49,12 @@ let
 
 in
 {
-  meta.solver = {
-    name = "network-solver";
-    schemaVersion = 2;
+  meta = {
+    compiler = compilerMeta;
+    solver = {
+      name = "network-solver";
+      schemaVersion = 2;
+    };
   };
 
   sites = solvedSitesByEnterprise;

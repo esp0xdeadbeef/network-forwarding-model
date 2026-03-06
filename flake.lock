@@ -8,11 +8,11 @@
         "nixpkgs-network": "nixpkgs-network"
       },
       "locked": {
-        "lastModified": 1772834061,
-        "narHash": "sha256-lkhPhRc8NAXVsRbZ+CQSOgIpxt4xsWQDAUCqAfzd6Pk=",
+        "lastModified": 1772834241,
+        "narHash": "sha256-D+D6STjCL6SNXP+3jt0cI/tG6/5r5r32FtemRb29b1c=",
         "owner": "esp0xdeadbeef",
         "repo": "network-compiler",
-        "rev": "fe9f65b3fcdb6db9b10d1f282817336f5ea2af0b",
+        "rev": "a4bcfff696b5662f707a0b53b01439d1ee4cfc8f",
         "type": "github"
       },
       "original": {
