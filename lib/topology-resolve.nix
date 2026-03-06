@@ -86,7 +86,9 @@ let
         ++ (map mkConnectedRoute ra6);
     in
     {
+      link = linkName;
       kind = l.kind or null;
+      type = l.type or (l.kind or null);
       carrier = l.carrier or "lan";
 
       tenant = ep.tenant or null;
@@ -99,14 +101,12 @@ let
 
       ll6 = ep.ll6 or null;
 
-      upstream = l.upstream or null;
+      uplink = ep.uplink or l.uplink or l.upstream or null;
+      upstream = l.upstream or ep.uplink or null;
       overlay = l.overlay or null;
 
-      connected4 = connected4;
-      connected6 = connected6;
-
-      routes4 = ep.routes4 or [ ];
-      routes6 = ep.routes6 or [ ];
+      routes4 = connected4 ++ (ep.routes4 or [ ]);
+      routes6 = connected6 ++ (ep.routes6 or [ ]);
       ra6Prefixes = ra6;
 
       acceptRA = ep.acceptRA or false;
@@ -118,19 +118,23 @@ let
     let
       linkNamesSorted = lib.sort (a: b: a < b) (lib.attrNames links);
     in
-    lib.filter (
-      lname:
-      let l = links.${lname};
-      in (lib.elem nodeName (membersOf l)) || ((chooseEndpointKey lname l nodeName) != null)
-    ) linkNamesSorted;
+    lib.filter
+      (lname:
+        let
+          l = links.${lname};
+        in
+        (lib.elem nodeName (membersOf l)) || ((chooseEndpointKey lname l nodeName) != null))
+      linkNamesSorted;
 
   interfacesForNode =
     nodeName:
     lib.listToAttrs (
-      map (lname: {
-        name = lname;
-        value = mkIface lname links.${lname} nodeName;
-      }) (linkNamesForNode nodeName)
+      map
+        (lname: {
+          name = lname;
+          value = mkIface lname links.${lname} nodeName;
+        })
+        (linkNamesForNode nodeName)
     );
 
   stripLinuxSpecific = node: builtins.removeAttrs node [ "routingDomain" ];
@@ -141,11 +145,45 @@ let
         (stripLinuxSpecific node) // { interfaces = interfacesForNode n; })
       nodes0;
 
+  normalizeLink =
+    linkName: l:
+    let
+      members = membersOf l;
+
+      normEndpoints =
+        lib.listToAttrs (
+          map
+            (nodeName:
+              let
+                ep = getEp linkName l nodeName;
+              in
+              {
+                name = nodeName;
+                value =
+                  ep
+                  // {
+                    node = nodeName;
+                    interface = linkName;
+                  };
+              })
+            members
+        );
+    in
+    l
+    // {
+      kind = l.kind or null;
+      type = l.type or (l.kind or null);
+      members = members;
+      endpoints = normEndpoints;
+    };
+
+  links' = lib.mapAttrs normalizeLink links;
+
   topo1 =
     topoRaw
     // {
       nodes = nodes';
-      links = links;
+      links = links';
     };
 
   resolveLoopbacks = import ./routing/resolve-loopbacks.nix { inherit lib; };

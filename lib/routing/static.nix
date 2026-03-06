@@ -1,3 +1,4 @@
+# ./lib/routing/static.nix
 { lib }:
 
 let
@@ -82,8 +83,10 @@ let
       hits =
         lib.filter
           (lname:
-            let l = links.${lname};
-            in lib.elem a (membersOf l) && lib.elem b (membersOf l))
+            let
+              l = links.${lname};
+            in
+            lib.elem a (membersOf l) && lib.elem b (membersOf l))
           names;
     in
     if hits == [ ] then null else lib.head (lib.sort (x: y: x < y) hits);
@@ -108,30 +111,43 @@ let
     builtins.attrNames (lib.filterAttrs (_: n: (n.role or null) == "access") (topo.nodes or { }));
 
   tenantRanges4 =
-    topo: map (t: t.ipv4) ((topo.domains or { }).tenants or [ ]);
-
-  tenantRanges6 =
-    topo: map (t: t.ipv6) ((topo.domains or { }).tenants or [ ]);
-
-  # choose the "WAN gateway" node as the WAN endpoint that has gateway=true (prefer), else any WAN member
-  wanGatewayNode =
     topo:
     let
-      links = topo.links or { };
-      wanNames = lib.filter (n: isWanLink links.${n}) (builtins.attrNames links);
-      pick =
-        if wanNames == [ ] then null else links.${lib.head wanNames};
+      nodes = topo.nodes or { };
     in
-    if pick == null then null else
+    lib.concatMap
+      (nodeName:
+        let
+          n = nodes.${nodeName};
+          nets = n.networks or { };
+        in
+        lib.filter (x: x != null) [
+          (nets.ipv4 or null)
+        ])
+      (builtins.attrNames nodes);
+
+  tenantRanges6 =
+    topo:
     let
-      eps = endpointsOf pick;
-      epNames = builtins.attrNames eps;
-      gwHits = lib.filter (n: (eps.${n}.gateway or false) == true) epNames;
+      nodes = topo.nodes or { };
     in
-    if gwHits != [ ] then lib.head (lib.sort (a: b: a < b) gwHits)
+    lib.concatMap
+      (nodeName:
+        let
+          n = nodes.${nodeName};
+          nets = n.networks or { };
+        in
+        lib.filter (x: x != null) [
+          (nets.ipv6 or null)
+        ])
+      (builtins.attrNames nodes);
+
+  uplinkCores =
+    topo:
+    if topo ? uplinkCoreNames && builtins.isList topo.uplinkCoreNames then
+      topo.uplinkCoreNames
     else
-      let m = membersOf pick;
-      in if m == [ ] then null else lib.head (lib.sort (a: b: a < b) m);
+      [ ];
 
   addRoutesOnLink =
     node: linkName: add4: add6:
@@ -150,147 +166,116 @@ let
       };
     };
 
-  mkBgpModel =
-    { topo, links }:
+  addDirectWanDefaults =
+    topo: nodeName: node:
     let
-      routing = topo.routing or { };
-      bgp = routing.bgp or { };
+      ifs = node.interfaces or { };
+      ifNames = builtins.attrNames ifs;
 
-      localAs = bgp.localAs or 65000;
-
-      peerAsnOf =
-        peer:
-        let peers = bgp.peers or { };
-        in if peers ? "${peer}" then peers.${peer} else bgp.remoteAsDefault or 65001;
-
-      mkNeighbor =
-        nodeName: linkName: l:
+      step =
+        acc: ifName:
         let
-          m = membersOf l;
-          peer =
-            let others = lib.filter (x: x != nodeName) m;
-            in if others == [ ] then null else lib.head (lib.sort (a: b: a < b) others);
+          iface = ifs.${ifName};
+          add4 =
+            if (iface.kind or null) == "wan" && (iface.gateway or false) && iface.addr4 != null then
+              [ { dst = default4; proto = "uplink"; } ]
+            else
+              [ ];
 
-          epPeer = if peer == null then { } else getEp linkName l peer;
-
-          via4 = if epPeer ? addr4 && epPeer.addr4 != null then stripMask epPeer.addr4 else null;
-          via6 = if epPeer ? addr6 && epPeer.addr6 != null then stripMask epPeer.addr6 else null;
+          add6 =
+            if (iface.kind or null) == "wan" && (iface.gateway or false) && iface.addr6 != null then
+              [ { dst = default6; proto = "uplink"; } ]
+            else
+              [ ];
         in
-        if peer == null then null else {
-          inherit linkName peer;
-          kind =
-            if isP2pLink l then "p2p"
-            else if isWanLink l then "wan"
-            else "lan";
-          remoteAs = peerAsnOf peer;
-          localAs = bgp.localAsPerNode."${nodeName}" or localAs;
-          neighbor4 = via4;
-          neighbor6 = via6;
-        };
-
-      nodes = topo.nodes or { };
-      nodeNames = builtins.attrNames nodes;
-
-      neighbors =
-        lib.listToAttrs
-          (map
-            (n: {
-              name = n;
-              value =
-                lib.filter (x: x != null)
-                  (map
-                    (lname:
-                      let l = links.${lname};
-                      in
-                      if !(isP2pLink l || isWanLink l) then null
-                      else if !(lib.elem n (membersOf l)) then null
-                      else mkNeighbor n lname l)
-                    (builtins.attrNames links));
-            })
-            nodeNames);
-
+        if add4 == [ ] && add6 == [ ] then acc else addRoutesOnLink acc ifName add4 add6;
     in
-    {
-      mode = "bgp";
-      localAs = localAs;
-      neighbors = neighbors;
-      advertise = {
-        tenants4 = tenantRanges4 topo;
-        tenants6 = tenantRanges6 topo;
-      };
-    };
+    builtins.foldl' step node ifNames;
 
-in
-{
-  attach = topo:
+  addDefaultTowardNearestUplinkCore =
+    topo: nodeName: node:
     let
-      links = topo.links or { };
-      nodes0 = topo.nodes or { };
-      nodeNames = builtins.attrNames nodes0;
+      uplinks = uplinkCores topo;
+    in
+    if uplinks == [ ] || lib.elem nodeName uplinks then
+      node
+    else
+      let
+        reachable =
+          lib.filter
+            (u:
+              let
+                p = shortestPath { links = topo.links or { }; src = nodeName; dst = u; };
+              in
+              p != null && builtins.length p >= 2)
+            uplinks;
 
-      gw = wanGatewayNode topo;
-      accessNs = accessNodes topo;
-
-      t4 = tenantRanges4 topo;
-      t6 = tenantRanges6 topo;
-
-      addDefaultTowardGw =
-        nodeName: node:
-        if gw == null || nodeName == gw then node else
+        target =
+          if reachable == [ ] then
+            null
+          else
+            builtins.elemAt (lib.sort (a: b: a < b) reachable) 0;
+      in
+      if target == null then
+        node
+      else
         let
-          path = shortestPath { inherit links; src = nodeName; dst = gw; };
-        in
-        if path == null || builtins.length path < 2 then node else
-        let
+          path = shortestPath { links = topo.links or { }; src = nodeName; dst = target; };
           hop = builtins.elemAt path 1;
-          nh = nextHop { inherit links; from = nodeName; to = hop; };
+          nh = nextHop { links = topo.links or { }; from = nodeName; to = hop; };
 
           add4 = if nh.via4 == null then [ ] else [ (mkRoute4 default4 nh.via4) ];
           add6 = if nh.via6 == null then [ ] else [ (mkRoute6 default6 nh.via6) ];
         in
         if nh.linkName == null then node else addRoutesOnLink node nh.linkName add4 add6;
 
-      addTenantTowardAccess =
-        nodeName: node:
-        if accessNs == [ ] then node
-        else if (roleOf topo nodeName) == "access" then node
-        else
-          let
-            # pick deterministic access target (first sorted) for tenant routes
-            a = lib.head (lib.sort (x: y: x < y) accessNs);
-            path = shortestPath { inherit links; src = nodeName; dst = a; };
-          in
-          if path == null || builtins.length path < 2 then node else
-          let
-            hop = builtins.elemAt path 1;
-            nh = nextHop { inherit links; from = nodeName; to = hop; };
+  addTenantTowardAccess =
+    topo: nodeName: node:
+    let
+      accessNs = accessNodes topo;
+      t4 = tenantRanges4 topo;
+      t6 = tenantRanges6 topo;
+    in
+    if accessNs == [ ] then
+      node
+    else if (roleOf topo nodeName) == "access" then
+      node
+    else
+      let
+        a = lib.head (lib.sort (x: y: x < y) accessNs);
+        path = shortestPath { links = topo.links or { }; src = nodeName; dst = a; };
+      in
+      if path == null || builtins.length path < 2 then
+        node
+      else
+        let
+          hop = builtins.elemAt path 1;
+          nh = nextHop { links = topo.links or { }; from = nodeName; to = hop; };
 
-            add4 = if nh.via4 == null then [ ] else map (p: mkRoute4 p nh.via4) (lib.filter (x: x != null) t4);
-            add6 = if nh.via6 == null then [ ] else map (p: mkRoute6 p nh.via6) (lib.filter (x: x != null) t6);
-          in
-          if nh.linkName == null then node else addRoutesOnLink node nh.linkName add4 add6;
+          add4 = if nh.via4 == null then [ ] else map (p: mkRoute4 p nh.via4) (lib.filter (x: x != null) t4);
+          add6 = if nh.via6 == null then [ ] else map (p: mkRoute6 p nh.via6) (lib.filter (x: x != null) t6);
+        in
+        if nh.linkName == null then node else addRoutesOnLink node nh.linkName add4 add6;
+
+in
+{
+  attach = topo:
+    let
+      nodes0 = topo.nodes or { };
 
       nodes1 =
         lib.mapAttrs
           (n: node:
             let
-              n1 = addTenantTowardAccess n node;
-              n2 = addDefaultTowardGw n n1;
+              n1 = addTenantTowardAccess topo n node;
+              n2 = addDefaultTowardNearestUplinkCore topo n n1;
+              n3 = addDirectWanDefaults topo n n2;
             in
-            n2)
+            n3)
           nodes0;
-
-      bgpModel = mkBgpModel { inherit topo links; };
 
     in
     topo // {
       nodes = nodes1;
-      _bgp = bgpModel;
-
-      _routingMaps = {
-        mode = "static";
-        defaults = { inherit default4 default6; };
-        bgp = bgpModel;
-      };
     };
 }

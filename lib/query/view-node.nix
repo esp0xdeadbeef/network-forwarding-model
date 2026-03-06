@@ -1,3 +1,4 @@
+# ./lib/query/view-node.nix
 { lib }:
 
 nodeName: topo:
@@ -8,10 +9,10 @@ let
   nodes = topo.nodes or { };
 
   fabricHost =
-    if topo ? coreNodeName && builtins.isString topo.coreNodeName then
-      topo.coreNodeName
+    if topo ? coreNodeNames && builtins.isList topo.coreNodeNames && topo.coreNodeNames != [ ] then
+      builtins.elemAt topo.coreNodeNames 0
     else
-      throw "view-node: missing required topo.coreNodeName (fabric host)";
+      throw "view-node: missing required topo.coreNodeNames (fabric host)";
 
   corePrefix = "${fabricHost}-";
   isCoreContext = lib.hasPrefix corePrefix nodeName;
@@ -29,9 +30,13 @@ let
       true
     else
       let
-        tenantPrefix = "${topo.tenantV4Base}.${toString vid}.0/24";
+        tenantPrefix =
+          if topo ? tenantV4Base then
+            "${topo.tenantV4Base}.${toString vid}.0/24"
+          else
+            null;
       in
-      (r.dst or "") == tenantPrefix;
+      tenantPrefix == null || (r.dst or "") == tenantPrefix;
 
   keepRoute6 =
     r:
@@ -39,9 +44,13 @@ let
       true
     else
       let
-        tenantPrefix = "${topo.ulaPrefix}:${toString vid}::/64";
+        tenantPrefix =
+          if topo ? ulaPrefix then
+            "${topo.ulaPrefix}:${toString vid}::/64"
+          else
+            null;
       in
-      (r.dst or "") == tenantPrefix;
+      tenantPrefix == null || (r.dst or "") == tenantPrefix;
 
   sanitizeTenantRoutes =
     iface:
@@ -67,13 +76,11 @@ let
     else
       { };
 
-  interfaces = lib.mapAttrs (_: iface: sanitizeTenantRoutes (rewriteVlanId iface)) ifaces0;
-
-  routingMaps = topo._routingMaps or null;
+  interfaces =
+    lib.mapAttrs (_: iface: sanitizeTenantRoutes (rewriteVlanId iface)) ifaces0;
 
 in
 sanitize {
   node = nodeName;
   interfaces = interfaces;
-  routing = routingMaps;
 }
