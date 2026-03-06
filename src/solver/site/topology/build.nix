@@ -27,7 +27,68 @@ let
     site: n:
     if site ? units && builtins.isAttrs site.units && site.units ? "${n}" then site.units.${n}
     else if site ? nodes && builtins.isAttrs site.nodes && site.nodes ? "${n}" then site.nodes.${n}
-    else { };
+    else
+      { };
+
+  tenantCatalog =
+    site:
+    let
+      tenants = (site.domains or { }).tenants or [ ];
+    in
+    builtins.listToAttrs (
+      map
+        (t: {
+          name = toString t.name;
+          value = {
+            kind = t.kind or "tenant";
+            name = toString t.name;
+            ipv4 = t.ipv4 or null;
+            ipv6 = t.ipv6 or null;
+          };
+        })
+        (lib.filter (t: builtins.isAttrs t && (t.name or null) != null) tenants)
+    );
+
+  attachedTenantNamesForUnit =
+    site: unitName:
+    let
+      attachments = site.attachment or [ ];
+      parseTenantSegment =
+        seg:
+        let
+          parts = lib.splitString ":" (toString seg);
+        in
+        if builtins.length parts == 2 && builtins.elemAt parts 0 == "tenants" then
+          builtins.elemAt parts 1
+        else
+          null;
+    in
+    lib.unique (
+      lib.filter
+        (x: x != null && x != "")
+        (map
+          (a:
+            if builtins.isAttrs a && (a.unit or null) == unitName then
+              parseTenantSegment (a.segment or "")
+            else
+              null)
+          attachments)
+    );
+
+  tenantNetworksForUnit =
+    site: unitName:
+    let
+      catalog = tenantCatalog site;
+      names = attachedTenantNamesForUnit site unitName;
+    in
+    builtins.listToAttrs (
+      map
+        (name: {
+          name = toString name;
+          value = catalog.${name};
+        })
+        (lib.filter (name: catalog ? "${name}") names)
+    );
 
 in
 {
@@ -53,6 +114,12 @@ in
         else
           throw "network-solver: cannot derive ulaPrefix (missing site.ulaPrefix and domains.tenants[0].ipv6)";
 
+      aggregationMode =
+        if site ? aggregation && builtins.isAttrs site.aggregation && site.aggregation ? mode then
+          site.aggregation.mode
+        else
+          "none";
+
       unitNames =
         lib.unique (
           (if site ? units && builtins.isAttrs site.units then builtins.attrNames site.units else [ ])
@@ -62,17 +129,27 @@ in
         );
 
       nodes =
-        lib.listToAttrs (map
-          (u: {
-            name = toString u;
-            value =
-              let base = nodeFromSite site (toString u);
-              in base // {
-                role = rolesResult.roleFromInput (toString u);
-                containers = base.containers or [ "default" ];
-              };
-          })
-          unitNames);
+        lib.listToAttrs (
+          map
+            (u: {
+              name = toString u;
+              value =
+                let
+                  unitName = toString u;
+                  base = nodeFromSite site unitName;
+                  attachedNetworks = tenantNetworksForUnit site unitName;
+                in
+                base
+                // {
+                  role = rolesResult.roleFromInput unitName;
+                  containers = base.containers or [ "default" ];
+                }
+                // lib.optionalAttrs (attachedNetworks != { }) {
+                  networks = attachedNetworks;
+                };
+            })
+            unitNames
+        );
 
       p2pLinks = p2pAlloc.alloc {
         site = {
@@ -98,27 +175,36 @@ in
 
       upstreamSelectorNodeName =
         firstOrNull
-          (lib.sort (a: b: a < b)
+          (lib.sort
+            (a: b: a < b)
             (lib.filter (u: rolesResult.roleFromInput u == "upstream-selector") unitNames));
 
-      routed0 = topoResolve (
-        enforcementResult // {
-          inherit siteName tenantV4Base ulaPrefix enterprise siteId coreNodeNames policyNodeName upstreamSelectorNodeName;
-          uplinkCoreNames = wanResult.uplinkCores or [ ];
-          uplinkNames = wanResult.uplinkNames or [ ];
-          p2p-pool = p2pPool;
-          inherit nodes;
-          links = p2pLinks // (wanResult.wanLinks or { }) // (site.links or { });
-        });
+      routed0 =
+        topoResolve (
+          enforcementResult
+          // {
+            inherit siteName tenantV4Base ulaPrefix enterprise siteId coreNodeNames policyNodeName upstreamSelectorNodeName;
+            uplinkCoreNames = wanResult.uplinkCores or [ ];
+            uplinkNames = wanResult.uplinkNames or [ ];
+            p2p-pool = p2pPool;
+            aggregation = { mode = aggregationMode; };
+            inherit nodes;
+            links = p2pLinks // (wanResult.wanLinks or { }) // (site.links or { });
+          }
+        );
 
-      routed1 = routed0 // {
-        nodes = lib.mapAttrs (_: node: node // {
-          interfaces = lib.mapAttrs (_: normalizeRoutes) (node.interfaces or { });
-        }) (routed0.nodes or { });
-      };
+      routed1 =
+        routed0 // {
+          nodes = lib.mapAttrs
+            (_: node: node // {
+              interfaces = lib.mapAttrs (_: normalizeRoutes) (node.interfaces or { });
+            })
+            (routed0.nodes or { });
+        };
 
       routed =
-        builtins.removeAttrs routed1 [ "_enforcement" "_nat" "p2p-pool" "tenantV4Base" "ulaPrefix" ] // {
+        builtins.removeAttrs routed1 [ "_enforcement" "_nat" "p2p-pool" "tenantV4Base" "ulaPrefix" ]
+        // {
           inherit enterprise siteId;
           siteName = routed1.siteName or siteName;
           coreNodeNames = routed1.coreNodeNames or coreNodeNames;
@@ -136,9 +222,14 @@ in
             rules = routed1._enforcement.rules or [ ];
             validExternalRefs = routed1._enforcement.validExternalRefs or [ ];
           };
-          aggregation.mode = "none";
+          aggregation = {
+            mode =
+              if routed1 ? aggregation && builtins.isAttrs routed1.aggregation && routed1.aggregation ? mode then
+                routed1.aggregation.mode
+              else
+                aggregationMode;
+          };
         };
-
     in
     routed // {
       query = import ../../../../lib/query/summary.nix { inherit lib routed; };

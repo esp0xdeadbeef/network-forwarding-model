@@ -1,18 +1,23 @@
-# ./lib/routing/resolve-loopbacks.nix
 { lib }:
 
 let
   stripMask = s:
-    let parts = lib.splitString "/" (toString s);
-    in if builtins.length parts == 0 then toString s else builtins.elemAt parts 0;
+    let
+      parts = lib.splitString "/" (toString s);
+    in
+    if builtins.length parts == 0 then toString s else builtins.elemAt parts 0;
 
   hostDst4 = cidr:
-    let ip = stripMask cidr;
-    in "${ip}/32";
+    let
+      ip = stripMask cidr;
+    in
+    "${ip}/32";
 
   hostDst6 = cidr:
-    let ip = stripMask cidr;
-    in "${ip}/128";
+    let
+      ip = stripMask cidr;
+    in
+    "${ip}/128";
 
   membersOf = l: lib.unique ((l.members or [ ]) ++ (builtins.attrNames (l.endpoints or { })));
   endpointsOf = l: l.endpoints or { };
@@ -197,12 +202,12 @@ in
                       r4 =
                         if nh.linkName == null || nh.via4 == null || !(lb ? ipv4) || lb.ipv4 == null
                         then [ ]
-                        else [ { dst = hostDst4 (toString lb.ipv4); via4 = nh.via4; } ];
+                        else [ { dst = hostDst4 (toString lb.ipv4); via4 = nh.via4; proto = "internal"; } ];
 
                       r6 =
                         if nh.linkName == null || nh.via6 == null || !(lb ? ipv6) || lb.ipv6 == null
                         then [ ]
-                        else [ { dst = hostDst6 (toString lb.ipv6); via6 = nh.via6; } ];
+                        else [ { dst = hostDst6 (toString lb.ipv6); via6 = nh.via6; proto = "internal"; } ];
                     in
                       if nh.linkName == null then acc else
                       acc // {

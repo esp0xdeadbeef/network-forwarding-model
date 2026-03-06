@@ -3,6 +3,8 @@
 topoRaw:
 
 let
+  cidr = import ./fabric/invariants/cidr-utils.nix { inherit lib; };
+
   assert_ = cond: msg: if cond then true else throw msg;
 
   links = topoRaw.links or { };
@@ -109,14 +111,48 @@ let
     else
       { };
 
-  maskOf =
-    cidr:
+  splitCidr =
+    cidrStr:
     let
-      parts = lib.splitString "/" (toString cidr);
+      parts = lib.splitString "/" (toString cidrStr);
     in
-    if builtins.length parts == 2 then builtins.elemAt parts 1 else null;
+    if builtins.length parts != 2 then
+      throw "topology-resolve: invalid CIDR '${toString cidrStr}'"
+    else
+      {
+        ip = builtins.elemAt parts 0;
+        prefix = lib.toInt (builtins.elemAt parts 1);
+      };
 
-  mkConnectedRoute = dst: { inherit dst; proto = "connected"; };
+  intToV4 =
+    n:
+    let
+      o0 = builtins.div n (256 * 256 * 256);
+      r0 = n - o0 * (256 * 256 * 256);
+      o1 = builtins.div r0 (256 * 256);
+      r1 = r0 - o1 * (256 * 256);
+      o2 = builtins.div r1 256;
+      o3 = r1 - o2 * 256;
+    in
+    lib.concatStringsSep "." (map toString [ o0 o1 o2 o3 ]);
+
+  canonicalCidr =
+    cidrStr:
+    let
+      c = splitCidr cidrStr;
+      r = cidr.cidrRange cidrStr;
+      base =
+        if r.family == 4 then
+          intToV4 r.start
+        else
+          toString r.start;
+    in
+    "${base}/${toString c.prefix}";
+
+  mkConnectedRoute = dst: {
+    dst = canonicalCidr dst;
+    proto = "connected";
+  };
 
   mkIface =
     linkName: l: nodeName:
@@ -125,7 +161,14 @@ let
       prebuilt = ep.interfaceData or null;
 
       rawAddr4 = ep.addr4 or null;
-      m4 = if rawAddr4 != null then maskOf rawAddr4 else null;
+      m4 =
+        if rawAddr4 != null then
+          let
+            parts = lib.splitString "/" (toString rawAddr4);
+          in
+          if builtins.length parts == 2 then builtins.elemAt parts 1 else null
+        else
+          null;
 
       useDhcp =
         rawAddr4 != null
@@ -157,10 +200,11 @@ let
 
         tenant = ep.tenant or null;
         gateway = ep.gateway or false;
-        export = ep.export or false;
 
         addr4 = finalAddr4;
+        peerAddr4 = ep.peerAddr4 or null;
         addr6 = rawAddr6;
+        peerAddr6 = ep.peerAddr6 or null;
         addr6Public = rawAddr6Public;
 
         ll6 = ep.ll6 or null;

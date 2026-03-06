@@ -1,3 +1,4 @@
+# ./src/solver/site/wan.nix
 { lib }:
 
 {
@@ -179,23 +180,35 @@
 
       uplinkCoreByName = lib.listToAttrs uplinkNameEntries;
 
-      mkWanNetBase =
-        idx:
-        100 + (4 * idx);
+      mkPairIndex = idx: 2 * idx;
 
       mkWanAddr4 =
         hostIndex:
         let
-          base = "${stripMask localPool.ipv4}/30";
+          base = "${stripMask localPool.ipv4}/31";
         in
         addr.hostCidr hostIndex base;
+
+      mkWanPeerAddr4 =
+        hostIndex:
+        let
+          base = "${stripMask localPool.ipv4}/31";
+        in
+        addr.hostCidr (hostIndex + 1) base;
 
       mkWanAddr6 =
         hostIndex:
         let
-          base = "${stripMask localPool.ipv6}/126";
+          base = "${stripMask localPool.ipv6}/127";
         in
         addr.hostCidr hostIndex base;
+
+      mkWanPeerAddr6 =
+        hostIndex:
+        let
+          base = "${stripMask localPool.ipv6}/127";
+        in
+        addr.hostCidr (hostIndex + 1) base;
 
       mkWanLL6 =
         hostIndex:
@@ -215,13 +228,18 @@
       mkWanLink =
         idx: spec:
         let
-          base = mkWanNetBase idx;
-          hCore = base + 1;
+          hostBase = mkPairIndex idx;
           core = spec.core;
           uplink = spec.uplink;
           uplinkName = uplink.name;
           linkName = "wan-${core}-${uplinkName}";
           tenant = tenantFromUplink uplink;
+
+          coreAddr4 = if localPool ? ipv4 then mkWanAddr4 hostBase else null;
+          peerAddr4 = if localPool ? ipv4 then mkWanPeerAddr4 hostBase else null;
+
+          coreAddr6 = if localPool ? ipv6 then mkWanAddr6 hostBase else null;
+          peerAddr6 = if localPool ? ipv6 then mkWanPeerAddr6 hostBase else null;
         in
         {
           name = linkName;
@@ -239,11 +257,12 @@
                 interface = linkName;
                 uplink = uplinkName;
                 gateway = true;
-                export = true;
                 tenant = tenant;
-                addr4 = if localPool ? ipv4 then mkWanAddr4 hCore else null;
-                addr6 = if localPool ? ipv6 then mkWanAddr6 hCore else null;
-                ll6 = mkWanLL6 hCore;
+                addr4 = coreAddr4;
+                peerAddr4 = peerAddr4;
+                addr6 = coreAddr6;
+                peerAddr6 = peerAddr6;
+                ll6 = mkWanLL6 hostBase;
               };
             };
           };
