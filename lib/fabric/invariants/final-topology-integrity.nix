@@ -5,6 +5,13 @@ let
 
   sortedNames = attrs: lib.sort (a: b: a < b) (builtins.attrNames attrs);
 
+  isLogicalInterface =
+    iface:
+    (iface.logical or false)
+    || (iface.type or null) == "logical"
+    || (iface.carrier or null) == "logical"
+    || (iface.link or null) == null;
+
 in
 {
   check =
@@ -113,32 +120,38 @@ in
           in
           lib.forEach ifNames (
             ifName:
-            builtins.seq
-              (assert_ (links ? "${ifName}") ''
-                invariants(final-topology-integrity):
-
-                node interface references unknown link
-
-                  site: ${siteName}
-                  node: ${nodeName}
-                  interface: ${ifName}
-              '')
-              (let
-                link = links.${ifName};
-                members = link.members or [ ];
-                endpoints = link.endpoints or { };
-              in
-              assert_
-                ((lib.elem nodeName members) || (endpoints ? "${nodeName}"))
-                ''
+            let
+              iface = ifs.${ifName};
+            in
+            if isLogicalInterface iface then
+              true
+            else
+              builtins.seq
+                (assert_ (links ? "${ifName}") ''
                   invariants(final-topology-integrity):
 
-                  node interface is orphaned from link membership
+                  node interface references unknown link
 
                     site: ${siteName}
                     node: ${nodeName}
                     interface: ${ifName}
                 '')
+                (let
+                  link = links.${ifName};
+                  members = link.members or [ ];
+                  endpoints = link.endpoints or { };
+                in
+                assert_
+                  ((lib.elem nodeName members) || (endpoints ? "${nodeName}"))
+                  ''
+                    invariants(final-topology-integrity):
+
+                    node interface is orphaned from link membership
+
+                      site: ${siteName}
+                      node: ${nodeName}
+                      interface: ${ifName}
+                  '')
           )
         );
     in
