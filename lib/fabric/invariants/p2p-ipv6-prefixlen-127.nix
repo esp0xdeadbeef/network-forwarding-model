@@ -1,20 +1,15 @@
 { lib }:
 
 let
-  assert_ = cond: msg: if cond then true else throw msg;
+  common = import ./common.nix { inherit lib; };
+  ip = import ../../net/ip-utils.nix { inherit lib; };
 
-  splitCidr =
-    cidr:
+  hasPrefixLength =
+    cidr: want:
     let
-      parts = lib.splitString "/" (toString cidr);
+      c = ip.splitCidr cidr;
     in
-    if builtins.length parts != 2 then
-      throw "invariants(p2p-ipv6-prefixlen-127): invalid CIDR '${toString cidr}'"
-    else
-      {
-        ip = builtins.elemAt parts 0;
-        prefix = lib.toInt (builtins.elemAt parts 1);
-      };
+    c.prefix == want;
 
   checkAddr6 =
     {
@@ -23,10 +18,7 @@ let
       nodeName,
       addr6,
     }:
-    let
-      c = splitCidr addr6;
-    in
-    assert_ (c.prefix == 127) ''
+    common.assert_ (hasPrefixLength addr6 127) ''
       invariants(p2p-ipv6-prefixlen-127):
 
       p2p IPv6 endpoints MUST be /127 (one subnet per p2p link)
@@ -47,7 +39,7 @@ let
     }:
     let
       epNames = builtins.attrNames endpoints;
-      _two = assert_ (builtins.length epNames == 2) ''
+      _two = common.assert_ (builtins.length epNames == 2) ''
         invariants(p2p-ipv6-prefixlen-127):
 
         p2p link must have exactly 2 endpoints
@@ -119,22 +111,11 @@ let
         else
           true;
 
-      isContainerAttr =
-        name: v:
-        builtins.isAttrs v
-        && !(lib.elem name [
-          "role"
-          "networks"
-          "interfaces"
-        ]);
-
-      containersOf = node: builtins.attrNames (lib.filterAttrs isContainerAttr node);
-
       checkNode =
         nodeName:
         let
           node = nodes.${nodeName};
-          conts = containersOf node;
+          conts = common.containersOf node;
           _top = walk nodeName node;
           _conts = lib.forEach conts (cname: walk nodeName (node.${cname} or { }));
         in

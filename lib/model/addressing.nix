@@ -1,6 +1,8 @@
 { lib }:
 
 let
+  ip = import ../net/ip-utils.nix { inherit lib; };
+
   nodeIndex =
     node: members:
     let
@@ -61,68 +63,18 @@ let
     else
       "ff${zpad 2 (toHex tvid)}";
 
-  splitCidr =
-    cidr:
-    let
-      parts = lib.splitString "/" cidr;
-    in
-    if builtins.length parts != 2 then
-      throw "addressing: invalid CIDR '${cidr}'"
-    else
-      {
-        ip = builtins.elemAt parts 0;
-        prefixLength = lib.toInt (builtins.elemAt parts 1);
-      };
-
-  parseOctet =
-    s:
-    let
-      n = lib.toInt s;
-    in
-    if n < 0 || n > 255 then throw "addressing: invalid IPv4 octet '${s}'" else n;
-
-  parseIPv4 =
-    s:
-    let
-      parts = lib.splitString "." s;
-    in
-    if builtins.length parts != 4 then
-      throw "addressing: invalid IPv4 address '${s}'"
-    else
-      map parseOctet parts;
-
-  ipv4ToInt =
-    segs:
-    (((builtins.elemAt segs 0) * 256 + builtins.elemAt segs 1) * 256 + builtins.elemAt segs 2) * 256
-    + builtins.elemAt segs 3;
-
-  intToIPv4 =
-    n:
-    let
-      o0 = builtins.div n (256 * 256 * 256);
-      r0 = n - o0 * 256 * 256 * 256;
-      o1 = builtins.div r0 (256 * 256);
-      r1 = r0 - o1 * 256 * 256;
-      o2 = builtins.div r1 256;
-      o3 = r1 - o2 * 256;
-    in
-    lib.concatStringsSep "." (
-      map toString [
-        o0
-        o1
-        o2
-        o3
-      ]
-    );
+  ipv4ToInt = ip.ipv4ToInt;
+  intToIPv4 = ip.intToIPv4;
+  parseIPv4 = ip.parseIPv4;
 
   hostCidr4 =
     hostIndex: cidr:
     let
-      c = splitCidr cidr;
+      c = ip.splitCidr cidr;
       baseInt = ipv4ToInt (parseIPv4 c.ip);
       addr = intToIPv4 (baseInt + hostIndex);
     in
-    "${addr}/${toString c.prefixLength}";
+    "${addr}/${toString c.prefix}";
 
   hexToInt = s: if s == "" then 0 else (builtins.fromTOML "x = 0x${s}").x;
 
@@ -185,12 +137,12 @@ let
   hostCidr6 =
     hostIndex: cidr:
     let
-      c = splitCidr cidr;
+      c = ip.splitCidr cidr;
       baseSegs = expandIPv6 c.ip;
       newSegs = addHostToIPv6 baseSegs hostIndex;
       addr = ipv6ToString newSegs;
     in
-    "${addr}/${toString c.prefixLength}";
+    "${addr}/${toString c.prefix}";
 
   hostCidr =
     hostIndex: cidr:

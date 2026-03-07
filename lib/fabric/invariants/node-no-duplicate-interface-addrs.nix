@@ -1,52 +1,8 @@
 { lib }:
 
 let
-  stripMask =
-    s:
-    let
-      parts = lib.splitString "/" (toString s);
-    in
-    if builtins.length parts == 0 then "" else builtins.elemAt parts 0;
-
-  assert_ = cond: msg: if cond then true else throw msg;
-
-  isContainerAttr =
-    name: v:
-    builtins.isAttrs v
-    && !(lib.elem name [
-      "role"
-      "networks"
-      "interfaces"
-    ]);
-
-  containersOf = node: builtins.attrNames (lib.filterAttrs isContainerAttr node);
-
-  ifaceEntriesFrom =
-    {
-      siteName,
-      nodeName,
-      whereBase,
-      ifaces,
-    }:
-    if !(builtins.isAttrs ifaces) then
-      [ ]
-    else
-      lib.concatMap (
-        ifName:
-        let
-          iface = ifaces.${ifName};
-          mk = fam: addr: {
-            family = fam;
-            ip = stripMask addr;
-            where = "${siteName}:nodes.${nodeName}.${whereBase}.${ifName}.${fam}";
-            ifname = ifName;
-          };
-        in
-        lib.flatten [
-          (lib.optional (iface ? addr4 && iface.addr4 != null) (mk "addr4" iface.addr4))
-          (lib.optional (iface ? addr6 && iface.addr6 != null) (mk "addr6" iface.addr6))
-        ]
-      ) (builtins.attrNames ifaces);
+  common = import ./common.nix { inherit lib; };
+  iface = import ./interface-utils.nix { inherit lib; };
 
   checkNode =
     {
@@ -56,30 +12,26 @@ let
     }:
     let
       topIfs = node.interfaces or { };
-      conts = containersOf node;
 
       contEntries = lib.concatMap (
         cname:
         let
           c = node.${cname} or { };
-          ifs = c.interfaces or { };
         in
-        ifaceEntriesFrom {
-          inherit siteName nodeName;
-          whereBase = "${cname}.interfaces";
-          ifaces = ifs;
+        iface.ifaceEntriesFrom {
+          whereBase = "${siteName}:nodes.${nodeName}.${cname}.interfaces";
+          ifaces = c.interfaces or { };
         }
-      ) conts;
+      ) (common.containersOf node);
 
       entries =
-        (ifaceEntriesFrom {
-          inherit siteName nodeName;
-          whereBase = "interfaces";
+        (iface.ifaceEntriesFrom {
+          whereBase = "${siteName}:nodes.${nodeName}.interfaces";
           ifaces = topIfs;
         })
         ++ contEntries;
 
-      entries' = lib.filter (e: (toString e.ip) != "") entries;
+      entries' = iface.nonEmptyEntries entries;
 
       step =
         acc: e:

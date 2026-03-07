@@ -1,10 +1,8 @@
-# ./lib/fabric/invariants/p2p-pool-isolation.nix
 { lib }:
 
 let
   cidr = import ./cidr-utils.nix { inherit lib; };
-
-  assert_ = cond: msg: if cond then true else throw msg;
+  common = import ./common.nix { inherit lib; };
 
   overlaps = a: b: a.family == b.family && !(a.end < b.start || b.end < a.start);
 
@@ -23,10 +21,7 @@ in
           n = nodes.${name};
           nets = n.networks or null;
         in
-        if nets == null || !(nets ? ipv4) then
-          [ ]
-        else
-          [ (cidr.cidrRange nets.ipv4) ]
+        if nets == null || !(nets ? ipv4) then [ ] else [ (cidr.cidrRange nets.ipv4) ]
       ) (builtins.attrNames nodes);
 
       poolOverlap4 =
@@ -38,7 +33,7 @@ in
           in
           lib.all (
             rUser:
-            assert_ (!(overlaps rPool rUser)) "invariants(p2p-pool): access prefix overlaps p2p pool"
+            common.assert_ (!(overlaps rPool rUser)) "invariants(p2p-pool): access prefix overlaps p2p pool"
           ) userRanges4;
     in
     builtins.deepSeq poolOverlap4 true;

@@ -1,35 +1,32 @@
-# ./lib/fabric/invariants/loopbacks-in-local-pool.nix
 { lib }:
 
 let
   cidr = import ./cidr-utils.nix { inherit lib; };
+  common = import ./common.nix { inherit lib; };
 
-  assert_ = cond: msg: if cond then true else throw msg;
+  hostRange4 = ip: cidr.cidrRange "${common.stripMask ip}/32";
+  hostRange6 = ip: cidr.cidrRange "${common.stripMask ip}/128";
 
-  stripMask =
-    s:
-    let
-      parts = lib.splitString "/" (toString s);
-    in
-    if builtins.length parts == 0 then "" else builtins.elemAt parts 0;
-
-  # reuse range calc by turning a host into /32 or /128
-  hostRange4 = ip: cidr.cidrRange "${stripMask ip}/32";
-  hostRange6 = ip: cidr.cidrRange "${stripMask ip}/128";
-
-  inRange = poolRange: hostRange:
+  inRange =
+    poolRange: hostRange:
     poolRange.family == hostRange.family
     && poolRange.start <= hostRange.start
     && hostRange.end <= poolRange.end;
 
   checkOne =
-    { siteName, siteKey, nodeName, fam, addr, pool }:
+    {
+      siteName,
+      siteKey,
+      nodeName,
+      fam,
+      addr,
+      pool,
+    }:
     let
       poolRange = cidr.cidrRange pool;
-      hostRange =
-        if fam == 4 then hostRange4 addr else hostRange6 addr;
+      hostRange = if fam == 4 then hostRange4 addr else hostRange6 addr;
     in
-    assert_ (inRange poolRange hostRange) ''
+    common.assert_ (inRange poolRange hostRange) ''
       invariants(loopbacks-in-local-pool):
 
       routerLoopbacks must be inside addressPools.local

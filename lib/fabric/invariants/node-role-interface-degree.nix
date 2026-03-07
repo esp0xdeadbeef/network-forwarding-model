@@ -1,18 +1,9 @@
 { lib }:
 
 let
-  assert_ = cond: msg: if cond then true else throw msg;
+  common = import ./common.nix { inherit lib; };
 
-  isBoxAttr =
-    name: v:
-    builtins.isAttrs v
-    && !(lib.elem name [
-      "role"
-      "networks"
-      "interfaces"
-    ]);
-
-  boxesOf = node: builtins.attrNames (lib.filterAttrs isBoxAttr node);
+  boxesOf = node: builtins.attrNames (lib.filterAttrs common.isContainerAttr node);
 
   ifaceCount =
     x:
@@ -50,7 +41,7 @@ in
                   box = node.${b} or { };
                   n = ifaceCount box;
                 in
-                assert_ (n == 2) ''
+                common.assert_ (n == 2) ''
                   invariants(node-role-interface-degree):
 
                   access box must have exactly 2 interfaces

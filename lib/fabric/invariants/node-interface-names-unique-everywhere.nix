@@ -1,18 +1,7 @@
 { lib }:
 
 let
-  assert_ = cond: msg: if cond then true else throw msg;
-
-  isContainerAttr =
-    name: v:
-    builtins.isAttrs v
-    && !(lib.elem name [
-      "role"
-      "networks"
-      "interfaces"
-    ]);
-
-  containersOf = node: builtins.attrNames (lib.filterAttrs isContainerAttr node);
+  common = import ./common.nix { inherit lib; };
 
   ifaceKeys =
     x:
@@ -33,15 +22,13 @@ let
         where = "${siteName}:${nodeName}.interfaces";
       }) (ifaceKeys node);
 
-      conts = containersOf node;
-
       fromCont = lib.concatMap (
         cname:
         map (k: {
           ifname = k;
           where = "${siteName}:${nodeName}.${cname}.interfaces";
         }) (ifaceKeys (node.${cname} or { }))
-      ) conts;
+      ) (common.containersOf node);
     in
     top ++ fromCont;
 

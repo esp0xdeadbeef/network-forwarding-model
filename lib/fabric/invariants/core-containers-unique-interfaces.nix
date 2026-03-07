@@ -1,18 +1,9 @@
 { lib }:
 
 let
-  assert_ = cond: msg: if cond then true else throw msg;
+  common = import ./common.nix { inherit lib; };
 
-  isContainerAttr =
-    name: v:
-    builtins.isAttrs v
-    && !(lib.elem name [
-      "role"
-      "networks"
-      "interfaces"
-    ]);
-
-  containerNamesOf = node: builtins.attrNames (lib.filterAttrs isContainerAttr node);
+  containerNamesOf = node: builtins.attrNames (lib.filterAttrs common.isContainerAttr node);
 
   ifaceNames =
     x:

@@ -10,6 +10,9 @@
 
 let
   sanitize = import ./sanitize.nix { inherit lib; };
+  routes = import ../model/routes.nix { inherit lib; };
+
+  ifaceRoutes = routes.ifaceRoutes;
 
   fabricHostResolved =
     if fabricHost != null then
@@ -41,28 +44,14 @@ let
 
   _assertContextSuffix =
     if isCoreContext && (lib.length parts) >= 4 && !haveVidSuffix then
-      throw "node-context: invalid core context node '${requestedNode}': expected numeric vlan suffix, e.g. '${fabricHostResolved}-<ctx>-<vid>'"
+      throw "node-context: invalid core context node '${requestedNode}': expected numeric vlan suffix"
     else
       true;
 
   tenant4Dst = if vid == null then null else "${routed.tenantV4Base}.${toString vid}.0/24";
   tenant6Dst = if vid == null then null else "${routed.ulaPrefix}:${toString vid}::/64";
 
-  ifaceRoutes =
-    iface:
-    if iface ? routes && builtins.isAttrs iface.routes then
-      {
-        ipv4 = iface.routes.ipv4 or [ ];
-        ipv6 = iface.routes.ipv6 or [ ];
-      }
-    else
-      {
-        ipv4 = iface.routes4 or [ ];
-        ipv6 = iface.routes6 or [ ];
-      };
-
   keepTenantRoute4 = r: if vid == null then true else (r ? dst) && r.dst == tenant4Dst;
-
   keepTenantRoute6 = r: if vid == null then true else (r ? dst) && r.dst == tenant6Dst;
 
   scopeTenantRoutes =

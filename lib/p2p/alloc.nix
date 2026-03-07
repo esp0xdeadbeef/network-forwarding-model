@@ -1,66 +1,19 @@
-# ./lib/p2p/alloc.nix
 { lib }:
 
 let
   addr = import ../model/addressing.nix { inherit lib; };
+  ip = import ../net/ip-utils.nix { inherit lib; };
 
-  splitCidr =
-    cidr:
-    let
-      parts = lib.splitString "/" cidr;
-    in
-    {
-      ip = builtins.elemAt parts 0;
-      prefix = lib.toInt (builtins.elemAt parts 1);
-    };
+  v4ToInt = ip.ipv4ToInt;
+  parseV4 = ip.parseIPv4;
+  intToV4 = ip.intToIPv4;
 
-  parseOctet =
-    s:
-    let
-      n = lib.toInt s;
-    in
-    if n < 0 || n > 255 then throw "p2p pool exhausted" else n;
-
-  parseV4 =
-    s:
-    let
-      p = lib.splitString "." s;
-    in
-    if builtins.length p != 4 then throw "p2p.alloc: bad IPv4 '${s}'" else map parseOctet p;
-
-  v4ToInt =
-    o:
-    (((builtins.elemAt o 0) * 256 + (builtins.elemAt o 1)) * 256 + (builtins.elemAt o 2)) * 256
-    + (builtins.elemAt o 3);
-
-  intToV4 =
-    n:
-    let
-      o0 = builtins.div n (256 * 256 * 256);
-      r0 = n - o0 * (256 * 256 * 256);
-      o1 = builtins.div r0 (256 * 256);
-      r1 = r0 - o1 * (256 * 256);
-      o2 = builtins.div r1 256;
-      o3 = r1 - o2 * 256;
-    in
-    lib.concatStringsSep "." (
-      map toString [
-        o0
-        o1
-        o2
-        o3
-      ]
-    );
-
-  # iterative power-of-two (avoids builtins.pow dependency)
-  pow2 =
-    n:
-    builtins.foldl' (acc: _: acc * 2) 1 (lib.range 1 n);
+  pow2 = n: builtins.foldl' (acc: _: acc * 2) 1 (lib.range 1 n);
 
   rangeV4 =
     cidr:
     let
-      c = splitCidr cidr;
+      c = ip.splitCidr cidr;
       base = v4ToInt (parseV4 c.ip);
       size = pow2 (32 - c.prefix);
     in
@@ -90,21 +43,10 @@ let
 
   pairKey = p: "${p.a}|${p.b}";
 
-  splitIPv6 =
-    cidr:
-    let
-      parts = lib.splitString "/" cidr;
-    in
-    {
-      ip = builtins.elemAt parts 0;
-      prefix = lib.toInt (builtins.elemAt parts 1);
-    };
-
   allocIPv6Pair =
     { pool, linkIndex }:
     let
-      c = splitIPv6 pool;
-
+      c = ip.splitCidr pool;
       hostBase = linkIndex * 2;
 
       a = addr.hostCidr hostBase "${c.ip}/127";
@@ -122,7 +64,7 @@ in
       p2p = site.p2p-pool;
       links = site.links;
 
-      v4 = splitCidr p2p.ipv4;
+      v4 = ip.splitCidr p2p.ipv4;
       base4 = v4ToInt (parseV4 v4.ip);
 
       pool6 = p2p.ipv6 or null;
@@ -133,21 +75,18 @@ in
           domains = site.domains or { };
           tenants = domains.tenants or [ ];
 
-          fromNodes =
-            lib.concatMap (
-              name:
-              let
-                n = nodes.${name};
-                nets = n.networks or null;
-              in
-              if nets == null || !(nets ? ipv4) then [ ] else [ (rangeV4 nets.ipv4) ]
-            ) (builtins.attrNames nodes);
+          fromNodes = lib.concatMap (
+            name:
+            let
+              n = nodes.${name};
+              nets = n.networks or null;
+            in
+            if nets == null || !(nets ? ipv4) then [ ] else [ (rangeV4 nets.ipv4) ]
+          ) (builtins.attrNames nodes);
 
-          fromTenants =
-            lib.concatMap (
-              t:
-              if !(builtins.isAttrs t) || !(t ? ipv4) then [ ] else [ (rangeV4 t.ipv4) ]
-            ) tenants;
+          fromTenants = lib.concatMap (
+            t: if !(builtins.isAttrs t) || !(t ? ipv4) then [ ] else [ (rangeV4 t.ipv4) ]
+          ) tenants;
         in
         fromNodes ++ fromTenants;
 

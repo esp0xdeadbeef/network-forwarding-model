@@ -1,23 +1,12 @@
 { lib }:
 
 let
-  cidr = import ../../cidr-utils.nix { inherit lib; };
-
-  assert_ = cond: msg: if cond then true else throw msg;
+  cidr = import ../cidr-utils.nix { inherit lib; };
+  common = import ../common.nix { inherit lib; };
+  network = import ../../../model/network-utils.nix { inherit lib; };
 
   overlaps = a: b: a.family == b.family && !(a.end < b.start || b.end < a.start);
-
-  isNetworkAttr =
-    name: v:
-    builtins.isAttrs v
-    && (v ? ipv4 || v ? ipv6)
-    && !(lib.elem name [
-      "role"
-      "interfaces"
-      "networks"
-    ]);
-
-  networksOf = node: if node ? networks then node.networks else lib.filterAttrs isNetworkAttr node;
+  networksOf = network.networksOfRaw { extraExcluded = [ ]; };
 
 in
 {
@@ -52,27 +41,13 @@ in
 
           withRanges = map (e: e // { range = cidr.cidrRange e.cidr; }) entries;
 
-          pairs = lib.concatMap (
-            i:
-            let
-              a = builtins.elemAt withRanges i;
-            in
-            map (
-              j:
-              let
-                b = builtins.elemAt withRanges j;
-              in
-              {
-                inherit a b;
-              }
-            ) (lib.range (i + 1) (builtins.length withRanges - 1))
-          ) (lib.range 0 (builtins.length withRanges - 2));
+          ps = common.pairs withRanges;
 
           _ = lib.all (
             p:
-            assert_ (!(overlaps p.a.range p.b.range))
+            common.assert_ (!(overlaps p.a.range p.b.range))
               "invariants(node-roles): overlapping access networks on node '${name}': '${p.a.cidr}' (${p.a.owner}) and '${p.b.cidr}' (${p.b.owner})"
-          ) pairs;
+          ) ps;
         in
         true
     );

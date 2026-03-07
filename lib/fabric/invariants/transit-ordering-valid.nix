@@ -1,8 +1,7 @@
-# ./lib/fabric/invariants/transit-ordering-valid.nix
 { lib }:
 
 let
-  assert_ = cond: msg: if cond then true else throw msg;
+  common = import ./common.nix { inherit lib; };
 
   isPair =
     x:
@@ -24,41 +23,46 @@ in
 
       ordering = ir.transit.ordering or null;
 
-      _present =
-        assert_ (ordering != null && builtins.isList ordering) ''
-          invariants(transit-ordering-valid):
+      _present = common.assert_ (ordering != null && builtins.isList ordering) ''
+        invariants(transit-ordering-valid):
 
-          missing required compilerIR.transit.ordering
+        missing required compilerIR.transit.ordering
 
-            siteKey: ${siteKey}
-            site:    ${siteName}
-        '';
+          siteKey: ${siteKey}
+          site:    ${siteName}
+      '';
 
-      _pairsOk =
-        assert_ (lib.all isPair ordering) ''
-          invariants(transit-ordering-valid):
+      _pairsOk = common.assert_ (lib.all isPair ordering) ''
+        invariants(transit-ordering-valid):
 
-          transit.ordering must be a list of 2-element string pairs
+        transit.ordering must be a list of 2-element string pairs
 
-            siteKey: ${siteKey}
-            site:    ${siteName}
-        '';
+          siteKey: ${siteKey}
+          site:    ${siteName}
+      '';
 
       pairs = lib.filter isPair ordering;
 
-      edges = map (p: { a = builtins.elemAt p 0; b = builtins.elemAt p 1; }) pairs;
+      edges = map (p: {
+        a = builtins.elemAt p 0;
+        b = builtins.elemAt p 1;
+      }) pairs;
 
-      _noSelf =
-        assert_ (lib.all (e: e.a != e.b) edges) ''
-          invariants(transit-ordering-valid):
+      _noSelf = common.assert_ (lib.all (e: e.a != e.b) edges) ''
+        invariants(transit-ordering-valid):
 
-          transit.ordering contains a self-edge
+        transit.ordering contains a self-edge
 
-            siteKey: ${siteKey}
-            site:    ${siteName}
-        '';
+          siteKey: ${siteKey}
+          site:    ${siteName}
+      '';
 
-      unitsInOrdering = uniq (lib.concatMap (e: [ e.a e.b ]) edges);
+      unitsInOrdering = uniq (
+        lib.concatMap (e: [
+          e.a
+          e.b
+        ]) edges
+      );
 
       knownUnits =
         let
@@ -73,17 +77,16 @@ in
 
       unknownUnits = lib.filter (u: !(lib.elem u knownUnits)) unitsInOrdering;
 
-      _known =
-        assert_ (unknownUnits == [ ]) ''
-          invariants(transit-ordering-valid):
+      _known = common.assert_ (unknownUnits == [ ]) ''
+        invariants(transit-ordering-valid):
 
-          transit.ordering references unknown unit(s)
+        transit.ordering references unknown unit(s)
 
-            siteKey: ${siteKey}
-            site:    ${siteName}
+          siteKey: ${siteKey}
+          site:    ${siteName}
 
-            unknown: ${lib.concatStringsSep ", " unknownUnits}
-        '';
+          unknown: ${lib.concatStringsSep ", " unknownUnits}
+      '';
     in
     builtins.seq _present (builtins.seq _pairsOk (builtins.seq _noSelf (builtins.seq _known true)));
 }

@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+changed="$(git diff --cached --name-only --diff-filter=ACMR | grep '\.nix$' || true)"
+[ -z "$changed" ] && exit 0
+
+echo "[hook] formatting staged nix files..."
+
+find $changed -type f -name "*.nix" -exec sed -i 's/#.*//g' {} +
+
+for f in $changed; do
+    [ -f "$f" ] || continue
+    nix shell nixpkgs#nixfmt-rfc-style --command nixfmt "$f"
+done
+
+git add $changed 2>/dev/null || true
+
+echo "[hook] parsing staged nix files..."
+
+for f in $changed; do
+    [ -f "$f" ] || continue
+    nix-instantiate --parse "$f" >/dev/null
+    sed 's/^#.*//g' -i $(echo $f | grep nix)
+    sed 's/# .*//g' -i $(echo $f | grep nix)
+done
+
+echo "[hook] done"
+

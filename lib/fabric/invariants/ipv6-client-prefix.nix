@@ -1,20 +1,15 @@
 { lib }:
 
 let
-  assert_ = cond: msg: if cond then true else throw msg;
+  common = import ./common.nix { inherit lib; };
+  ip = import ../../net/ip-utils.nix { inherit lib; };
 
-  splitCidr =
-    cidr:
+  hasPrefixLength =
+    cidr: want:
     let
-      parts = lib.splitString "/" (toString cidr);
+      c = ip.splitCidr cidr;
     in
-    if builtins.length parts != 2 then
-      throw "invariants(ipv6-client-prefix): invalid CIDR '${toString cidr}'"
-    else
-      {
-        ip = builtins.elemAt parts 0;
-        prefix = lib.toInt (builtins.elemAt parts 1);
-      };
+    c.prefix == want;
 
 in
 {
@@ -31,10 +26,7 @@ in
           nets = node.networks or null;
         in
         if role == "access" && nets != null && (nets.kind or null) == "client" && (nets ? ipv6) then
-          let
-            c = splitCidr nets.ipv6;
-          in
-          assert_ (c.prefix == 64) ''
+          common.assert_ (hasPrefixLength nets.ipv6 64) ''
             invariants(ipv6-client-prefix):
 
             access client network must use /64 IPv6 prefix

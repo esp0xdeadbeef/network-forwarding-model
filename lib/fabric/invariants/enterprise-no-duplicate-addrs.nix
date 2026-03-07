@@ -1,74 +1,9 @@
 { lib }:
 
 let
-
-  stripMask =
-    s:
-    let
-      parts = lib.splitString "/" (toString s);
-    in
-    if builtins.length parts == 0 then "" else builtins.elemAt parts 0;
-
-  assert_ = cond: msg: if cond then true else throw msg;
-
-  enterpriseOf =
-    siteKey: site:
-    if site ? enterprise && builtins.isString site.enterprise then
-      site.enterprise
-    else
-      let
-        parts = lib.splitString "." siteKey;
-      in
-      if builtins.length parts >= 2 then builtins.elemAt parts 0 else "__default__";
-
-  groupByEnterprise =
-    sites:
-    builtins.foldl' (
-      acc: siteKey:
-      let
-        site = sites.${siteKey};
-        e = enterpriseOf siteKey site;
-      in
-      acc
-      // {
-        "${e}" = (acc."${e}" or { }) // {
-          "${siteKey}" = site;
-        };
-      }
-    ) { } (builtins.attrNames sites);
-
-  isContainerAttr =
-    name: v:
-    builtins.isAttrs v
-    && !(lib.elem name [
-      "role"
-      "networks"
-      "interfaces"
-    ]);
-
-  containersOf = node: builtins.attrNames (lib.filterAttrs isContainerAttr node);
-
-  ifaceEntriesFrom =
-    { whereBase, ifaces }:
-    if !(builtins.isAttrs ifaces) then
-      [ ]
-    else
-      lib.concatMap (
-        ifName:
-        let
-          iface = ifaces.${ifName};
-
-          mk = fam: addr: {
-            family = fam;
-            ip = stripMask addr;
-            where = "${whereBase}.${ifName}.${fam}";
-          };
-        in
-        lib.flatten [
-          (lib.optional (iface ? addr4 && iface.addr4 != null) (mk "addr4" iface.addr4))
-          (lib.optional (iface ? addr6 && iface.addr6 != null) (mk "addr6" iface.addr6))
-        ]
-      ) (builtins.attrNames ifaces);
+  common = import ./common.nix { inherit lib; };
+  enterprise = import ./enterprise-utils.nix { inherit lib; };
+  iface = import ./interface-utils.nix { inherit lib; };
 
   collectSite =
     siteKey: site:
@@ -89,7 +24,7 @@ let
 
             mk = fam: addr: {
               family = fam;
-              ip = stripMask addr;
+              ip = common.stripMask addr;
               where = "${siteKey}:links.${linkName}.endpoints.${nodeName}.${fam}";
             };
           in
@@ -104,31 +39,28 @@ let
         nodeName:
         let
           node = nodes.${nodeName};
-          topIfs = node.interfaces or { };
-
-          conts = containersOf node;
 
           contEntries = lib.concatMap (
             cname:
             let
               c = node.${cname} or { };
             in
-            ifaceEntriesFrom {
+            iface.ifaceEntriesFrom {
               whereBase = "${siteKey}:nodes.${nodeName}.${cname}.interfaces";
               ifaces = c.interfaces or { };
             }
-          ) conts;
+          ) (common.containersOf node);
         in
-        (ifaceEntriesFrom {
+        (iface.ifaceEntriesFrom {
           whereBase = "${siteKey}:nodes.${nodeName}.interfaces";
-          ifaces = topIfs;
+          ifaces = node.interfaces or { };
         })
         ++ contEntries
       ) (builtins.attrNames nodes);
 
       entries = linkEntries ++ nodeEntries;
     in
-    lib.filter (e: (toString e.ip) != "") entries;
+    iface.nonEmptyEntries entries;
 
   checkUniq =
     { entName, entries }:
@@ -167,11 +99,10 @@ let
 
 in
 {
-
   checkAll =
     { sites }:
     let
-      byEnt = groupByEnterprise sites;
+      byEnt = enterprise.groupByEnterprise sites;
 
       checkEnt =
         entName:

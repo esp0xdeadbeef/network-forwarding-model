@@ -1,17 +1,11 @@
-# ./lib/query/routes-per-node.nix
 { topo }:
 
 let
-  routesOf =
-    ep:
-    if ep ? routes && builtins.isAttrs ep.routes then
-      (ep.routes.ipv4 or [ ]) ++ (ep.routes.ipv6 or [ ])
-    else
-      (ep.routes4 or [ ]) ++ (ep.routes6 or [ ]);
+  routes = import ../model/routes.nix { lib = import <nixpkgs/lib>; };
 
-  collect =
-    linkName: link:
-    builtins.mapAttrs (_: ep: routesOf ep) (link.endpoints or { });
+  ifaceRoutes = routes.ifaceRoutes;
+
+  collect = linkName: link: builtins.mapAttrs (_: ep: ifaceRoutes ep) (link.endpoints or { });
 in
 builtins.foldl' (
   acc: linkName:

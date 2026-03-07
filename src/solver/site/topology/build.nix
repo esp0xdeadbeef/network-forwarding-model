@@ -4,12 +4,17 @@ let
   derive = import ../../../util/derive.nix { inherit lib; };
   p2pAlloc = import ../../../../lib/p2p/alloc.nix { inherit lib; };
   topoResolve = import ../../../../lib/topology-resolve.nix { inherit lib; };
+  utils = import ../../../util { inherit lib; };
 
   firstOrNull = xs: if xs == [ ] then null else builtins.head xs;
 
   normalizeRoutes =
     iface:
-    (builtins.removeAttrs iface [ "routes4" "routes6" ]) // {
+    (builtins.removeAttrs iface [
+      "routes4"
+      "routes6"
+    ])
+    // {
       routes =
         if iface ? routes && builtins.isAttrs iface.routes then
           {
@@ -25,8 +30,10 @@ let
 
   nodeFromSite =
     site: n:
-    if site ? units && builtins.isAttrs site.units && site.units ? "${n}" then site.units.${n}
-    else if site ? nodes && builtins.isAttrs site.nodes && site.nodes ? "${n}" then site.nodes.${n}
+    if site ? units && builtins.isAttrs site.units && site.units ? "${n}" then
+      site.units.${n}
+    else if site ? nodes && builtins.isAttrs site.nodes && site.nodes ? "${n}" then
+      site.nodes.${n}
     else
       { };
 
@@ -36,43 +43,102 @@ let
       tenants = (site.domains or { }).tenants or [ ];
     in
     builtins.listToAttrs (
-      map
-        (t: {
+      map (t: {
+        name = toString t.name;
+        value = {
+          kind = t.kind or "tenant";
           name = toString t.name;
-          value = {
-            kind = t.kind or "tenant";
-            name = toString t.name;
-            ipv4 = t.ipv4 or null;
-            ipv6 = t.ipv6 or null;
-          };
-        })
-        (lib.filter (t: builtins.isAttrs t && (t.name or null) != null) tenants)
+          ipv4 = t.ipv4 or null;
+          ipv6 = t.ipv6 or null;
+        };
+      }) (lib.filter (t: builtins.isAttrs t && (t.name or null) != null) tenants)
     );
+
+  tenantNameFromSegments =
+    segments:
+    let
+      parts = lib.concatMap (
+        seg:
+        let
+          s = toString seg;
+          p = lib.splitString ":" s;
+        in
+        if builtins.length p == 2 then
+          [
+            {
+              ns = builtins.elemAt p 0;
+              name = builtins.elemAt p 1;
+            }
+          ]
+        else
+          [ ]
+      ) segments;
+
+      hits = lib.filter (x: (x.ns == "tenants" || x.ns == "tenant") && x.name != "") parts;
+    in
+    if hits == [ ] then null else (builtins.head hits).name;
+
+  parseTenantNameFromAttachment =
+    a:
+    let
+      kind = toString (a.kind or "");
+      directName =
+        if a ? tenant && a.tenant != null then
+          toString a.tenant
+        else if a ? tenantName && a.tenantName != null then
+          toString a.tenantName
+        else if a ? name && a.name != null && kind == "tenant" then
+          toString a.name
+        else if
+          a ? subject
+          && builtins.isAttrs a.subject
+          && (a.subject.kind or null) == "tenant"
+          && (a.subject.name or null) != null
+        then
+          toString a.subject.name
+        else if
+          a ? ingressSubject
+          && builtins.isAttrs a.ingressSubject
+          && (a.ingressSubject.kind or null) == "tenant"
+          && (a.ingressSubject.name or null) != null
+        then
+          toString a.ingressSubject.name
+        else if
+          a ? from
+          && builtins.isAttrs a.from
+          && (a.from.kind or null) == "tenant"
+          && (a.from.name or null) != null
+        then
+          toString a.from.name
+        else if
+          a ? to && builtins.isAttrs a.to && (a.to.kind or null) == "tenant" && (a.to.name or null) != null
+        then
+          toString a.to.name
+        else
+          null;
+
+      segmentDerived = tenantNameFromSegments (
+        lib.filter (s: s != null && s != "") [
+          (a.segment or null)
+          (a.path or null)
+          (a.ref or null)
+        ]
+      );
+    in
+    if directName != null && directName != "" then directName else segmentDerived;
 
   attachedTenantNamesForUnit =
     site: unitName:
-    let
-      attachments = site.attachment or [ ];
-      parseTenantSegment =
-        seg:
-        let
-          parts = lib.splitString ":" (toString seg);
-        in
-        if builtins.length parts == 2 && builtins.elemAt parts 0 == "tenants" then
-          builtins.elemAt parts 1
-        else
-          null;
-    in
     lib.unique (
-      lib.filter
-        (x: x != null && x != "")
-        (map
-          (a:
-            if builtins.isAttrs a && (a.unit or null) == unitName then
-              parseTenantSegment (a.segment or "")
-            else
-              null)
-          attachments)
+      lib.filter (x: x != null && x != "") (
+        map (
+          a:
+          let
+            owner = utils.unitRefOfAttachment a;
+          in
+          if builtins.isAttrs a && owner == unitName then parseTenantNameFromAttachment a else null
+        ) (utils.attachmentsOf site)
+      )
     );
 
   tenantNetworksForUnit =
@@ -82,18 +148,26 @@ let
       names = attachedTenantNamesForUnit site unitName;
     in
     builtins.listToAttrs (
-      map
-        (name: {
-          name = toString name;
-          value = catalog.${name};
-        })
-        (lib.filter (name: catalog ? "${name}") names)
+      map (name: {
+        name = toString name;
+        value = catalog.${name};
+      }) (lib.filter (name: catalog ? "${name}") names)
     );
 
 in
 {
   build =
-    { lib, site, siteId, enterprise, ordering, p2pPool, rolesResult, wanResult, enforcementResult }:
+    {
+      lib,
+      site,
+      siteId,
+      enterprise,
+      ordering,
+      p2pPool,
+      rolesResult,
+      wanResult,
+      enforcementResult,
+    }:
     let
       siteName = toString (site.siteName or "${enterprise}.${siteId}");
       t0 = firstOrNull ((site.domains or { }).tenants or [ ]);
@@ -120,36 +194,32 @@ in
         else
           "none";
 
-      unitNames =
-        lib.unique (
-          (if site ? units && builtins.isAttrs site.units then builtins.attrNames site.units else [ ])
-          ++ (if site ? nodes && builtins.isAttrs site.nodes then builtins.attrNames site.nodes else [ ])
-          ++ (rolesResult.traversal.chain or [ ])
-          ++ builtins.attrNames (rolesResult.traversal.inferred or { })
-        );
+      unitNames = lib.unique (
+        (if site ? units && builtins.isAttrs site.units then builtins.attrNames site.units else [ ])
+        ++ (if site ? nodes && builtins.isAttrs site.nodes then builtins.attrNames site.nodes else [ ])
+        ++ (rolesResult.traversal.chain or [ ])
+        ++ builtins.attrNames (rolesResult.traversal.inferred or { })
+      );
 
-      nodes =
-        lib.listToAttrs (
-          map
-            (u: {
-              name = toString u;
-              value =
-                let
-                  unitName = toString u;
-                  base = nodeFromSite site unitName;
-                  attachedNetworks = tenantNetworksForUnit site unitName;
-                in
-                base
-                // {
-                  role = rolesResult.roleFromInput unitName;
-                  containers = base.containers or [ "default" ];
-                }
-                // lib.optionalAttrs (attachedNetworks != { }) {
-                  networks = attachedNetworks;
-                };
-            })
-            unitNames
-        );
+      nodes = lib.listToAttrs (
+        map (u: {
+          name = toString u;
+          value =
+            let
+              unitName = toString u;
+              base = nodeFromSite site unitName;
+              attachedNetworks = tenantNetworksForUnit site unitName;
+            in
+            base
+            // {
+              role = rolesResult.roleFromInput unitName;
+              containers = base.containers or [ "default" ];
+            }
+            // lib.optionalAttrs (attachedNetworks != { }) {
+              networks = attachedNetworks;
+            };
+        }) unitNames
+      );
 
       p2pLinks = p2pAlloc.alloc {
         site = {
@@ -160,50 +230,63 @@ in
         };
       };
 
-      coreNodeNames =
-        lib.sort (a: b: a < b)
-          (map toString (lib.filter (u: rolesResult.roleFromInput u == "core") unitNames));
+      coreNodeNames = lib.sort (a: b: a < b) (
+        map toString (lib.filter (u: rolesResult.roleFromInput u == "core") unitNames)
+      );
 
       _ =
-        if coreNodeNames == [ ] then
-          throw "network-solver: missing core unit for coreNodeNames"
-        else
-          true;
+        if coreNodeNames == [ ] then throw "network-solver: missing core unit for coreNodeNames" else true;
 
-      policyNodeName =
-        if rolesResult.policyUnit == null then null else toString rolesResult.policyUnit;
+      policyNodeName = if rolesResult.policyUnit == null then null else toString rolesResult.policyUnit;
 
-      upstreamSelectorNodeName =
-        firstOrNull
-          (lib.sort
-            (a: b: a < b)
-            (lib.filter (u: rolesResult.roleFromInput u == "upstream-selector") unitNames));
+      upstreamSelectorNodeName = firstOrNull (
+        lib.sort (a: b: a < b) (
+          lib.filter (u: rolesResult.roleFromInput u == "upstream-selector") unitNames
+        )
+      );
 
-      routed0 =
-        topoResolve (
-          enforcementResult
+      routed0 = topoResolve (
+        enforcementResult
+        // {
+          inherit
+            siteName
+            tenantV4Base
+            ulaPrefix
+            enterprise
+            siteId
+            coreNodeNames
+            policyNodeName
+            upstreamSelectorNodeName
+            ;
+          uplinkCoreNames = wanResult.uplinkCores or [ ];
+          uplinkNames = wanResult.uplinkNames or [ ];
+          p2p-pool = p2pPool;
+          aggregation = {
+            mode = aggregationMode;
+          };
+          inherit nodes;
+          links = p2pLinks // (wanResult.wanLinks or { }) // (site.links or { });
+        }
+      );
+
+      routed1 = routed0 // {
+        nodes = lib.mapAttrs (
+          _: node:
+          node
           // {
-            inherit siteName tenantV4Base ulaPrefix enterprise siteId coreNodeNames policyNodeName upstreamSelectorNodeName;
-            uplinkCoreNames = wanResult.uplinkCores or [ ];
-            uplinkNames = wanResult.uplinkNames or [ ];
-            p2p-pool = p2pPool;
-            aggregation = { mode = aggregationMode; };
-            inherit nodes;
-            links = p2pLinks // (wanResult.wanLinks or { }) // (site.links or { });
+            interfaces = lib.mapAttrs (_: normalizeRoutes) (node.interfaces or { });
           }
-        );
-
-      routed1 =
-        routed0 // {
-          nodes = lib.mapAttrs
-            (_: node: node // {
-              interfaces = lib.mapAttrs (_: normalizeRoutes) (node.interfaces or { });
-            })
-            (routed0.nodes or { });
-        };
+        ) (routed0.nodes or { });
+      };
 
       routed =
-        builtins.removeAttrs routed1 [ "_enforcement" "_nat" "p2p-pool" "tenantV4Base" "ulaPrefix" ]
+        builtins.removeAttrs routed1 [
+          "_enforcement"
+          "_nat"
+          "p2p-pool"
+          "tenantV4Base"
+          "ulaPrefix"
+        ]
         // {
           inherit enterprise siteId;
           siteName = routed1.siteName or siteName;
@@ -231,7 +314,8 @@ in
           };
         };
     in
-    routed // {
+    routed
+    // {
       query = import ../../../../lib/query/summary.nix { inherit lib routed; };
     };
 }

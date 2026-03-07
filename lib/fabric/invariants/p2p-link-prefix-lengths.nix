@@ -1,22 +1,15 @@
 { lib }:
 
 let
-  cidr = import ./cidr-utils.nix { inherit lib; };
+  common = import ./common.nix { inherit lib; };
+  ip = import ../../net/ip-utils.nix { inherit lib; };
 
-  assert_ = cond: msg: if cond then true else throw msg;
-
-  split =
-    s:
+  hasPrefixLength =
+    cidr: want:
     let
-      parts = lib.splitString "/" (toString s);
+      c = ip.splitCidr cidr;
     in
-    if builtins.length parts != 2 then
-      throw "invariants(p2p-link-prefix-lengths): invalid CIDR '${toString s}'"
-    else
-      {
-        ip = builtins.elemAt parts 0;
-        prefix = lib.toInt (builtins.elemAt parts 1);
-      };
+    c.prefix == want;
 
   checkEp =
     {
@@ -27,10 +20,7 @@ let
       addr,
       want,
     }:
-    let
-      c = split addr;
-    in
-    assert_ (c.prefix == want) ''
+    common.assert_ (hasPrefixLength addr want) ''
       invariants(p2p-link-prefix-lengths):
 
       invalid ${fam} prefix length on p2p endpoint
@@ -71,7 +61,7 @@ in
                   eps = l.endpoints or { };
                   epNames = builtins.attrNames eps;
 
-                  _members = assert_ (builtins.length epNames == 2) ''
+                  _members = common.assert_ (builtins.length epNames == 2) ''
                     invariants(p2p-link-prefix-lengths):
 
                     p2p link must have exactly 2 endpoints
@@ -90,7 +80,7 @@ in
                       a6 = ep.addr6 or null;
 
                       _a4 =
-                        assert_ (a4 != null) ''
+                        common.assert_ (a4 != null) ''
                           invariants(p2p-link-prefix-lengths):
 
                           missing addr4 on p2p endpoint

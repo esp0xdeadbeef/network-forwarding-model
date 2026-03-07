@@ -4,6 +4,9 @@ nodeName: topo:
 
 let
   sanitize = import ./sanitize.nix { inherit lib; };
+  routes = import ../model/routes.nix { inherit lib; };
+
+  ifaceRoutes = routes.ifaceRoutes;
 
   nodes = topo.nodes or { };
 
@@ -23,30 +26,13 @@ let
 
   vid = if haveVidSuffix then lib.toInt lastPart else null;
 
-  ifaceRoutes =
-    iface:
-    if iface ? routes && builtins.isAttrs iface.routes then
-      {
-        ipv4 = iface.routes.ipv4 or [ ];
-        ipv6 = iface.routes.ipv6 or [ ];
-      }
-    else
-      {
-        ipv4 = iface.routes4 or [ ];
-        ipv6 = iface.routes6 or [ ];
-      };
-
   keepRoute4 =
     r:
     if vid == null then
       true
     else
       let
-        tenantPrefix =
-          if topo ? tenantV4Base then
-            "${topo.tenantV4Base}.${toString vid}.0/24"
-          else
-            null;
+        tenantPrefix = if topo ? tenantV4Base then "${topo.tenantV4Base}.${toString vid}.0/24" else null;
       in
       tenantPrefix == null || (r.dst or "") == tenantPrefix;
 
@@ -56,11 +42,7 @@ let
       true
     else
       let
-        tenantPrefix =
-          if topo ? ulaPrefix then
-            "${topo.ulaPrefix}:${toString vid}::/64"
-          else
-            null;
+        tenantPrefix = if topo ? ulaPrefix then "${topo.ulaPrefix}:${toString vid}::/64" else null;
       in
       tenantPrefix == null || (r.dst or "") == tenantPrefix;
 
@@ -93,8 +75,7 @@ let
     else
       { };
 
-  interfaces =
-    lib.mapAttrs (_: iface: sanitizeTenantRoutes (rewriteVlanId iface)) ifaces0;
+  interfaces = lib.mapAttrs (_: iface: sanitizeTenantRoutes (rewriteVlanId iface)) ifaces0;
 
 in
 sanitize {

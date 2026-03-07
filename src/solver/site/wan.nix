@@ -1,4 +1,3 @@
-# ./src/solver/site/wan.nix
 { lib }:
 
 {
@@ -15,23 +14,22 @@
 
     let
       addr = import ../../../lib/model/addressing.nix { inherit lib; };
+      ip = import ../../../lib/net/ip-utils.nix { inherit lib; };
 
-      stripMask =
-        cidr:
-        let
-          parts = lib.splitString "/" (toString cidr);
-        in
-        if builtins.length parts == 0 then toString cidr else builtins.elemAt parts 0;
+      stripMask = ip.stripMask;
 
       tenantFromUplink =
         uplink:
-        if uplink ? ingressSubject
-           && uplink.ingressSubject ? kind
-           && uplink.ingressSubject.kind == "tenant"
-           && uplink.ingressSubject ? name
-           && uplink.ingressSubject.name != null
-        then uplink.ingressSubject.name
-        else "unclassified";
+        if
+          uplink ? ingressSubject
+          && uplink.ingressSubject ? kind
+          && uplink.ingressSubject.kind == "tenant"
+          && uplink.ingressSubject ? name
+          && uplink.ingressSubject.name != null
+        then
+          uplink.ingressSubject.name
+        else
+          "unclassified";
 
       allUnits = builtins.attrNames nodesBase;
 
@@ -55,7 +53,8 @@
 
       nodeLevelUplinksForCore =
         core:
-        if nodesBase ? "${core}"
+        if
+          nodesBase ? "${core}"
           && builtins.isAttrs nodesBase.${core}
           && nodesBase.${core} ? uplinks
           && builtins.isAttrs nodesBase.${core}.uplinks
@@ -105,53 +104,39 @@
           nodeUplinks = nodeLevelUplinksForCore core;
           names = lib.sort (a: b: a < b) (builtins.attrNames nodeUplinks);
         in
-        map
-          (name:
-            let
-              v = nodeUplinks.${name};
-            in
-            if builtins.isAttrs v then
-              v // { name = toString name; }
-            else
-              { name = toString name; })
-          names;
+        map (
+          name:
+          let
+            v = nodeUplinks.${name};
+          in
+          if builtins.isAttrs v then v // { name = toString name; } else { name = toString name; }
+        ) names;
 
       dedupeByName =
         specs:
-        builtins.attrValues
-          (builtins.foldl'
-            (acc: spec: acc // { "${spec.name}" = spec; })
-            { }
-            specs);
+        builtins.attrValues (builtins.foldl' (acc: spec: acc // { "${spec.name}" = spec; }) { } specs);
 
-      upstreamCoresEffective =
-        lib.listToAttrs (
-          map
-            (core:
-              let
-                explicitSpecs = explicitSpecsForCore core;
-                explicitNames = map (s: s.name) explicitSpecs;
-                mergedExplicit = map (spec: mergeUplinkSpec core spec) explicitSpecs;
-                nodeOnly =
-                  lib.filter (spec: !(lib.elem spec.name explicitNames)) (nodeOnlySpecsForCore core);
-                combined = dedupeByName (mergedExplicit ++ nodeOnly);
-              in
-              {
-                name = core;
-                value = lib.sort (a: b: a.name < b.name) combined;
-              })
-            sortedCoreUnits
-        );
+      upstreamCoresEffective = lib.listToAttrs (
+        map (
+          core:
+          let
+            explicitSpecs = explicitSpecsForCore core;
+            explicitNames = map (s: s.name) explicitSpecs;
+            mergedExplicit = map (spec: mergeUplinkSpec core spec) explicitSpecs;
+            nodeOnly = lib.filter (spec: !(lib.elem spec.name explicitNames)) (nodeOnlySpecsForCore core);
+            combined = dedupeByName (mergedExplicit ++ nodeOnly);
+          in
+          {
+            name = core;
+            value = lib.sort (a: b: a.name < b.name) combined;
+          }
+        ) sortedCoreUnits
+      );
 
       uplinkSpecsForCore =
-        core:
-        if upstreamCoresEffective ? "${core}" then
-          upstreamCoresEffective.${core}
-        else
-          [ ];
+        core: if upstreamCoresEffective ? "${core}" then upstreamCoresEffective.${core} else [ ];
 
-      uplinkCores =
-        lib.filter (core: builtins.length (uplinkSpecsForCore core) > 0) sortedCoreUnits;
+      uplinkCores = lib.filter (core: builtins.length (uplinkSpecsForCore core) > 0) sortedCoreUnits;
 
       _haveUplinkCore =
         if uplinkCores == [ ] then
@@ -167,16 +152,13 @@
         else
           true;
 
-      uplinkNameEntries =
-        lib.concatMap
-          (core:
-            map
-              (uplinkSpec: {
-                name = uplinkSpec.name;
-                value = toString core;
-              })
-              (uplinkSpecsForCore core))
-          uplinkCores;
+      uplinkNameEntries = lib.concatMap (
+        core:
+        map (uplinkSpec: {
+          name = uplinkSpec.name;
+          value = toString core;
+        }) (uplinkSpecsForCore core)
+      ) uplinkCores;
 
       uplinkCoreByName = lib.listToAttrs uplinkNameEntries;
 
@@ -210,20 +192,15 @@
         in
         addr.hostCidr (hostIndex + 1) base;
 
-      mkWanLL6 =
-        hostIndex:
-        addr.hostCidr (hostIndex + 1) "fe80::/128";
+      mkWanLL6 = hostIndex: addr.hostCidr (hostIndex + 1) "fe80::/128";
 
-      wanSpecs =
-        lib.concatMap
-          (core:
-            map
-              (uplinkSpec: {
-                core = toString core;
-                uplink = uplinkSpec;
-              })
-              (uplinkSpecsForCore core))
-          uplinkCores;
+      wanSpecs = lib.concatMap (
+        core:
+        map (uplinkSpec: {
+          core = toString core;
+          uplink = uplinkSpec;
+        }) (uplinkSpecsForCore core)
+      ) uplinkCores;
 
       mkWanLink =
         idx: spec:
@@ -270,15 +247,16 @@
 
       wanLinks = lib.listToAttrs (lib.imap0 mkWanLink wanSpecs);
 
-      uplinkNames =
-        lib.sort (a: b: a < b) (lib.unique (builtins.attrNames uplinkCoreByName));
+      uplinkNames = lib.sort (a: b: a < b) (lib.unique (builtins.attrNames uplinkCoreByName));
 
     in
-    builtins.seq _haveCore (builtins.seq _haveUplinkCore {
-      coreUnits = sortedCoreUnits;
-      uplinkCores = uplinkCores;
-      uplinkCoreByName = uplinkCoreByName;
-      uplinkNames = uplinkNames;
-      wanLinks = wanLinks;
-    });
+    builtins.seq _haveCore (
+      builtins.seq _haveUplinkCore {
+        coreUnits = sortedCoreUnits;
+        uplinkCores = uplinkCores;
+        uplinkCoreByName = uplinkCoreByName;
+        uplinkNames = uplinkNames;
+        wanLinks = wanLinks;
+      }
+    );
 }
