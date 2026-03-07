@@ -154,6 +154,80 @@ let
     proto = "connected";
   };
 
+  isNetworkAttr =
+    name: v:
+    builtins.isAttrs v
+    && (v ? ipv4 || v ? ipv6)
+    && !(lib.elem name [
+      "role"
+      "interfaces"
+      "networks"
+      "containers"
+      "uplinks"
+    ]);
+
+  networksOf =
+    node:
+    if node ? networks && builtins.isAttrs node.networks then
+      let
+        nets = node.networks;
+      in
+      if nets ? ipv4 || nets ? ipv6 then
+        { default = nets; }
+      else
+        nets
+    else
+      lib.filterAttrs isNetworkAttr node;
+
+  logicalInterfaceNameFor =
+    netName:
+    "tenant-${toString netName}";
+
+  mkLogicalIface =
+    ifName: netName: net:
+    let
+      subnet4 = net.ipv4 or null;
+      subnet6 = net.ipv6 or null;
+    in
+    {
+      link = null;
+      logical = true;
+      kind = net.kind or "tenant";
+      type = "logical";
+      carrier = "logical";
+
+      tenant =
+        if net ? name && net.name != null then
+          toString net.name
+        else
+          toString netName;
+
+      gateway = false;
+
+      addr4 = null;
+      peerAddr4 = null;
+      addr6 = null;
+      peerAddr6 = null;
+      addr6Public = null;
+
+      subnet4 = subnet4;
+      subnet6 = subnet6;
+
+      ll6 = null;
+      uplink = null;
+      upstream = null;
+      overlay = null;
+
+      routes = {
+        ipv4 = lib.optional (subnet4 != null) (mkConnectedRoute subnet4);
+        ipv6 = lib.optional (subnet6 != null) (mkConnectedRoute subnet6);
+      };
+
+      ra6Prefixes = [ ];
+      acceptRA = false;
+      dhcp = false;
+    };
+
   mkIface =
     linkName: l: nodeName:
     let
@@ -258,14 +332,44 @@ let
 
   interfacesForNode =
     nodeName:
-    lib.listToAttrs (
-      map
-        (lname: {
-          name = lname;
-          value = mkIface lname links.${lname} nodeName;
-        })
-        (linkNamesForNode nodeName)
-    );
+    let
+      node = nodes0.${nodeName} or { };
+
+      linkInterfaces =
+        lib.listToAttrs (
+          map
+            (lname: {
+              name = lname;
+              value = mkIface lname links.${lname} nodeName;
+            })
+            (linkNamesForNode nodeName)
+        );
+
+      nets = networksOf node;
+      netNames = lib.sort (a: b: a < b) (builtins.attrNames nets);
+
+      logicalInterfaces =
+        lib.listToAttrs (
+          map
+            (netName:
+              let
+                ifName = logicalInterfaceNameFor netName;
+              in
+              {
+                name = ifName;
+                value = mkLogicalIface ifName netName nets.${netName};
+              })
+            netNames
+        );
+
+      clashes = lib.filter (n: linkInterfaces ? "${n}") (builtins.attrNames logicalInterfaces);
+
+      _noIfaceClashes =
+        assert_
+          (clashes == [ ])
+          "topology-resolve: logical tenant interface(s) collide with link-backed interface(s) on node '${nodeName}': ${lib.concatStringsSep ", " clashes}";
+    in
+    builtins.seq _noIfaceClashes (linkInterfaces // logicalInterfaces);
 
   stripLinuxSpecific = node: builtins.removeAttrs node [ "routingDomain" ];
 
