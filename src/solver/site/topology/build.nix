@@ -127,19 +127,45 @@ let
     in
     if directName != null && directName != "" then directName else segmentDerived;
 
+  inferTenantNamesFromUnitName =
+    site: unitName:
+    let
+      catalog = tenantCatalog site;
+      tenantNames = lib.sort (a: b: a < b) (builtins.attrNames catalog);
+
+      lowerUnit = lib.toLower (toString unitName);
+
+      matches = lib.filter (
+        tenantName:
+        let
+          t = lib.toLower (toString tenantName);
+        in
+        lib.hasSuffix "-${t}" lowerUnit
+        || lib.hasSuffix "_${t}" lowerUnit
+        || lib.hasSuffix ":${t}" lowerUnit
+        || lowerUnit == t
+      ) tenantNames;
+    in
+    matches;
+
   attachedTenantNamesForUnit =
     site: unitName:
-    lib.unique (
-      lib.filter (x: x != null && x != "") (
-        map (
-          a:
-          let
-            owner = utils.unitRefOfAttachment a;
-          in
-          if builtins.isAttrs a && owner == unitName then parseTenantNameFromAttachment a else null
-        ) (utils.attachmentsOf site)
-      )
-    );
+    let
+      explicit = lib.unique (
+        lib.filter (x: x != null && x != "") (
+          map (
+            a:
+            let
+              owner = utils.unitRefOfAttachment a;
+            in
+            if builtins.isAttrs a && owner == unitName then parseTenantNameFromAttachment a else null
+          ) (utils.attachmentsOf site)
+        )
+      );
+
+      inferred = inferTenantNamesFromUnitName site unitName;
+    in
+    if explicit != [ ] then explicit else inferred;
 
   tenantNetworksForUnit =
     site: unitName:
