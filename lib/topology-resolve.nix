@@ -5,6 +5,7 @@ topoRaw:
 let
   helpers = import ./topology/resolve-helpers.nix { inherit lib; };
   link = import ./topology/link-utils.nix { inherit lib; };
+  tenantOwnersMod = import ./routing/tenant-prefix-owners.nix { inherit lib; };
 
   assert_ = cond: msg: if cond then true else throw msg;
 
@@ -184,11 +185,17 @@ let
     links = links';
   };
 
+  tenantPrefixOwners = tenantOwnersMod.build topo1;
+
+  topo2 = topo1 // {
+    tenantPrefixOwners = tenantPrefixOwners;
+  };
+
   resolveLoopbacks = import ./routing/resolve-loopbacks.nix { inherit lib; };
   routingStatic = import ./routing/static.nix { inherit lib; };
 
-  topo2 = resolveLoopbacks.attach topo1;
-  topo3 = routingStatic.attach topo2;
+  topo3 = resolveLoopbacks.attach topo2;
+  topo4 = routingStatic.attach topo3;
 
 in
-builtins.seq _validatedLinks topo3
+builtins.seq _validatedLinks topo4

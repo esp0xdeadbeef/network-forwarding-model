@@ -1,38 +1,16 @@
 { lib }:
 
 let
-  cidr = import ../fabric/invariants/cidr-utils.nix { inherit lib; };
   ip = import ../net/ip-utils.nix { inherit lib; };
-  network = import ../model/network-utils.nix { inherit lib; };
+  prefix = import ../model/prefix-utils.nix { inherit lib; };
+  routes = import ../model/routes.nix { inherit lib; };
 
   default4 = "0.0.0.0/0";
   default6 = "::/0";
 
-  splitCidr = ip.splitCidr;
-  intToV4 = ip.intToIPv4;
   stripMask = ip.stripMask;
-
-  canonicalCidr =
-    cidrStr:
-    let
-      c = splitCidr cidrStr;
-      r = cidr.cidrRange cidrStr;
-      base = if r.family == 4 then intToV4 r.start else toString r.start;
-    in
-    "${base}/${toString c.prefix}";
-
-  ifaceRoutes =
-    iface:
-    if iface ? routes && builtins.isAttrs iface.routes then
-      {
-        ipv4 = iface.routes.ipv4 or [ ];
-        ipv6 = iface.routes.ipv6 or [ ];
-      }
-    else
-      {
-        ipv4 = iface.routes4 or [ ];
-        ipv6 = iface.routes6 or [ ];
-      };
+  canonicalCidr = prefix.canonicalCidr;
+  ifaceRoutes = routes.ifaceRoutes;
 
   mkRoute4 = dst: via4: proto: {
     dst = canonicalCidr dst;
@@ -71,124 +49,7 @@ let
       };
     };
 
-  networksOf = network.networksOfNode { };
-
   allNodeNames = topo: builtins.attrNames (topo.nodes or { });
-
-  prefixEntriesFromIfaces =
-    node:
-    let
-      ifs = node.interfaces or { };
-      ifNames = builtins.attrNames ifs;
-    in
-    lib.concatMap (
-      ifName:
-      let
-        iface = ifs.${ifName};
-      in
-      lib.flatten [
-        (lib.optional (iface ? addr4 && iface.addr4 != null) {
-          family = 4;
-          dst = canonicalCidr iface.addr4;
-        })
-        (lib.optional (iface ? addr6 && iface.addr6 != null) {
-          family = 6;
-          dst = canonicalCidr iface.addr6;
-        })
-        (lib.optional (iface ? addr6Public && iface.addr6Public != null) {
-          family = 6;
-          dst = canonicalCidr iface.addr6Public;
-        })
-        (map (p: {
-          family = 6;
-          dst = canonicalCidr p;
-        }) (iface.ra6Prefixes or [ ]))
-      ]
-    ) ifNames;
-
-  prefixEntriesFromNetworks =
-    node:
-    let
-      nets = networksOf node;
-      netNames = builtins.attrNames nets;
-    in
-    lib.concatMap (
-      netName:
-      let
-        net = nets.${netName};
-      in
-      lib.flatten [
-        (lib.optional (net ? ipv4 && net.ipv4 != null) {
-          family = 4;
-          dst = canonicalCidr net.ipv4;
-        })
-        (lib.optional (net ? ipv6 && net.ipv6 != null) {
-          family = 6;
-          dst = canonicalCidr net.ipv6;
-        })
-      ]
-    ) netNames;
-
-  ownConnectedPrefixes =
-    node:
-    builtins.foldl' (acc: e: acc // { "${toString e.family}|${e.dst}" = true; }) { } (
-      prefixEntriesFromIfaces node ++ prefixEntriesFromNetworks node
-    );
-
-  prefixSetFromP2pIfaces =
-    node:
-    let
-      ifs = node.interfaces or { };
-      ifNames = builtins.attrNames ifs;
-    in
-    builtins.foldl' (
-      acc: ifName:
-      let
-        iface = ifs.${ifName};
-      in
-      if (iface.kind or null) != "p2p" then
-        acc
-      else
-        acc
-        // (lib.optionalAttrs (iface ? addr4 && iface.addr4 != null) {
-          "4|${canonicalCidr iface.addr4}" = {
-            family = 4;
-            dst = canonicalCidr iface.addr4;
-          };
-        })
-        // (lib.optionalAttrs (iface ? addr6 && iface.addr6 != null) {
-          "6|${canonicalCidr iface.addr6}" = {
-            family = 6;
-            dst = canonicalCidr iface.addr6;
-          };
-        })
-    ) { } ifNames;
-
-  prefixSetFromTenantNetworks =
-    node:
-    let
-      nets = networksOf node;
-      netNames = builtins.attrNames nets;
-    in
-    builtins.foldl' (
-      acc: netName:
-      let
-        net = nets.${netName};
-      in
-      acc
-      // (lib.optionalAttrs (net ? ipv4 && net.ipv4 != null) {
-        "4|${canonicalCidr net.ipv4}" = {
-          family = 4;
-          dst = canonicalCidr net.ipv4;
-        };
-      })
-      // (lib.optionalAttrs (net ? ipv6 && net.ipv6 != null) {
-        "6|${canonicalCidr net.ipv6}" = {
-          family = 6;
-          dst = canonicalCidr net.ipv6;
-        };
-      })
-    ) { } netNames;
 
   buildP2pAggregate =
     topo: family:
@@ -233,12 +94,17 @@ in
     dedupeRoutes
     addRoutesOnLink
     allNodeNames
-    ownConnectedPrefixes
-    prefixSetFromP2pIfaces
-    prefixSetFromTenantNetworks
     buildP2pAggregate
     buildTenantAggregate
     aggregationMode
     uplinkCores
     ;
+  inherit (prefix)
+    prefixEntriesFromIfaces
+    prefixEntriesFromNetworks
+    ownConnectedPrefixes
+    prefixSetFromP2pIfaces
+    prefixSetFromNetworks
+    ;
+  prefixSetFromTenantNetworks = prefix.prefixSetFromNetworks;
 }

@@ -1,34 +1,15 @@
 { lib }:
 
 let
-  cidr = import ../fabric/invariants/cidr-utils.nix { inherit lib; };
   ip = import ../net/ip-utils.nix { inherit lib; };
-  network = import ../model/network-utils.nix { inherit lib; };
+  prefix = import ../model/prefix-utils.nix { inherit lib; };
+  routes = import ../model/routes.nix { inherit lib; };
 
   splitCidr = ip.splitCidr;
-  intToV4 = ip.intToIPv4;
-
-  canonicalCidr =
-    cidrStr:
-    let
-      c = splitCidr cidrStr;
-      r = cidr.cidrRange cidrStr;
-      base = if r.family == 4 then intToV4 r.start else toString r.start;
-    in
-    "${base}/${toString c.prefix}";
-
-  ifaceRoutes =
-    iface:
-    if iface ? routes && builtins.isAttrs iface.routes then
-      {
-        ipv4 = iface.routes.ipv4 or [ ];
-        ipv6 = iface.routes.ipv6 or [ ];
-      }
-    else
-      {
-        ipv4 = iface.routes4 or [ ];
-        ipv6 = iface.routes6 or [ ];
-      };
+  canonicalCidr = prefix.canonicalCidr;
+  ifaceRoutes = routes.ifaceRoutes;
+  mkConnectedRoute = prefix.mkConnectedRoute;
+  networksOf = prefix.networksOf { };
 
   hasPrefixLength =
     cidrStr: want:
@@ -36,11 +17,6 @@ let
       c = splitCidr cidrStr;
     in
     c.prefix == want;
-
-  mkConnectedRoute = dst: {
-    dst = canonicalCidr dst;
-    proto = "connected";
-  };
 
   logicalInterfaceNameFor = netName: "tenant-${toString netName}";
 
@@ -169,8 +145,6 @@ let
       carrier = prebuilt.carrier or generic.carrier;
       routes = ifaceRoutes prebuilt;
     };
-
-  networksOf = network.networksOfNode { };
 
 in
 {

@@ -19,8 +19,12 @@ let
       fabricHost
     else if routed ? coreNodeName && builtins.isString routed.coreNodeName then
       routed.coreNodeName
+    else if
+      routed ? coreNodeNames && builtins.isList routed.coreNodeNames && routed.coreNodeNames != [ ]
+    then
+      builtins.elemAt routed.coreNodeNames 0
     else
-      throw "node-context: missing required routed.coreNodeName (fabric host)";
+      throw "node-context: missing required routed.coreNodeName/coreNodeNames (fabric host)";
 
   requestedNode =
     if nodeName != null then

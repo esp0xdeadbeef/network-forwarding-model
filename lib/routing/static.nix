@@ -7,12 +7,24 @@ let
   remotePrefixesOfKind =
     topo: nodeName: kind:
     let
-      prefixSetFor =
-        otherNode:
-        if kind == "p2p" then
-          builtins.attrValues (helpers.prefixSetFromP2pIfaces otherNode)
+      tenantOwnerEntries =
+        if kind == "tenant" then builtins.attrValues (topo.tenantPrefixOwners or { }) else [ ];
+
+      perTenantOwner =
+        entry:
+        if entry.owner == nodeName then
+          [ ]
         else
-          builtins.attrValues (helpers.prefixSetFromTenantNetworks otherNode);
+          [
+            {
+              family = entry.family;
+              dst = entry.dst;
+              owner = entry.owner;
+              kind = "tenant";
+            }
+          ];
+
+      prefixSetFor = otherNode: builtins.attrValues (helpers.prefixSetFromP2pIfaces otherNode);
 
       perNode =
         other:
@@ -24,11 +36,15 @@ let
             x
             // {
               owner = other;
-              inherit kind;
+              kind = "p2p";
             }
           ) (prefixSetFor topo.nodes.${other});
+
     in
-    lib.concatMap perNode (helpers.allNodeNames topo);
+    if kind == "tenant" then
+      lib.concatMap perTenantOwner tenantOwnerEntries
+    else
+      lib.concatMap perNode (helpers.allNodeNames topo);
 
   resolveRemotePrefix =
     topo: nodeName: dstEntry:
