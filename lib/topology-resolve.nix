@@ -184,29 +184,41 @@ let
     "tenant-${toString netName}";
 
   mkLogicalIface =
-    ifName: netName: net:
+    nodeName: ifName: netName: net:
     let
-      subnet4 = net.ipv4 or null;
-      subnet6 = net.ipv6 or null;
-    in
-    {
-      link = null;
-      logical = true;
-      kind = net.kind or "tenant";
-      type = "logical";
-      carrier = "logical";
-
-      tenant =
+      subnet4 = if net ? ipv4 && net.ipv4 != null then canonicalCidr net.ipv4 else null;
+      subnet6 = if net ? ipv6 && net.ipv6 != null then canonicalCidr net.ipv6 else null;
+      tenantName =
         if net ? name && net.name != null then
           toString net.name
         else
           toString netName;
+    in
+    {
+      name = ifName;
+      node = nodeName;
+      interface = ifName;
+      link = ifName;
+      logical = true;
+      virtual = true;
+      l2 = false;
+      kind = net.kind or "tenant";
+      type = "logical";
+      carrier = "logical";
+
+      tenant = tenantName;
+      network = {
+        name = tenantName;
+        kind = net.kind or "tenant";
+        ipv4 = subnet4;
+        ipv6 = subnet6;
+      };
 
       gateway = false;
 
-      addr4 = null;
+      addr4 = subnet4;
       peerAddr4 = null;
-      addr6 = null;
+      addr6 = subnet6;
       peerAddr6 = null;
       addr6Public = null;
 
@@ -357,7 +369,7 @@ let
               in
               {
                 name = ifName;
-                value = mkLogicalIface ifName netName nets.${netName};
+                value = mkLogicalIface nodeName ifName netName nets.${netName};
               })
             netNames
         );
