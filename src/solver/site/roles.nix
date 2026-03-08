@@ -2,19 +2,33 @@
 
 {
   compute =
-    { lib, site, enterprise, siteId, ordering, accessUnits, allUnits }:
+    {
+      lib,
+      site,
+      enterprise,
+      siteId,
+      ordering,
+      accessUnits,
+      allUnits,
+    }:
 
     let
       validate = import ./roles/validate.nix { inherit lib; };
       derive = import ../../util/derive.nix { inherit lib; };
 
-      orderingEdges =
-        map (p: { a = builtins.elemAt p 0; b = builtins.elemAt p 1; })
-          (lib.filter (p: builtins.isList p && builtins.length p == 2) ordering);
+      orderingEdges = map (p: {
+        a = builtins.elemAt p 0;
+        b = builtins.elemAt p 1;
+      }) (lib.filter (p: builtins.isList p && builtins.length p == 2) ordering);
 
       uniq = xs: lib.unique xs;
 
-      nodesInOrdering = uniq (lib.concatMap (e: [ e.a e.b ]) orderingEdges);
+      nodesInOrdering = uniq (
+        lib.concatMap (e: [
+          e.a
+          e.b
+        ]) orderingEdges
+      );
 
       countIn = n: xs: builtins.length (lib.filter (x: x == n) xs);
 
@@ -24,11 +38,16 @@
       outsOf = n: lib.filter (e: e.a == n) orderingEdges;
 
       roleFromInputExplicit =
-        unit:
+        node:
         let
-          n = toString unit;
+          n = toString node;
         in
-        if site ? units && site.units ? "${n}" then (site.units.${n}.role or null) else null;
+        if site ? nodes && site.nodes ? "${n}" then
+          (site.nodes.${n}.role or null)
+        else if site ? units && site.units ? "${n}" then
+          (site.units.${n}.role or null)
+        else
+          null;
 
       allowFanoutHere =
         n:
@@ -36,10 +55,6 @@
           outs = outsOf n;
           targets = map (e: e.b) outs;
           allTargetsAreSinks = lib.all (t: outdeg t == 0) targets;
-          # Allow policy-like fanout patterns even if role isn't explicitly provided:
-          # - multiple outgoing edges
-          # - all targets are sinks (access units)
-          # - node is not a root (has a predecessor)
           notRoot = (indeg n) > 0;
         in
         (builtins.length outs) > 1 && allTargetsAreSinks && notRoot;
@@ -67,7 +82,8 @@
       chain =
         let
           start = coreByOrdering;
-          go = seen: cur:
+          go =
+            seen: cur:
             if cur == null then
               seen
             else if lib.elem cur seen then
@@ -85,58 +101,66 @@
           at = i: builtins.elemAt chain i;
 
           base =
-            if len == 4 then {
-              "${at 0}" = "core";
-              "${at 1}" = "upstream-selector";
-              "${at 2}" = "policy";
-              "${at 3}" = "access";
-            } else if len == 3 && anyBranchInChain then {
-              # e.g. core -> upstream-selector -> policy, and policy fans out to access sinks
-              "${at 0}" = "core";
-              "${at 1}" = "upstream-selector";
-              "${at 2}" = "policy";
-            } else if len == 3 then {
-              "${at 0}" = "core";
-              "${at 1}" = "policy";
-              "${at 2}" = "access";
-            } else if len == 2 then {
-              "${at 0}" = "core";
-              "${at 1}" = "access";
-            } else
+            if len == 4 then
+              {
+                "${at 0}" = "core";
+                "${at 1}" = "upstream-selector";
+                "${at 2}" = "policy";
+                "${at 3}" = "access";
+              }
+            else if len == 3 && anyBranchInChain then
+              {
+                "${at 0}" = "core";
+                "${at 1}" = "upstream-selector";
+                "${at 2}" = "policy";
+              }
+            else if len == 3 then
+              {
+                "${at 0}" = "core";
+                "${at 1}" = "policy";
+                "${at 2}" = "access";
+              }
+            else if len == 2 then
+              {
+                "${at 0}" = "core";
+                "${at 1}" = "access";
+              }
+            else
               { };
         in
-        builtins.foldl'
-          (acc: u: acc // { "${toString u}" = "access"; })
-          base
-          accessUnits;
+        builtins.foldl' (acc: u: acc // { "${toString u}" = "access"; }) base accessUnits;
 
       roleFromInput =
-        unit:
+        node:
         let
-          n = toString unit;
+          n = toString node;
           explicit = roleFromInputExplicit n;
-          inferred =
-            if inferredRolesFromOrdering ? "${n}" then inferredRolesFromOrdering.${n} else null;
+          inferred = if inferredRolesFromOrdering ? "${n}" then inferredRolesFromOrdering.${n} else null;
           derived = derive.roleForUnit n;
         in
-        if explicit != null then explicit
-        else if inferred != null then inferred
-        else derived;
+        if explicit != null then
+          explicit
+        else if inferred != null then
+          inferred
+        else
+          derived;
 
-      missingRoles = lib.filter (u: roleFromInput u == null) allUnits;
+      missingRoles = lib.filter (n: roleFromInput n == null) allUnits;
 
       assertions =
-        if missingRoles == [ ] then true else
-        throw ''
-          network-solver: missing required unit role(s)
+        if missingRoles == [ ] then
+          true
+        else
+          throw ''
+            network-solver: missing required node role(s)
 
-          site: ${enterprise}.${siteId}
-          units missing roles: ${lib.concatStringsSep ", " (map toString missingRoles)}
-        '';
+            site: ${enterprise}.${siteId}
+            nodes missing roles: ${lib.concatStringsSep ", " (map toString missingRoles)}
+          '';
 
       policyUnit =
         let
-          policies = lib.filter (u: (roleFromInput u) == "policy") allUnits;
+          policies = lib.filter (n: (roleFromInput n) == "policy") allUnits;
         in
         if policies == [ ] then null else lib.head (lib.sort (a: b: toString a < toString b) policies);
 
@@ -146,16 +170,19 @@
         edges = orderingEdges;
         inferred = inferredRolesFromOrdering;
         coreUnitHint = coreByOrdering;
-        policyFanout =
-          if policyUnit == null then
-            [ ]
-          else
-            map (e: e.b) (outsOf (toString policyUnit));
+        policyFanout = if policyUnit == null then [ ] else map (e: e.b) (outsOf (toString policyUnit));
       };
 
     in
     {
       validate = validate;
-      inherit roleFromInput chain orderingEdges traversal policyUnit assertions;
+      inherit
+        roleFromInput
+        chain
+        orderingEdges
+        traversal
+        policyUnit
+        assertions
+        ;
     };
 }

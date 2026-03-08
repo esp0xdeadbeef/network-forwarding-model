@@ -1,23 +1,33 @@
 { lib }:
-{ siteName, units, roleFromInput }:
+{
+  siteName,
+  nodes,
+  roleFromInput,
+}:
 
 let
-  missing = lib.filter (u: let r = roleFromInput u; in r == null || r == "") (builtins.attrNames units);
+  missing = lib.filter (
+    n:
+    let
+      r = roleFromInput n;
+    in
+    r == null || r == ""
+  ) (builtins.attrNames nodes);
 in
 if missing == [ ] then
   true
 else
   throw ''
-    network-solver: missing required unit role(s)
+    network-solver: missing required node role(s)
 
     site: ${siteName}
 
-    units:
-    ${builtins.toJSON units}
+    nodes:
+    ${builtins.toJSON nodes}
 
     inferredRoles:
-    ${builtins.toJSON (builtins.mapAttrs (_: roleFromInput) units)}
+    ${builtins.toJSON (builtins.mapAttrs (_: roleFromInput) nodes)}
 
-    units missing roles:
+    nodes missing roles:
     ${builtins.concatStringsSep ", " missing}
   ''

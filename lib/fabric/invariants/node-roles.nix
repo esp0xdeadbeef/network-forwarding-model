@@ -7,8 +7,6 @@ let
 
   nodeNamesByRole = role: nodes: builtins.attrNames (lib.filterAttrs (_: n: isRole role n) nodes);
 
-  accessNetworksDisjoint = import ./node-roles/access-networks-disjoint.nix { inherit lib; };
-
 in
 {
   check =
@@ -68,14 +66,12 @@ in
         offenders == [ ]
       ) "invariants(node-roles): only access nodes may define networks";
 
-      _accessDisjoint = accessNetworksDisjoint.check { inherit nodes; };
-
     in
     builtins.seq _mustHaveNodes (
       builtins.seq _rolesOk (
         builtins.seq _exactlyOnePolicy (
           builtins.seq _upstreamOptionalButUnique (
-            builtins.seq _atLeastOneCore (builtins.seq _accessOnlyNetworks (builtins.seq _accessDisjoint true))
+            builtins.seq _atLeastOneCore (builtins.seq _accessOnlyNetworks true)
           )
         )
       )

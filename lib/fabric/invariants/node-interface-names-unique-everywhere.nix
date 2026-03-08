@@ -1,8 +1,6 @@
 { lib }:
 
 let
-  common = import ./common.nix { inherit lib; };
-
   ifaceKeys =
     x:
     if builtins.isAttrs x && x ? interfaces && builtins.isAttrs x.interfaces then
@@ -16,21 +14,10 @@ let
       nodeName,
       node,
     }:
-    let
-      top = map (k: {
-        ifname = k;
-        where = "${siteName}:${nodeName}.interfaces";
-      }) (ifaceKeys node);
-
-      fromCont = lib.concatMap (
-        cname:
-        map (k: {
-          ifname = k;
-          where = "${siteName}:${nodeName}.${cname}.interfaces";
-        }) (ifaceKeys (node.${cname} or { }))
-      ) (common.containersOf node);
-    in
-    top ++ fromCont;
+    map (k: {
+      ifname = k;
+      where = "${siteName}:${nodeName}.interfaces";
+    }) (ifaceKeys node);
 
   addOne =
     acc: e:

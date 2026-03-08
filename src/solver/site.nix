@@ -43,7 +43,11 @@ let
   );
 
   allUnits = lib.unique (
-    orderedUnits ++ accessUnits ++ builtins.attrNames (site.routerLoopbacks or { })
+    orderedUnits
+    ++ accessUnits
+    ++ builtins.attrNames (site.routerLoopbacks or { })
+    ++ builtins.attrNames (site.nodes or { })
+    ++ builtins.attrNames (site.units or { })
   );
 
   rolesResult = rolesMod.compute {
@@ -65,7 +69,7 @@ let
       rolesResult
       ;
     roleFromInput = rolesResult.roleFromInput;
-    nodesBase = site.units or site.nodes or { };
+    nodesBase = site.nodes or site.units or { };
   };
   enforcementResult = enfMod.build {
     inherit

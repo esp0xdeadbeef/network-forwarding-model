@@ -16,7 +16,6 @@ let
   checkOne =
     {
       siteName,
-      siteKey,
       nodeName,
       fam,
       addr,
@@ -31,12 +30,11 @@ let
 
       routerLoopbacks must be inside addressPools.local
 
-        siteKey: ${siteKey}
-        site:    ${siteName}
-        node:    ${nodeName}
-        family:  IPv${toString fam}
+        site: ${siteName}
+        node: ${nodeName}
+        family: IPv${toString fam}
 
-        loopback: ${toString addr}
+        loopback:  ${toString addr}
         localPool: ${toString pool}
     '';
 
@@ -46,16 +44,13 @@ in
     { site }:
     let
       siteName = toString (site.siteName or "<unknown-site>");
-      siteKey = toString (site.compilerIR.id or site.siteName or "<unknown-siteKey>");
-      ir = site.compilerIR or { };
-
-      pools = ir.addressPools or { };
+      pools = site.addressPools or { };
       local = pools.local or { };
 
       pool4 = local.ipv4 or null;
       pool6 = local.ipv6 or null;
 
-      lbs = ir.routerLoopbacks or { };
+      lbs = site.routerLoopbacks or { };
 
       nodes = builtins.attrNames lbs;
 
@@ -72,7 +67,7 @@ in
               true
             else
               checkOne {
-                inherit siteName siteKey nodeName;
+                inherit siteName nodeName;
                 fam = 4;
                 addr = a4;
                 pool = pool4;
@@ -83,7 +78,7 @@ in
               true
             else
               checkOne {
-                inherit siteName siteKey nodeName;
+                inherit siteName nodeName;
                 fam = 6;
                 addr = a6;
                 pool = pool6;

@@ -3,14 +3,21 @@
 let
   common = import ./common.nix { inherit lib; };
 
-  isPair =
-    x:
-    builtins.isList x
-    && builtins.length x == 2
-    && builtins.isString (builtins.elemAt x 0)
-    && builtins.isString (builtins.elemAt x 1);
+  sorted = xs: lib.sort (a: b: a < b) xs;
 
-  uniq = xs: lib.unique xs;
+  nodeNamesByRole =
+    role: nodes: sorted (builtins.attrNames (lib.filterAttrs (_: n: (n.role or null) == role) nodes));
+
+  hasP2pLinkBetween =
+    links: a: b:
+    lib.any (
+      linkName:
+      let
+        l = links.${linkName};
+        members = l.members or [ ];
+      in
+      (l.kind or null) == "p2p" && lib.elem a members && lib.elem b members
+    ) (builtins.attrNames links);
 
 in
 {
@@ -18,75 +25,94 @@ in
     { site }:
     let
       siteName = toString (site.siteName or "<unknown-site>");
-      siteKey = toString (site.compilerIR.id or site.siteName or "<unknown-siteKey>");
-      ir = site.compilerIR or { };
+      nodes = site.nodes or { };
+      links = site.links or { };
 
-      ordering = ir.transit.ordering or null;
+      coreNodes = nodeNamesByRole "core" nodes;
+      accessNodes = nodeNamesByRole "access" nodes;
+      policyNodes = nodeNamesByRole "policy" nodes;
+      selectorNodes = nodeNamesByRole "upstream-selector" nodes;
 
-      _present = common.assert_ (ordering != null && builtins.isList ordering) ''
+      policyNode = if policyNodes == [ ] then null else builtins.head policyNodes;
+
+      selectorNode = if selectorNodes == [ ] then null else builtins.head selectorNodes;
+
+      _policyCount = common.assert_ (builtins.length policyNodes == 1) ''
         invariants(transit-ordering-valid):
 
-        missing required compilerIR.transit.ordering
+        expected exactly one policy node
 
-          siteKey: ${siteKey}
-          site:    ${siteName}
+          site: ${siteName}
+          found: ${toString (builtins.length policyNodes)}
       '';
 
-      _pairsOk = common.assert_ (lib.all isPair ordering) ''
+      _selectorCount = common.assert_ (builtins.length selectorNodes <= 1) ''
         invariants(transit-ordering-valid):
 
-        transit.ordering must be a list of 2-element string pairs
+        expected at most one upstream-selector node
 
-          siteKey: ${siteKey}
-          site:    ${siteName}
+          site: ${siteName}
+          found: ${toString (builtins.length selectorNodes)}
       '';
 
-      pairs = lib.filter isPair ordering;
-
-      edges = map (p: {
-        a = builtins.elemAt p 0;
-        b = builtins.elemAt p 1;
-      }) pairs;
-
-      _noSelf = common.assert_ (lib.all (e: e.a != e.b) edges) ''
+      _coreCount = common.assert_ (coreNodes != [ ]) ''
         invariants(transit-ordering-valid):
 
-        transit.ordering contains a self-edge
+        expected at least one core node
 
-          siteKey: ${siteKey}
-          site:    ${siteName}
+          site: ${siteName}
       '';
 
-      unitsInOrdering = uniq (
-        lib.concatMap (e: [
-          e.a
-          e.b
-        ]) edges
-      );
+      _coresToSelector =
+        if selectorNode == null then
+          true
+        else
+          builtins.deepSeq (lib.forEach coreNodes (
+            coreNode:
+            common.assert_ (hasP2pLinkBetween links coreNode selectorNode) ''
+              invariants(transit-ordering-valid):
 
-      knownUnits =
-        let
-          fromNodes = builtins.attrNames (site.nodes or { });
-          fromIR =
-            let
-              lbs = ir.routerLoopbacks or { };
-            in
-            builtins.attrNames lbs;
-        in
-        uniq (fromNodes ++ fromIR);
+              missing core -> upstream-selector p2p adjacency
 
-      unknownUnits = lib.filter (u: !(lib.elem u knownUnits)) unitsInOrdering;
+                site: ${siteName}
+                core: ${coreNode}
+                upstream-selector: ${selectorNode}
+            ''
+          )) true;
 
-      _known = common.assert_ (unknownUnits == [ ]) ''
-        invariants(transit-ordering-valid):
+      _selectorToPolicy =
+        if selectorNode == null || policyNode == null then
+          true
+        else
+          common.assert_ (hasP2pLinkBetween links selectorNode policyNode) ''
+            invariants(transit-ordering-valid):
 
-        transit.ordering references unknown unit(s)
+            missing upstream-selector -> policy p2p adjacency
 
-          siteKey: ${siteKey}
-          site:    ${siteName}
+              site: ${siteName}
+              upstream-selector: ${selectorNode}
+              policy: ${policyNode}
+          '';
 
-          unknown: ${lib.concatStringsSep ", " unknownUnits}
-      '';
+      _policyToAccess = builtins.deepSeq (lib.forEach accessNodes (
+        accessNode:
+        common.assert_ (hasP2pLinkBetween links policyNode accessNode) ''
+          invariants(transit-ordering-valid):
+
+          missing policy -> access p2p adjacency
+
+            site: ${siteName}
+            policy: ${policyNode}
+            access: ${accessNode}
+        ''
+      )) true;
+
     in
-    builtins.seq _present (builtins.seq _pairsOk (builtins.seq _noSelf (builtins.seq _known true)));
+    builtins.seq _policyCount (
+      builtins.seq _selectorCount (
+        builtins.seq _coreCount (
+          builtins.seq _coresToSelector (builtins.seq _selectorToPolicy (builtins.seq _policyToAccess true))
+        )
+      )
+    );
 }

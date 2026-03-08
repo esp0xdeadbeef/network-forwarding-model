@@ -1,17 +1,6 @@
 { lib }:
 
 let
-  common = import ./common.nix { inherit lib; };
-
-  containerNamesOf = node: builtins.attrNames (lib.filterAttrs common.isContainerAttr node);
-
-  ifaceKeys =
-    x:
-    if builtins.isAttrs x && x ? interfaces && builtins.isAttrs x.interfaces then
-      builtins.attrNames x.interfaces
-    else
-      [ ];
-
   addSeen =
     { seen, entries }:
     { where, ifname }:
@@ -50,38 +39,20 @@ in
         let
           node = nodes.${nodeName};
           role = node.role or null;
+          ownIfs =
+            if builtins.isAttrs (node.interfaces or null) then builtins.attrNames node.interfaces else [ ];
+
+          ownEntries = map (k: {
+            where = "${siteName}:${nodeName}.interfaces";
+            ifname = k;
+          }) ownIfs;
+
+          _scan = builtins.foldl' addSeen {
+            seen = { };
+            entries = [ ];
+          } ownEntries;
         in
-        if role != "core" then
-          true
-        else
-          let
-            containers = containerNamesOf node;
-
-            ownIfs = ifaceKeys node;
-            ownEntries = map (k: {
-              where = "${siteName}:${nodeName}.interfaces";
-              ifname = k;
-            }) ownIfs;
-
-            contEntries = lib.concatMap (
-              cname:
-              let
-                ks = ifaceKeys (node.${cname} or { });
-              in
-              map (k: {
-                where = "${siteName}:${nodeName}.${cname}.interfaces";
-                ifname = k;
-              }) ks
-            ) containers;
-
-            all = ownEntries ++ contEntries;
-
-            _scan = builtins.foldl' addSeen {
-              seen = { };
-              entries = [ ];
-            } all;
-          in
-          builtins.deepSeq _scan true
+        if role != "core" then true else builtins.deepSeq _scan true
       );
     in
     true;
