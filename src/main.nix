@@ -16,28 +16,28 @@ let
         ${builtins.toJSON input}
       '';
 
-  solvedSitesByEnterprise =
-    builtins.mapAttrs
-      (ent: sites:
-        let
-          solved = solveEnterprise { enterprise = ent; inherit sites; };
-          _ = builtins.mapAttrs (_: site: invariants.checkSite { inherit site; }) solved;
-        in
-        solved)
-      sitesByEnterprise;
+  solvedSitesByEnterprise = builtins.mapAttrs (
+    ent: sites:
+    let
+      solved = solveEnterprise {
+        enterprise = ent;
+        inherit sites;
+      };
+      _ = builtins.mapAttrs (_: site: invariants.checkSite { inherit site; }) solved;
+    in
+    solved
+  ) sitesByEnterprise;
 
-  flattenedSolvedSites =
-    builtins.foldl'
-      (acc: ent:
-        acc
-        // builtins.mapAttrs
-          (siteId: site: site)
-          (builtins.mapAttrs' (siteId: site: {
-            name = "${ent}.${siteId}";
-            value = site;
-          }) solvedSitesByEnterprise.${ent}))
-      { }
-      (builtins.attrNames solvedSitesByEnterprise);
+  flattenedSolvedSites = builtins.foldl' (
+    acc: ent:
+    acc
+    // builtins.mapAttrs (_: site: site) (
+      builtins.mapAttrs' (siteId: site: {
+        name = "${ent}.${siteId}";
+        value = site;
+      }) solvedSitesByEnterprise.${ent}
+    )
+  ) { } (builtins.attrNames solvedSitesByEnterprise);
 
   _ = invariants.checkAll { sites = flattenedSolvedSites; };
 
@@ -50,5 +50,5 @@ in
     };
   };
 
-  sites = solvedSitesByEnterprise;
+  enterprise = builtins.mapAttrs (_: sites: { site = sites; }) solvedSitesByEnterprise;
 }

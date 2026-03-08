@@ -1,3 +1,17 @@
+# Disclaimer
+
+This project exists primarily to support my own infrastructure.
+
+If it happens to be useful to others, great - just make sure to pin
+a specific version (see the Nix manual for how to do this).
+
+If it does not fit your needs, feel free to fork it and adapt it.
+Pull requests are welcome, but they are unlikely to be merged if they
+conflict with the architectural model used here.
+
+The internal model and schema may change between versions.
+Backward compatibility is not guaranteed.
+
 # nixos-fabric-solver — Theory
 
 `nixos-fabric-solver` turns a compiled network **Process Cell** into a deterministic operational fabric.

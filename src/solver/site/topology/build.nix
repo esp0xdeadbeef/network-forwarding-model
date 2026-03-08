@@ -180,6 +180,37 @@ let
       }) (lib.filter (name: catalog ? "${name}") names)
     );
 
+  policyIntentFromSite =
+    site:
+    let
+      communicationContract =
+        if
+          site ? provenance
+          && builtins.isAttrs site.provenance
+          && site.provenance ? communicationContract
+          && builtins.isAttrs site.provenance.communicationContract
+        then
+          site.provenance.communicationContract
+        else if
+          site ? provenance
+          && builtins.isAttrs site.provenance
+          && site.provenance ? originalInputs
+          && builtins.isAttrs site.provenance.originalInputs
+          && site.provenance.originalInputs ? communicationContract
+          && builtins.isAttrs site.provenance.originalInputs.communicationContract
+        then
+          site.provenance.originalInputs.communicationContract
+        else if site ? communicationContract && builtins.isAttrs site.communicationContract then
+          site.communicationContract
+        else
+          { };
+    in
+    {
+      relations = communicationContract.relations or [ ];
+      services = communicationContract.services or [ ];
+      trafficTypes = communicationContract.trafficTypes or [ ];
+    };
+
 in
 {
   build =
@@ -321,14 +352,10 @@ in
           upstreamSelectorNodeName = routed1.upstreamSelectorNodeName or upstreamSelectorNodeName;
           uplinkCoreNames = routed1.uplinkCoreNames or (wanResult.uplinkCores or [ ]);
           uplinkNames = routed1.uplinkNames or (wanResult.uplinkNames or [ ]);
-          nat = {
-            mode = routed1._nat.mode or "none";
-            owner = routed1._nat.owner or null;
-            ingress = routed1._nat.ingress or [ ];
-          };
+          policyIntent = policyIntentFromSite site;
           policy = {
             owner = routed1._enforcement.owner or null;
-            rules = routed1._enforcement.rules or [ ];
+            rules = [ ];
             validExternalRefs = routed1._enforcement.validExternalRefs or [ ];
           };
           aggregation = {
