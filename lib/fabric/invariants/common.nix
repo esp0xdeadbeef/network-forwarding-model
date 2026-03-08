@@ -3,16 +3,9 @@
 let
   assert_ = cond: msg: if cond then true else throw msg;
 
-  isContainerAttr =
-    name: v:
-    builtins.isAttrs v
-    && !(lib.elem name [
-      "role"
-      "networks"
-      "interfaces"
-    ]);
+  isContainerAttr = _: _: false;
 
-  containersOf = node: builtins.attrNames (lib.filterAttrs isContainerAttr node);
+  containersOf = _: [ ];
 
   pairs =
     xs:

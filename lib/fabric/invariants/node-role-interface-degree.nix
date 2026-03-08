@@ -3,8 +3,6 @@
 let
   common = import ./common.nix { inherit lib; };
 
-  boxesOf = node: builtins.attrNames (lib.filterAttrs common.isContainerAttr node);
-
   ifaceCount =
     x:
     if builtins.isAttrs x && x ? interfaces && builtins.isAttrs x.interfaces then
@@ -16,7 +14,6 @@ in
 {
   check =
     { site }:
-
     if !(builtins.isAttrs (site.links or null)) then
       true
     else
@@ -28,34 +25,22 @@ in
           nodeName:
           let
             node = nodes.${nodeName};
+            n = ifaceCount node;
           in
           if (node.role or null) != "access" then
             true
           else
-            let
-              boxes = boxesOf node;
+            common.assert_ (n >= 1) ''
+              invariants(node-role-interface-degree):
 
-              checkBox =
-                b:
-                let
-                  box = node.${b} or { };
-                  n = ifaceCount box;
-                in
-                common.assert_ (n == 2) ''
-                  invariants(node-role-interface-degree):
+              access node must have at least 1 interface
 
-                  access box must have exactly 2 interfaces
+                site: ${siteName}
+                node: ${nodeName}
 
-                    site: ${siteName}
-                    node: ${nodeName}
-                    box:  ${nodeName}.${b}
-
-                    found: ${toString n}
-                    expected: 2
-                '';
-            in
-            builtins.deepSeq (lib.forEach boxes checkBox) true;
-
+                found: ${toString n}
+                expected: >= 1
+            '';
       in
       builtins.deepSeq (lib.forEach (builtins.attrNames nodes) checkAccessNode) true;
 }

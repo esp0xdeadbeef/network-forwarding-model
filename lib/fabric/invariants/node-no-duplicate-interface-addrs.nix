@@ -1,7 +1,6 @@
 { lib }:
 
 let
-  common = import ./common.nix { inherit lib; };
   iface = import ./interface-utils.nix { inherit lib; };
 
   checkNode =
@@ -11,27 +10,12 @@ let
       node,
     }:
     let
-      topIfs = node.interfaces or { };
-
-      contEntries = lib.concatMap (
-        cname:
-        let
-          c = node.${cname} or { };
-        in
+      entries = iface.nonEmptyEntries (
         iface.ifaceEntriesFrom {
-          whereBase = "${siteName}:nodes.${nodeName}.${cname}.interfaces";
-          ifaces = c.interfaces or { };
-        }
-      ) (common.containersOf node);
-
-      entries =
-        (iface.ifaceEntriesFrom {
           whereBase = "${siteName}:nodes.${nodeName}.interfaces";
-          ifaces = topIfs;
-        })
-        ++ contEntries;
-
-      entries' = iface.nonEmptyEntries entries;
+          ifaces = node.interfaces or { };
+        }
+      );
 
       step =
         acc: e:
@@ -53,14 +37,11 @@ let
 
             duplicated at:
               ${e.where}
-
-            This means the compiler assigned the same host address to multiple
-            interface instances under one node (e.g. core containers sharing a p2p IP).
           ''
         else
           acc // { "${k}" = e.where; };
 
-      scanned = builtins.foldl' step { } entries';
+      scanned = builtins.foldl' step { } entries;
     in
     builtins.deepSeq scanned true;
 

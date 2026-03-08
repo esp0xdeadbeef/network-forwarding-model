@@ -9,7 +9,7 @@
 
       rolesResult ? null,
       roleFromInput ? (if rolesResult != null then rolesResult.roleFromInput else (_: null)),
-      nodesBase ? (site.units or site.nodes or { }),
+      nodesBase ? (site.nodes or site.units or { }),
     }:
 
     let
@@ -31,15 +31,15 @@
         else
           "unclassified";
 
-      allUnits = builtins.attrNames nodesBase;
+      allNodes = builtins.attrNames nodesBase;
 
-      coreUnits = lib.filter (u: (roleFromInput u) == "core") allUnits;
+      coreUnits = lib.filter (u: (roleFromInput u) == "core") allNodes;
 
       sortedCoreUnits = lib.sort (a: b: toString a < toString b) coreUnits;
 
       _haveCore =
         if sortedCoreUnits == [ ] then
-          throw "network-solver: expected at least one unit with role='core'"
+          throw "network-solver: expected at least one node with role='core'"
         else
           true;
 
@@ -147,7 +147,6 @@
             - site.upstreams.cores.<core> = [ "<uplink>" ... ]
             - site.uplinks.cores.<core> = [ { name = "<uplink>"; ... } ... ]
             - site.nodes.<core>.uplinks = { <uplink> = { ... }; ...; }
-            - site.units.<core>.uplinks = { <uplink> = { ... }; ...; }
           ''
         else
           true;
