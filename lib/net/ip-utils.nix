@@ -1,23 +1,40 @@
 { lib }:
 
 let
+  splitRaw = s: lib.splitString "/" (toString s);
+
+  isIPv6 = s: lib.hasInfix ":" (toString s);
+
+  ensureCidr =
+    cidr:
+    let
+      parts = splitRaw cidr;
+    in
+    if builtins.length parts == 2 then
+      cidr
+    else if builtins.length parts == 1 then
+      let
+        ip = builtins.elemAt parts 0;
+      in
+      if isIPv6 ip then "${ip}/128" else "${ip}/32"
+    else
+      throw "ip-utils: invalid CIDR '${toString cidr}'";
+
   splitCidr =
     cidr:
     let
-      parts = lib.splitString "/" (toString cidr);
+      fixed = ensureCidr cidr;
+      parts = splitRaw fixed;
     in
-    if builtins.length parts != 2 then
-      throw "ip-utils: invalid CIDR '${toString cidr}'"
-    else
-      {
-        ip = builtins.elemAt parts 0;
-        prefix = lib.toInt (builtins.elemAt parts 1);
-      };
+    {
+      ip = builtins.elemAt parts 0;
+      prefix = lib.toInt (builtins.elemAt parts 1);
+    };
 
   stripMask =
     s:
     let
-      parts = lib.splitString "/" (toString s);
+      parts = splitRaw s;
     in
     if builtins.length parts == 0 then toString s else builtins.elemAt parts 0;
 

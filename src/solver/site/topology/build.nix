@@ -8,6 +8,27 @@ let
 
   firstOrNull = xs: if xs == [ ] then null else builtins.head xs;
 
+  ensureMask =
+    addr: family:
+    if addr == null then
+      null
+    else if lib.hasInfix "/" (toString addr) then
+      addr
+    else if family == 4 then
+      "${toString addr}/32"
+    else
+      "${toString addr}/128";
+
+  normalizeLoopback =
+    lb:
+    if !(builtins.isAttrs lb) then
+      null
+    else
+      {
+        ipv4 = ensureMask (lb.ipv4 or null) 4;
+        ipv6 = ensureMask (lb.ipv6 or null) 6;
+      };
+
   normalizeRoutes =
     iface:
     (builtins.removeAttrs iface [
@@ -180,37 +201,6 @@ let
       }) (lib.filter (name: catalog ? "${name}") names)
     );
 
-  policyIntentFromSite =
-    site:
-    let
-      communicationContract =
-        if
-          site ? provenance
-          && builtins.isAttrs site.provenance
-          && site.provenance ? communicationContract
-          && builtins.isAttrs site.provenance.communicationContract
-        then
-          site.provenance.communicationContract
-        else if
-          site ? provenance
-          && builtins.isAttrs site.provenance
-          && site.provenance ? originalInputs
-          && builtins.isAttrs site.provenance.originalInputs
-          && site.provenance.originalInputs ? communicationContract
-          && builtins.isAttrs site.provenance.originalInputs.communicationContract
-        then
-          site.provenance.originalInputs.communicationContract
-        else if site ? communicationContract && builtins.isAttrs site.communicationContract then
-          site.communicationContract
-        else
-          { };
-    in
-    {
-      relations = communicationContract.relations or [ ];
-      services = communicationContract.services or [ ];
-      trafficTypes = communicationContract.trafficTypes or [ ];
-    };
-
 in
 {
   build =
@@ -227,29 +217,6 @@ in
     }:
     let
       siteName = toString (site.siteName or "${enterprise}.${siteId}");
-      t0 = firstOrNull ((site.domains or { }).tenants or [ ]);
-
-      tenantV4Base =
-        if site ? tenantV4Base && builtins.isString site.tenantV4Base then
-          site.tenantV4Base
-        else if t0 != null && builtins.isAttrs t0 && t0 ? ipv4 then
-          derive.tenantV4BaseFrom (toString t0.ipv4)
-        else
-          throw "network-solver: cannot derive tenantV4Base (missing site.tenantV4Base and domains.tenants[0].ipv4)";
-
-      ulaPrefix =
-        if site ? ulaPrefix && builtins.isString site.ulaPrefix then
-          site.ulaPrefix
-        else if t0 != null && builtins.isAttrs t0 && t0 ? ipv6 then
-          derive.ulaPrefixFrom (toString t0.ipv6)
-        else
-          throw "network-solver: cannot derive ulaPrefix (missing site.ulaPrefix and domains.tenants[0].ipv6)";
-
-      aggregationMode =
-        if site ? aggregation && builtins.isAttrs site.aggregation && site.aggregation ? mode then
-          site.aggregation.mode
-        else
-          "none";
 
       unitNames = lib.unique (
         (if site ? units && builtins.isAttrs site.units then builtins.attrNames site.units else [ ])
@@ -266,6 +233,14 @@ in
               unitName = toString u;
               base = nodeFromSite site unitName;
               attachedNetworks = tenantNetworksForUnit site unitName;
+
+              loopback =
+                if base ? loopback then
+                  normalizeLoopback base.loopback
+                else if site ? routerLoopbacks && site.routerLoopbacks ? "${unitName}" then
+                  normalizeLoopback site.routerLoopbacks.${unitName}
+                else
+                  null;
             in
             base
             // {
@@ -274,6 +249,9 @@ in
             }
             // lib.optionalAttrs (attachedNetworks != { }) {
               networks = attachedNetworks;
+            }
+            // lib.optionalAttrs (loopback != null) {
+              inherit loopback;
             };
         }) unitNames
       );
@@ -291,24 +269,19 @@ in
         map toString (lib.filter (u: rolesResult.roleFromInput u == "core") unitNames)
       );
 
-      _ =
-        if coreNodeNames == [ ] then throw "network-solver: missing core unit for coreNodeNames" else true;
-
       policyNodeName = if rolesResult.policyUnit == null then null else toString rolesResult.policyUnit;
 
-      upstreamSelectorNodeName = firstOrNull (
-        lib.sort (a: b: a < b) (
-          lib.filter (u: rolesResult.roleFromInput u == "upstream-selector") unitNames
-        )
-      );
+      upstreamSelectorNodeName =
+        if rolesResult.traversal ? chain && builtins.length rolesResult.traversal.chain >= 2 then
+          builtins.elemAt rolesResult.traversal.chain 1
+        else
+          null;
 
       routed0 = topoResolve (
         enforcementResult
         // {
           inherit
             siteName
-            tenantV4Base
-            ulaPrefix
             enterprise
             siteId
             coreNodeNames
@@ -318,10 +291,6 @@ in
           uplinkCoreNames = wanResult.uplinkCores or [ ];
           uplinkNames = wanResult.uplinkNames or [ ];
           p2p-pool = p2pPool;
-          routerLoopbacks = site.routerLoopbacks or { };
-          aggregation = {
-            mode = aggregationMode;
-          };
           inherit nodes;
           links = p2pLinks // (wanResult.wanLinks or { }) // (site.links or { });
         }
@@ -346,6 +315,7 @@ in
           "p2p-pool"
           "tenantV4Base"
           "ulaPrefix"
+          "routerLoopbacks"
         ]
         // {
           inherit enterprise siteId;
@@ -355,20 +325,6 @@ in
           upstreamSelectorNodeName = routed1.upstreamSelectorNodeName or upstreamSelectorNodeName;
           uplinkCoreNames = routed1.uplinkCoreNames or (wanResult.uplinkCores or [ ]);
           uplinkNames = routed1.uplinkNames or (wanResult.uplinkNames or [ ]);
-          routerLoopbacks = routed1.routerLoopbacks or (site.routerLoopbacks or { });
-          policyIntent = policyIntentFromSite site;
-          policy = {
-            owner = routed1._enforcement.owner or null;
-            rules = [ ];
-            validExternalRefs = routed1._enforcement.validExternalRefs or [ ];
-          };
-          aggregation = {
-            mode =
-              if routed1 ? aggregation && builtins.isAttrs routed1.aggregation && routed1.aggregation ? mode then
-                routed1.aggregation.mode
-              else
-                aggregationMode;
-          };
         };
     in
     routed;

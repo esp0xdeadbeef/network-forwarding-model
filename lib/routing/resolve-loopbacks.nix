@@ -4,17 +4,25 @@ let
   graph = import ./graph.nix { inherit lib; };
   ip = import ../net/ip-utils.nix { inherit lib; };
 
+  strip =
+    a:
+    let
+      s = toString a;
+      parts = lib.splitString "/" s;
+    in
+    if builtins.length parts > 0 then builtins.elemAt parts 0 else s;
+
   hostDst4 =
     cidr:
     let
-      ip0 = ip.stripMask cidr;
+      ip0 = strip cidr;
     in
     "${ip0}/32";
 
   hostDst6 =
     cidr:
     let
-      ip0 = ip.stripMask cidr;
+      ip0 = strip cidr;
     in
     "${ip0}/128";
 
@@ -39,8 +47,19 @@ in
       links = topo.links or { };
       nodes0 = topo.nodes or { };
 
+      lbsFromNodes = builtins.foldl' (
+        acc: nodeName:
+        let
+          node = nodes0.${nodeName};
+          lb = node.loopback or null;
+        in
+        if lb == null || !(builtins.isAttrs lb) then acc else acc // { "${nodeName}" = lb; }
+      ) { } (builtins.attrNames nodes0);
+
       lbs =
-        if topo ? routerLoopbacks && builtins.isAttrs topo.routerLoopbacks then
+        if lbsFromNodes != { } then
+          lbsFromNodes
+        else if topo ? routerLoopbacks && builtins.isAttrs topo.routerLoopbacks then
           topo.routerLoopbacks
         else
           (topo.compilerIR or { }).routerLoopbacks or { };
@@ -114,7 +133,7 @@ in
                     else
                       [
                         {
-                          dst = hostDst4 (toString lb.ipv4);
+                          dst = hostDst4 lb.ipv4;
                           via4 = nh.via4;
                           proto = "internal";
                         }
@@ -126,7 +145,7 @@ in
                     else
                       [
                         {
-                          dst = hostDst6 (toString lb.ipv6);
+                          dst = hostDst6 lb.ipv6;
                           via6 = nh.via6;
                           proto = "internal";
                         }
@@ -166,15 +185,5 @@ in
       ) nodes0;
 
     in
-    topo
-    // {
-      nodes = nodes1;
-      _loopbackResolution = {
-        algorithm = "bfs-shortest-path";
-        dst = {
-          v4 = "host/32";
-          v6 = "host/128";
-        };
-      };
-    };
+    topo // { nodes = nodes1; };
 }
