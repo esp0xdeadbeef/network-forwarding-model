@@ -38,7 +38,12 @@ in
     let
       links = topo.links or { };
       nodes0 = topo.nodes or { };
-      lbs = (topo.compilerIR or { }).routerLoopbacks or { };
+
+      lbs =
+        if topo ? routerLoopbacks && builtins.isAttrs topo.routerLoopbacks then
+          topo.routerLoopbacks
+        else
+          (topo.compilerIR or { }).routerLoopbacks or { };
 
       appendIfaceRoutes =
         node: linkName: add4: add6:

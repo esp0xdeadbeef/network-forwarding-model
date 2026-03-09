@@ -1,27 +1,14 @@
 # TODO
 
-[ ] Audit legacy helper code
-    - verify unused helpers in prefix-utils.nix
-    - remove routingDomain stripping logic if no longer used
+* Attach loopbacks directly to nodes
+  Move `routerLoopbacks` into `nodes.<node>.loopback` so loopbacks become a first-class node property and the renderer does not need external lookup.
 
-[ ] Decide fate of solver query layer
-    Currently exported:
-        query.multiWan
-        query.topology
-        query.wan
+* Align policy naming
+  Standardize on `policyIntent` (update documentation accordingly) to avoid mismatch with the README.
 
-    Either:
-        - move lib/query/* to renderer/tooling
-        - or formally keep query as a read-only solver inspection layer.
+* Move query helpers to tooling
+  Keep the solver output as a pure topology graph. If inspection helpers are needed, place them under `tools/query/`.
 
-Acceptance condition:
-    Solver output must remain fully renderer-consumable using only:
+* Keep solver output free of compiler artifacts
+  Ensure no compiler-stage metadata leaks into the solver graph (e.g. `compilerIR`, algorithm hints).
 
-        enterprise.<enterprise>.site.<site>.policyIntent
-        enterprise.<enterprise>.site.<site>.tenantPrefixOwners
-        enterprise.<enterprise>.site.<site>.uplinkNames
-        enterprise.<enterprise>.site.<site>.policyNodeName
-        enterprise.<enterprise>.site.<site>.nodes
-        enterprise.<enterprise>.site.<site>.links
-
-    Renderer must not depend on meta.provenance or compiler artifacts.

@@ -318,6 +318,7 @@ in
           uplinkCoreNames = wanResult.uplinkCores or [ ];
           uplinkNames = wanResult.uplinkNames or [ ];
           p2p-pool = p2pPool;
+          routerLoopbacks = site.routerLoopbacks or { };
           aggregation = {
             mode = aggregationMode;
           };
@@ -340,6 +341,8 @@ in
         builtins.removeAttrs routed1 [
           "_enforcement"
           "_nat"
+          "_loopbackResolution"
+          "compilerIR"
           "p2p-pool"
           "tenantV4Base"
           "ulaPrefix"
@@ -352,6 +355,7 @@ in
           upstreamSelectorNodeName = routed1.upstreamSelectorNodeName or upstreamSelectorNodeName;
           uplinkCoreNames = routed1.uplinkCoreNames or (wanResult.uplinkCores or [ ]);
           uplinkNames = routed1.uplinkNames or (wanResult.uplinkNames or [ ]);
+          routerLoopbacks = routed1.routerLoopbacks or (site.routerLoopbacks or { });
           policyIntent = policyIntentFromSite site;
           policy = {
             owner = routed1._enforcement.owner or null;
@@ -367,8 +371,5 @@ in
           };
         };
     in
-    routed
-    // {
-      query = import ../../../../lib/query/summary.nix { inherit lib routed; };
-    };
+    routed;
 }

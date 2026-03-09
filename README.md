@@ -51,6 +51,65 @@ flowchart TD
 
 The solver is the boundary where intent becomes execution.
 
+
+## Policy contract preservation
+
+The solver **does not interpret communication policy**.
+
+The behavioral policy defined by the compiler is preserved verbatim and passed through the solver unchanged.
+
+Specifically, the field:
+
+communicationContract
+
+is copied directly from the compiler output into the solver output.
+
+compiler-output.sites.<enterprise>.<site>.communicationContract  
+        ↓  
+solver-output.enterprise.<enterprise>.site.<site>.communicationContract
+
+The solver treats this structure as **opaque data**.
+
+It does not:
+
+* parse traffic types
+    
+* expand services
+    
+* resolve service providers
+    
+* interpret relations
+    
+* generate firewall rules
+    
+
+The solver’s responsibility is **network realization only**:
+
+* link allocation
+    
+* addressing
+    
+* routing
+    
+* traversal structure
+    
+* forwarding relationships
+    
+
+The compiler cannot produce device-ready policy because it does not know final network addressing.  
+The solver does not resolve hosts or services.
+
+The **renderer is the only stage aware of host placement and platform behavior**, and therefore the renderer is responsible for interpreting the communication contract when generating platform configuration.
+
+This separation ensures a strict architectural boundary:
+
+| Stage | Responsibility |
+| --- | --- |
+| Compiler | defines communication semantics |
+| Solver | constructs executable network behavior |
+| Renderer | realizes behavior on infrastructure |
+
+
 * * *
 
 ## ISA-88 interpretation
