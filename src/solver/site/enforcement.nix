@@ -12,6 +12,8 @@
       uplinkCoreByName = wanResult.uplinkCoreByName or { };
     in
     {
+      communicationContract = site.communicationContract;
+
       _nat = {
         mode = "none";
         owner = null;
