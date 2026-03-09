@@ -1,10 +1,9 @@
+# ./flake.nix
 {
   description = "network-solver";
 
   inputs = {
-    #nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-
-    nixpkgs.url = "github:NixOS/nixpkgs/0182a361324364ae3f436a63005877674cf45efb";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     nixpkgs-network.url = "github:NixOS/nixpkgs/ac56c456ebe4901c561d3ebf1c98fbd970aea753";
     network-compiler.url = "github:esp0xdeadbeef/network-compiler";
     network-compiler.inputs.nixpkgs.follows = "nixpkgs";
@@ -62,7 +61,7 @@
             text = ''
               set -euo pipefail
 
-              [ $
+              [ $# -ge 1 ] || { echo "usage: nix run ${self}#debug -- <ir.json>" >&2; exit 1; }
 
               IR="$1"
 
@@ -105,7 +104,7 @@
             text = ''
               set -euo pipefail
 
-              [ $
+              [ $# -ge 1 ] || { echo "usage: nix run ${self}#compile-and-solve -- <compiler-inputs.nix>" >&2; exit 1; }
 
               INPUTS_NIX="$1"
 

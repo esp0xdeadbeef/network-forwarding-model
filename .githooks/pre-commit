@@ -6,7 +6,7 @@ changed="$(git diff --cached --name-only --diff-filter=ACMR | grep '\.nix$' || t
 
 echo "[hook] formatting staged nix files..."
 
-find $changed -type f -name "*.nix" -not -name flake.nix -exec sed -i 's/#.*//g' {} +
+find "$changed" -type f -name "*.nix" ! -name "flake.nix" -exec sed -i 's/#.*//g' {} +
 
 for f in $changed; do
     [ -f "$f" ] || continue
