@@ -2,7 +2,6 @@
 
 let
   graph = import ./graph.nix { inherit lib; };
-  ip = import ../net/ip-utils.nix { inherit lib; };
 
   strip =
     a:
@@ -47,7 +46,7 @@ in
       links = topo.links or { };
       nodes0 = topo.nodes or { };
 
-      lbsFromNodes = builtins.foldl' (
+      lbs = builtins.foldl' (
         acc: nodeName:
         let
           node = nodes0.${nodeName};
@@ -55,14 +54,6 @@ in
         in
         if lb == null || !(builtins.isAttrs lb) then acc else acc // { "${nodeName}" = lb; }
       ) { } (builtins.attrNames nodes0);
-
-      lbs =
-        if lbsFromNodes != { } then
-          lbsFromNodes
-        else if topo ? routerLoopbacks && builtins.isAttrs topo.routerLoopbacks then
-          topo.routerLoopbacks
-        else
-          (topo.compilerIR or { }).routerLoopbacks or { };
 
       appendIfaceRoutes =
         node: linkName: add4: add6:

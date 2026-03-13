@@ -50,7 +50,7 @@ in
       pool4 = local.ipv4 or null;
       pool6 = local.ipv6 or null;
 
-      nodeLoopbacks = builtins.foldl' (
+      lbs = builtins.foldl' (
         acc: nodeName:
         let
           node = (site.nodes or { }).${nodeName};
@@ -58,8 +58,6 @@ in
         in
         if lb == null || !(builtins.isAttrs lb) then acc else acc // { "${nodeName}" = lb; }
       ) { } (builtins.attrNames (site.nodes or { }));
-
-      lbs = if nodeLoopbacks != { } then nodeLoopbacks else site.routerLoopbacks or { };
 
       nodes = builtins.attrNames lbs;
 
