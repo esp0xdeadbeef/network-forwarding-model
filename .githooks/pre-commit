@@ -1,28 +1,30 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-changed="$(git diff --cached --name-only --diff-filter=ACMR | grep '\.nix$' || true)"
-[ -z "$changed" ] && exit 0
+mapfile -t changed < <(git diff --cached --name-only --diff-filter=ACMR | grep '\.nix$' || true)
+[ ${#changed[@]} -eq 0 ] && exit 0
 
 echo "[hook] formatting staged nix files..."
 
-find "$changed" -type f -name "*.nix" ! -name "flake.nix" -exec sed -i 's/^[[:space:]]*#.*$//' {} +
+for f in "${changed[@]}"; do
+    [ -f "$f" ] || continue
+    sed -i 's/^[[:space:]]*#.*$//' "$f"
+done
 
-for f in $changed; do
+for f in "${changed[@]}"; do
     [ -f "$f" ] || continue
     nix shell nixpkgs#nixfmt-rfc-style --command nixfmt "$f"
 done
 
-git add $changed 2>/dev/null || true
+git add "${changed[@]}" 2>/dev/null || true
 
 echo "[hook] parsing staged nix files..."
 
-for f in $changed; do
+for f in "${changed[@]}"; do
     [ -f "$f" ] || continue
     nix-instantiate --parse "$f" >/dev/null
-    sed 's/^#.*//g' -i $(echo $f | grep nix)
-    sed 's/# .*//g' -i $(echo $f | grep nix)
+    sed -i 's/^#.*//g' "$f"
+    sed -i 's/# .*//g' "$f"
 done
 
 echo "[hook] done"
-
