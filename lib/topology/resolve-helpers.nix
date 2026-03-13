@@ -124,6 +124,9 @@ let
       upstream = link.upstream or ep.uplink or null;
       overlay = link.overlay or null;
 
+      uplinkRoutes4 = ep.uplinkRoutes4 or [ ];
+      uplinkRoutes6 = ep.uplinkRoutes6 or [ ];
+
       routes = {
         ipv4 = connected4 ++ (ep.routes4 or [ ]);
         ipv6 = connected6 ++ (ep.routes6 or [ ]);
@@ -143,6 +146,8 @@ let
       kind = prebuilt.kind or generic.kind;
       type = prebuilt.type or generic.type;
       carrier = prebuilt.carrier or generic.carrier;
+      uplinkRoutes4 = prebuilt.uplinkRoutes4 or generic.uplinkRoutes4 or [ ];
+      uplinkRoutes6 = prebuilt.uplinkRoutes6 or generic.uplinkRoutes6 or [ ];
       routes = ifaceRoutes prebuilt;
     };
 
