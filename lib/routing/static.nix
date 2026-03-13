@@ -176,7 +176,23 @@ let
         let
           iface = ifs.${ifName};
 
-          add4 =
+          add4Prefixes =
+            if (iface.peerAddr4 or null) == null then
+              [ ]
+            else
+              map (dst: helpers.mkRoute4 dst (helpers.stripMask iface.peerAddr4) "uplink") (
+                iface.uplinkRoutes4 or [ ]
+              );
+
+          add6Prefixes =
+            if (iface.peerAddr6 or null) == null then
+              [ ]
+            else
+              map (dst: helpers.mkRoute6 dst (helpers.stripMask iface.peerAddr6) "uplink") (
+                iface.uplinkRoutes6 or [ ]
+              );
+
+          add4Default =
             if
               (iface.kind or null) == "wan" && (iface.gateway or false) && (iface.peerAddr4 or null) != null
             then
@@ -193,7 +209,7 @@ let
             else
               [ ];
 
-          add6 =
+          add6Default =
             if
               (iface.kind or null) == "wan" && (iface.gateway or false) && (iface.peerAddr6 or null) != null
             then
@@ -209,6 +225,9 @@ let
               ]
             else
               [ ];
+
+          add4 = add4Prefixes ++ add4Default;
+          add6 = add6Prefixes ++ add6Default;
         in
         if add4 == [ ] && add6 == [ ] then acc else helpers.addRoutesOnLink acc ifName add4 add6;
     in
@@ -258,12 +277,120 @@ let
         in
         if nh.linkName == null then node else helpers.addRoutesOnLink node nh.linkName add4 add6;
 
+  uplinkRouteEntriesFromNode =
+    node:
+    let
+      ifs = node.interfaces or { };
+      ifNames = builtins.attrNames ifs;
+
+      perIface =
+        ifName:
+        let
+          iface = ifs.${ifName};
+          rs = helpers.ifaceRoutes iface;
+        in
+        (map (r: {
+          family = 4;
+          dst = r.dst or null;
+        }) (lib.filter (r: (r.proto or null) == "uplink" && (r ? dst)) rs.ipv4))
+        ++ (map (r: {
+          family = 6;
+          dst = r.dst or null;
+        }) (lib.filter (r: (r.proto or null) == "uplink" && (r ? dst)) rs.ipv6));
+    in
+    lib.concatMap perIface ifNames;
+
+  uplinkLearnedRoutesForSelector =
+    topo: nodeName:
+    let
+      selectorNode = topo.upstreamSelectorNodeName or null;
+      uplinkCores = helpers.uplinkCores topo;
+      ownNode = topo.nodes.${nodeName};
+      ownSet = helpers.ownConnectedPrefixes ownNode;
+
+      advertised = lib.concatMap (
+        core:
+        let
+          node = topo.nodes.${core} or { };
+          path = graph.shortestPath {
+            links = topo.links or { };
+            src = nodeName;
+            dst = core;
+          };
+        in
+        if path == null || builtins.length path < 2 then
+          [ ]
+        else
+          let
+            hop = builtins.elemAt path 1;
+            nh = graph.nextHop {
+              links = topo.links or { };
+              stripMask = helpers.stripMask;
+              from = nodeName;
+              to = hop;
+            };
+
+            exported = lib.filter (e: e.dst != null && !(ownSet ? "${toString e.family}|${e.dst}")) (
+              uplinkRouteEntriesFromNode node
+            );
+          in
+          if nh.linkName == null then
+            [ ]
+          else
+            map (
+              e:
+              e
+              // {
+                linkName = nh.linkName;
+                via4 = if e.family == 4 then nh.via4 else null;
+                via6 = if e.family == 6 then nh.via6 else null;
+              }
+            ) exported
+      ) uplinkCores;
+
+      usable = lib.filter (
+        e: (e.family == 4 && e.via4 != null) || (e.family == 6 && e.via6 != null)
+      ) advertised;
+
+      perLink = builtins.foldl' (
+        acc: e:
+        let
+          add4 = if e.family == 4 then [ (helpers.mkRoute4 e.dst e.via4 "uplink") ] else [ ];
+
+          add6 = if e.family == 6 then [ (helpers.mkRoute6 e.dst e.via6 "uplink") ] else [ ];
+        in
+        acc
+        // {
+          "${e.linkName}" = {
+            routes4 = helpers.dedupeRoutes ((acc.${e.linkName}.routes4 or [ ]) ++ add4);
+            routes6 = helpers.dedupeRoutes ((acc.${e.linkName}.routes6 or [ ]) ++ add6);
+          };
+        }
+      ) { } usable;
+    in
+    if selectorNode == null || nodeName != selectorNode then { } else perLink;
+
+  addUplinkLearnedRoutesToSelector =
+    topo: nodeName: node:
+    let
+      perLink = uplinkLearnedRoutesForSelector topo nodeName;
+      linkNames = builtins.attrNames perLink;
+    in
+    builtins.foldl' (
+      acc: linkName:
+      let
+        add = perLink.${linkName};
+      in
+      helpers.addRoutesOnLink acc linkName add.routes4 add.routes6
+    ) node linkNames;
+
 in
 {
   attach =
     topo:
     let
       nodes0 = topo.nodes or { };
+
       nodes1 = lib.mapAttrs (
         n: node:
         let
@@ -273,6 +400,12 @@ in
         in
         n3
       ) nodes0;
+
+      topo1 = topo // {
+        nodes = nodes1;
+      };
+
+      nodes2 = lib.mapAttrs (n: node: addUplinkLearnedRoutesToSelector topo1 n node) nodes1;
     in
-    topo // { nodes = nodes1; };
+    topo1 // { nodes = nodes2; };
 }

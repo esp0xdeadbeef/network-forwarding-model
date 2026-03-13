@@ -46,7 +46,7 @@ in
   meta = {
     solver = {
       name = "network-solver";
-      schemaVersion = 3;
+      schemaVersion = 4;
     };
   };
 

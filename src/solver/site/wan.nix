@@ -239,6 +239,8 @@
                 addr6 = coreAddr6;
                 peerAddr6 = peerAddr6;
                 ll6 = mkWanLL6 hostBase;
+                uplinkRoutes4 = uplink.ipv4 or [ ];
+                uplinkRoutes6 = uplink.ipv6 or [ ];
               };
             };
           };
