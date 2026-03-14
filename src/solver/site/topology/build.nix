@@ -6,8 +6,6 @@ let
   topoResolve = import ../../../../lib/topology-resolve.nix { inherit lib; };
   utils = import ../../../util { inherit lib; };
 
-  firstOrNull = xs: if xs == [ ] then null else builtins.head xs;
-
   ensureMask =
     addr: family:
     if addr == null then
@@ -29,24 +27,44 @@ let
         ipv6 = ensureMask (lb.ipv6 or null) 6;
       };
 
+  normalizeRouteList =
+    routes:
+    map (
+      r:
+      if builtins.isString r then
+        { dst = r; }
+      else if builtins.isAttrs r then
+        r
+      else
+        { dst = toString r; }
+    ) routes;
+
   normalizeRoutes =
     iface:
-    (builtins.removeAttrs iface [
-      "routes4"
-      "routes6"
-    ])
+    let
+      base =
+        (builtins.removeAttrs iface [
+          "routes4"
+          "routes6"
+        ])
+        // {
+          routes =
+            if iface ? routes && builtins.isAttrs iface.routes then
+              {
+                ipv4 = normalizeRouteList (iface.routes.ipv4 or [ ]);
+                ipv6 = normalizeRouteList (iface.routes.ipv6 or [ ]);
+              }
+            else
+              {
+                ipv4 = normalizeRouteList (iface.routes4 or [ ]);
+                ipv6 = normalizeRouteList (iface.routes6 or [ ]);
+              };
+        };
+    in
+    base
     // {
-      routes =
-        if iface ? routes && builtins.isAttrs iface.routes then
-          {
-            ipv4 = iface.routes.ipv4 or [ ];
-            ipv6 = iface.routes.ipv6 or [ ];
-          }
-        else
-          {
-            ipv4 = iface.routes4 or [ ];
-            ipv6 = iface.routes6 or [ ];
-          };
+      uplinkRoutes4 = normalizeRouteList (iface.uplinkRoutes4 or [ ]);
+      uplinkRoutes6 = normalizeRouteList (iface.uplinkRoutes6 or [ ]);
     };
 
   nodeFromSite =
@@ -75,124 +93,29 @@ let
       }) (lib.filter (t: builtins.isAttrs t && (t.name or null) != null) tenants)
     );
 
-  tenantNameFromSegments =
-    segments:
-    let
-      parts = lib.concatMap (
-        seg:
-        let
-          s = toString seg;
-          p = lib.splitString ":" s;
-        in
-        if builtins.length p == 2 then
-          [
-            {
-              ns = builtins.elemAt p 0;
-              name = builtins.elemAt p 1;
-            }
-          ]
-        else
-          [ ]
-      ) segments;
-
-      hits = lib.filter (x: (x.ns == "tenants" || x.ns == "tenant") && x.name != "") parts;
-    in
-    if hits == [ ] then null else (builtins.head hits).name;
-
-  parseTenantNameFromAttachment =
-    a:
-    let
-      kind = toString (a.kind or "");
-      directName =
-        if a ? tenant && a.tenant != null then
-          toString a.tenant
-        else if a ? tenantName && a.tenantName != null then
-          toString a.tenantName
-        else if a ? name && a.name != null && kind == "tenant" then
-          toString a.name
-        else if
-          a ? subject
-          && builtins.isAttrs a.subject
-          && (a.subject.kind or null) == "tenant"
-          && (a.subject.name or null) != null
-        then
-          toString a.subject.name
-        else if
-          a ? ingressSubject
-          && builtins.isAttrs a.ingressSubject
-          && (a.ingressSubject.kind or null) == "tenant"
-          && (a.ingressSubject.name or null) != null
-        then
-          toString a.ingressSubject.name
-        else if
-          a ? from
-          && builtins.isAttrs a.from
-          && (a.from.kind or null) == "tenant"
-          && (a.from.name or null) != null
-        then
-          toString a.from.name
-        else if
-          a ? to && builtins.isAttrs a.to && (a.to.kind or null) == "tenant" && (a.to.name or null) != null
-        then
-          toString a.to.name
-        else
-          null;
-
-      segmentDerived = tenantNameFromSegments (
-        lib.filter (s: s != null && s != "") [
-          (a.segment or null)
-          (a.path or null)
-          (a.ref or null)
-        ]
-      );
-    in
-    if directName != null && directName != "" then directName else segmentDerived;
-
   inferTenantNamesFromUnitName =
     site: unitName:
     let
       catalog = tenantCatalog site;
       tenantNames = lib.sort (a: b: a < b) (builtins.attrNames catalog);
-
       lowerUnit = lib.toLower (toString unitName);
-
-      matches = lib.filter (
-        tenantName:
-        let
-          t = lib.toLower (toString tenantName);
-        in
-        lib.hasSuffix "-${t}" lowerUnit
-        || lib.hasSuffix "_${t}" lowerUnit
-        || lib.hasSuffix ":${t}" lowerUnit
-        || lowerUnit == t
-      ) tenantNames;
     in
-    matches;
-
-  attachedTenantNamesForUnit =
-    site: unitName:
-    let
-      explicit = lib.unique (
-        lib.filter (x: x != null && x != "") (
-          map (
-            a:
-            let
-              owner = utils.unitRefOfAttachment a;
-            in
-            if builtins.isAttrs a && owner == unitName then parseTenantNameFromAttachment a else null
-          ) (utils.attachmentsOf site)
-        )
-      );
-
-      inferred = inferTenantNamesFromUnitName site unitName;
-    in
-    if explicit != [ ] then explicit else inferred;
+    lib.filter (
+      tenantName:
+      let
+        t = lib.toLower (toString tenantName);
+      in
+      lib.hasSuffix "-${t}" lowerUnit
+      || lib.hasSuffix "_${t}" lowerUnit
+      || lib.hasSuffix ":${t}" lowerUnit
+      || lowerUnit == t
+    ) tenantNames;
 
   tenantNetworksForUnit =
     site: unitName:
     let
       catalog = tenantCatalog site;
-      names = attachedTenantNamesForUnit site unitName;
+      names = inferTenantNamesFromUnitName site unitName;
     in
     builtins.listToAttrs (
       map (name: {
@@ -281,10 +204,12 @@ in
       policyNodeName = if rolesResult.policyUnit == null then null else toString rolesResult.policyUnit;
 
       upstreamSelectorNodeName =
-        if rolesResult.traversal ? chain && builtins.length rolesResult.traversal.chain >= 2 then
-          builtins.elemAt rolesResult.traversal.chain 1
-        else
-          null;
+        let
+          selectorNames = lib.sort (a: b: a < b) (
+            map toString (lib.filter (u: rolesResult.roleFromInput u == "upstream-selector") unitNames)
+          );
+        in
+        if selectorNames == [ ] then null else builtins.head selectorNames;
 
       routed0 = topoResolve (
         enforcementResult
@@ -316,11 +241,7 @@ in
       };
 
       finalPolicyNodeName =
-        if
-          routed1 ? policyNodeName
-          && routed1.policyNodeName != null
-          && builtins.isString routed1.policyNodeName
-        then
+        if routed1 ? policyNodeName && routed1.policyNodeName != null then
           routed1.policyNodeName
         else if policyNodeName != null then
           policyNodeName
@@ -328,28 +249,18 @@ in
           firstNodeNameByRole (routed1.nodes or { }) "policy";
 
       finalUpstreamSelectorNodeName =
-        if
-          routed1 ? upstreamSelectorNodeName
-          && routed1.upstreamSelectorNodeName != null
-          && builtins.isString routed1.upstreamSelectorNodeName
-        then
+        if routed1 ? upstreamSelectorNodeName && routed1.upstreamSelectorNodeName != null then
           routed1.upstreamSelectorNodeName
         else if upstreamSelectorNodeName != null then
-          toString upstreamSelectorNodeName
+          upstreamSelectorNodeName
         else
           firstNodeNameByRole (routed1.nodes or { }) "upstream-selector";
 
       finalCoreNodeNames =
-        if
-          routed1 ? coreNodeNames && builtins.isList routed1.coreNodeNames && routed1.coreNodeNames != [ ]
-        then
+        if routed1 ? coreNodeNames && routed1.coreNodeNames != [ ] then
           routed1.coreNodeNames
-        else if coreNodeNames != [ ] then
-          coreNodeNames
         else
-          lib.sort (a: b: a < b) (
-            builtins.attrNames (lib.filterAttrs (_: n: (n.role or null) == "core") (routed1.nodes or { }))
-          );
+          coreNodeNames;
 
       routed =
         builtins.removeAttrs routed1 [
