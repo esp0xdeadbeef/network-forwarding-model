@@ -133,6 +133,13 @@ let
     in
     if names == [ ] then null else builtins.head names;
 
+  firstExistingName =
+    nodes: names:
+    let
+      present = lib.filter (name: nodes ? "${name}") names;
+    in
+    if present == [ ] then null else builtins.head present;
+
 in
 {
   build =
@@ -248,19 +255,56 @@ in
         else
           firstNodeNameByRole (routed1.nodes or { }) "policy";
 
-      finalUpstreamSelectorNodeName =
-        if routed1 ? upstreamSelectorNodeName && routed1.upstreamSelectorNodeName != null then
-          routed1.upstreamSelectorNodeName
-        else if upstreamSelectorNodeName != null then
-          upstreamSelectorNodeName
-        else
-          firstNodeNameByRole (routed1.nodes or { }) "upstream-selector";
-
       finalCoreNodeNames =
         if routed1 ? coreNodeNames && routed1.coreNodeNames != [ ] then
           routed1.coreNodeNames
         else
           coreNodeNames;
+
+      multiWan = builtins.length (wanResult.uplinkCores or [ ]) > 1;
+
+      fallbackCoreNodeName =
+        let
+          nodes1 = routed1.nodes or { };
+          fromFinalCores = firstExistingName nodes1 finalCoreNodeNames;
+        in
+        if fromFinalCores != null then fromFinalCores else firstNodeNameByRole nodes1 "core";
+
+      selectedUpstreamSelectorNodeName =
+        let
+          nodes1 = routed1.nodes or { };
+
+          explicitSelector =
+            if routed1 ? upstreamSelectorNodeName && routed1.upstreamSelectorNodeName != null then
+              routed1.upstreamSelectorNodeName
+            else if upstreamSelectorNodeName != null then
+              upstreamSelectorNodeName
+            else
+              firstNodeNameByRole nodes1 "upstream-selector";
+        in
+        if multiWan then
+          if explicitSelector != null && nodes1 ? "${explicitSelector}" then
+            explicitSelector
+          else
+            fallbackCoreNodeName
+        else
+          fallbackCoreNodeName;
+
+      _assertUpstreamSelectorNodeName =
+        if
+          selectedUpstreamSelectorNodeName != null
+          && (routed1.nodes or { } ? "${selectedUpstreamSelectorNodeName}")
+        then
+          true
+        else
+          throw ''
+            network-solver: failed to determine valid upstreamSelectorNodeName
+
+            site: ${enterprise}.${siteId}
+            multiWan: ${if multiWan then "true" else "false"}
+            candidate: ${toString selectedUpstreamSelectorNodeName}
+            nodes: ${builtins.toJSON (builtins.attrNames (routed1.nodes or { }))}
+          '';
 
       routed =
         builtins.removeAttrs routed1 [
@@ -278,7 +322,7 @@ in
           siteName = routed1.siteName or siteName;
           coreNodeNames = finalCoreNodeNames;
           policyNodeName = finalPolicyNodeName;
-          upstreamSelectorNodeName = finalUpstreamSelectorNodeName;
+          upstreamSelectorNodeName = builtins.seq _assertUpstreamSelectorNodeName selectedUpstreamSelectorNodeName;
           uplinkCoreNames = routed1.uplinkCoreNames or (wanResult.uplinkCores or [ ]);
           uplinkNames = routed1.uplinkNames or (wanResult.uplinkNames or [ ]);
         };
