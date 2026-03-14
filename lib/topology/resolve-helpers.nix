@@ -86,7 +86,14 @@ let
       ifName,
       overlayName,
       overlay ? { },
+      reachability ? null,
     }:
+    let
+      reach0 = if reachability != null && builtins.isAttrs reachability then reachability else { };
+
+      routes4 = reach0.routes4 or [ ];
+      routes6 = reach0.routes6 or [ ];
+    in
     {
       name = ifName;
       node = nodeName;
@@ -116,19 +123,22 @@ let
       overlay = overlayName;
 
       transport = lib.optionalAttrs (builtins.isAttrs overlay) (
-        builtins.removeAttrs overlay [
+        (builtins.removeAttrs overlay [
           "terminateOn"
           "terminatesOn"
           "terminatedOn"
           "unit"
           "node"
           "name"
-        ]
+        ])
+        // {
+          peerSite = reach0.peerSite or null;
+        }
       );
 
       routes = {
-        ipv4 = [ ];
-        ipv6 = [ ];
+        ipv4 = routes4;
+        ipv6 = routes6;
       };
 
       ra6Prefixes = [ ];

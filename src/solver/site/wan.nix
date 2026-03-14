@@ -18,6 +18,24 @@
 
       stripMask = ip.stripMask;
 
+      normalizeRouteEntry =
+        x:
+        if builtins.isString x then
+          toString x
+        else if builtins.isAttrs x && (x.dst or null) != null then
+          toString x.dst
+        else
+          toString x;
+
+      normalizeRouteList =
+        xs:
+        if xs == null then
+          [ ]
+        else if builtins.isList xs then
+          map normalizeRouteEntry xs
+        else
+          [ (normalizeRouteEntry xs) ];
+
       tenantFromUplink =
         uplink:
         if
@@ -66,9 +84,18 @@
       normalizeUplinkSpec =
         u:
         if builtins.isString u then
-          { name = u; }
+          {
+            name = toString u;
+            ipv4 = [ ];
+            ipv6 = [ ];
+          }
         else if builtins.isAttrs u && u ? name then
-          u // { name = toString u.name; }
+          u
+          // {
+            name = toString u.name;
+            ipv4 = normalizeRouteList (u.ipv4 or [ ]);
+            ipv6 = normalizeRouteList (u.ipv6 or [ ]);
+          }
         else
           null;
 
@@ -90,13 +117,21 @@
         core: explicit:
         let
           nodeUplinks = nodeLevelUplinksForCore core;
-          fromNode =
+          fromNodeRaw =
             if nodeUplinks ? "${explicit.name}" && builtins.isAttrs nodeUplinks.${explicit.name} then
               nodeUplinks.${explicit.name}
             else
               { };
+
+          fromNode = normalizeUplinkSpec (fromNodeRaw // { name = explicit.name; });
         in
-        fromNode // explicit // { name = explicit.name; };
+        fromNode
+        // explicit
+        // {
+          name = explicit.name;
+          ipv4 = normalizeRouteList ((fromNode.ipv4 or [ ]) ++ (explicit.ipv4 or [ ]));
+          ipv6 = normalizeRouteList ((fromNode.ipv6 or [ ]) ++ (explicit.ipv6 or [ ]));
+        };
 
       nodeOnlySpecsForCore =
         core:
@@ -109,7 +144,9 @@
           let
             v = nodeUplinks.${name};
           in
-          if builtins.isAttrs v then v // { name = toString name; } else { name = toString name; }
+          normalizeUplinkSpec (
+            if builtins.isAttrs v then v // { name = toString name; } else { name = toString name; }
+          )
         ) names;
 
       dedupeByName =
@@ -239,8 +276,8 @@
                 addr6 = coreAddr6;
                 peerAddr6 = peerAddr6;
                 ll6 = mkWanLL6 hostBase;
-                uplinkRoutes4 = uplink.ipv4 or [ ];
-                uplinkRoutes6 = uplink.ipv6 or [ ];
+                uplinkRoutes4 = normalizeRouteList (uplink.ipv4 or [ ]);
+                uplinkRoutes6 = normalizeRouteList (uplink.ipv6 or [ ]);
               };
             };
           };

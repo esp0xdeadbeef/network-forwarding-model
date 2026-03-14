@@ -10,6 +10,9 @@ let
       tenantOwnerEntries =
         if kind == "tenant" then builtins.attrValues (topo.tenantPrefixOwners or { }) else [ ];
 
+      overlayEntries =
+        if kind == "overlay" then builtins.attrValues (topo.overlayReachability or { }) else [ ];
+
       perTenantOwner =
         entry:
         if entry.owner == nodeName then
@@ -23,6 +26,40 @@ let
               kind = "tenant";
             }
           ];
+
+      perOverlayOwner =
+        overlay:
+        let
+          owners = overlay.terminateOn or [ ];
+
+          v4s = map (r: {
+            family = 4;
+            dst = r.dst or null;
+          }) (overlay.routes4 or [ ]);
+
+          v6s = map (r: {
+            family = 6;
+            dst = r.dst or null;
+          }) (overlay.routes6 or [ ]);
+
+          prefixes = lib.filter (e: e.dst != null) (v4s ++ v6s);
+        in
+        lib.concatMap (
+          owner:
+          if owner == nodeName then
+            [ ]
+          else
+            map (
+              e:
+              e
+              // {
+                owner = owner;
+                kind = "overlay";
+                overlay = overlay.overlay or null;
+                peerSite = overlay.peerSite or null;
+              }
+            ) prefixes
+        ) owners;
 
       prefixSetFor = otherNode: builtins.attrValues (helpers.prefixSetFromP2pIfaces otherNode);
 
@@ -43,6 +80,8 @@ let
     in
     if kind == "tenant" then
       lib.concatMap perTenantOwner tenantOwnerEntries
+    else if kind == "overlay" then
+      lib.concatMap perOverlayOwner overlayEntries
     else
       lib.concatMap perNode (helpers.allNodeNames topo);
 
@@ -97,8 +136,10 @@ let
           null
         else if sample.kind == "p2p" then
           helpers.buildP2pAggregate topo sample.family
+        else if sample.kind == "tenant" then
+          helpers.buildTenantAggregate topo sample.family
         else
-          helpers.buildTenantAggregate topo sample.family;
+          null;
 
       aggRoute =
         if aggDst == null then
@@ -122,14 +163,16 @@ let
       ownSet = helpers.ownConnectedPrefixes node;
 
       remote = lib.filter (e: !(ownSet ? "${toString e.family}|${e.dst}")) (
-        (remotePrefixesOfKind topo nodeName "p2p") ++ (remotePrefixesOfKind topo nodeName "tenant")
+        (remotePrefixesOfKind topo nodeName "p2p")
+        ++ (remotePrefixesOfKind topo nodeName "tenant")
+        ++ (remotePrefixesOfKind topo nodeName "overlay")
       );
 
       resolved = lib.filter (x: x != null) (map (resolveRemotePrefix topo nodeName) remote);
 
       perNextHopKey =
         e:
-        "${e.linkName}|${toString e.family}|${toString (e.via4 or "")}|${toString (e.via6 or "")}|${e.kind}";
+        "${e.linkName}|${toString e.family}|${toString (e.via4 or "")}|${toString (e.via6 or "")}|${e.kind}|${toString (e.overlay or "")}|${toString (e.peerSite or "")}";
 
       grouped = builtins.foldl' (
         acc: e: acc // { "${perNextHopKey e}" = (acc.${perNextHopKey e} or [ ]) ++ [ e ]; }

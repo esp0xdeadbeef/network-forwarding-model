@@ -92,15 +92,6 @@ let
     else
       null;
 
-  externalDomainNameOf =
-    x:
-    if builtins.isString x then
-      toString x
-    else if builtins.isAttrs x && (x.name or null) != null then
-      toString x.name
-    else
-      null;
-
   externalDomainsListFrom =
     externals:
     if builtins.isList externals then
@@ -199,11 +190,32 @@ let
       externals = externals1;
     };
 
-  tenantCatalog =
+  normalizeTenants =
     site:
     let
-      tenants = (site.domains or { }).tenants or [ ];
+      tenants0 = (site.domains or { }).tenants or [ ];
+      tenants1 =
+        if builtins.isList tenants0 then
+          tenants0
+        else if builtins.isAttrs tenants0 then
+          builtins.attrValues (
+            lib.mapAttrs (
+              name: v:
+              if builtins.isAttrs v then
+                v // { name = toString (v.name or name); }
+              else
+                {
+                  name = toString name;
+                }
+            ) tenants0
+          )
+        else
+          [ ];
     in
+    lib.filter (t: builtins.isAttrs t && (t.name or null) != null) tenants1;
+
+  tenantCatalog =
+    site:
     builtins.listToAttrs (
       map (t: {
         name = toString t.name;
@@ -213,7 +225,7 @@ let
           ipv4 = t.ipv4 or null;
           ipv6 = t.ipv6 or null;
         };
-      }) (lib.filter (t: builtins.isAttrs t && (t.name or null) != null) tenants)
+      }) (normalizeTenants site)
     );
 
   inferTenantNamesFromUnitName =
@@ -247,6 +259,27 @@ let
       }) (lib.filter (name: catalog ? "${name}") names)
     );
 
+  tenantPrefixesOfSite =
+    site:
+    let
+      tenants = normalizeTenants site;
+
+      ipv4 = lib.unique (
+        lib.filter (x: x != null) (
+          map (t: if (t.ipv4 or null) != null then toString t.ipv4 else null) tenants
+        )
+      );
+
+      ipv6 = lib.unique (
+        lib.filter (x: x != null) (
+          map (t: if (t.ipv6 or null) != null then toString t.ipv6 else null) tenants
+        )
+      );
+    in
+    {
+      inherit ipv4 ipv6;
+    };
+
   firstNodeNameByRole =
     nodes: role:
     let
@@ -263,6 +296,155 @@ let
     in
     if present == [ ] then null else builtins.head present;
 
+  normalizeOverlay =
+    x:
+    if builtins.isString x then
+      {
+        name = toString x;
+      }
+    else if builtins.isAttrs x && (x.name or null) != null then
+      x // { name = toString x.name; }
+    else
+      null;
+
+  overlayItemsFrom =
+    site:
+    let
+      overlays0 = ((site.transport or { }).overlays or [ ]);
+    in
+    if builtins.isList overlays0 then
+      lib.filter (x: x != null) (map normalizeOverlay overlays0)
+    else if builtins.isAttrs overlays0 then
+      lib.filter (x: x != null) (
+        lib.mapAttrsToList (name: v: normalizeOverlay (v // { inherit name; })) overlays0
+      )
+    else
+      [ ];
+
+  overlayTargetNamesFrom =
+    x:
+    if x == null then
+      [ ]
+    else if builtins.isString x then
+      [ (toString x) ]
+    else if builtins.isList x then
+      lib.concatMap overlayTargetNamesFrom x
+    else if builtins.isAttrs x then
+      let
+        direct = lib.filter (v: v != null) [
+          (if (x.unit or null) != null then toString x.unit else null)
+          (if (x.node or null) != null then toString x.node else null)
+        ];
+      in
+      if direct != [ ] then
+        direct
+      else
+        lib.concatMap overlayTargetNamesFrom (
+          lib.filter (v: v != null) [
+            (x.terminateOn or null)
+            (x.terminatesOn or null)
+            (x.terminatedOn or null)
+          ]
+        )
+    else
+      [ ];
+
+  overlayPeerSiteRefOf =
+    enterprise: overlay:
+    let
+      raw =
+        overlay.peerSite or overlay.peerSiteId or overlay.remoteSite or overlay.site or overlay.peer
+          or null;
+      s =
+        if raw == null then
+          null
+        else if builtins.isString raw then
+          toString raw
+        else if builtins.isAttrs raw && (raw.site or null) != null then
+          toString raw.site
+        else if builtins.isAttrs raw && (raw.siteId or null) != null then
+          toString raw.siteId
+        else if builtins.isAttrs raw && (raw.name or null) != null then
+          toString raw.name
+        else
+          null;
+    in
+    if s == null then
+      null
+    else if lib.hasInfix "." s then
+      s
+    else
+      "${enterprise}.${s}";
+
+  siteByRef =
+    allSites: ref:
+    let
+      parts = lib.splitString "." (toString ref);
+    in
+    if builtins.length parts != 2 then
+      null
+    else
+      let
+        ent = builtins.elemAt parts 0;
+        sid = builtins.elemAt parts 1;
+      in
+      if allSites ? "${ent}" && builtins.isAttrs allSites.${ent} && allSites.${ent} ? "${sid}" then
+        allSites.${ent}.${sid}
+      else
+        null;
+
+  overlayReachabilityForSite =
+    {
+      enterprise,
+      site,
+      allSites,
+    }:
+    builtins.listToAttrs (
+      map (
+        overlay:
+        let
+          overlayName = toString overlay.name;
+          peerSiteRef = overlayPeerSiteRefOf enterprise overlay;
+          peerSite0 = if peerSiteRef == null then null else siteByRef allSites peerSiteRef;
+          peerSite =
+            if peerSite0 == null then null else peerSite0 // { domains = materializeSiteDomains peerSite0; };
+          peerPrefixes =
+            if peerSite == null then
+              {
+                ipv4 = [ ];
+                ipv6 = [ ];
+              }
+            else
+              tenantPrefixesOfSite peerSite;
+          terminateOn = lib.unique (overlayTargetNamesFrom overlay);
+
+          routes4 = map (dst: {
+            inherit dst;
+            proto = "overlay";
+            overlay = overlayName;
+            peerSite = peerSiteRef;
+          }) peerPrefixes.ipv4;
+
+          routes6 = map (dst: {
+            inherit dst;
+            proto = "overlay";
+            overlay = overlayName;
+            peerSite = peerSiteRef;
+          }) peerPrefixes.ipv6;
+        in
+        {
+          name = overlayName;
+          value = {
+            overlay = overlayName;
+            peerSite = peerSiteRef;
+            terminateOn = terminateOn;
+            routes4 = routes4;
+            routes6 = routes6;
+          };
+        }
+      ) (overlayItemsFrom site)
+    );
+
 in
 {
   build =
@@ -276,11 +458,21 @@ in
       rolesResult,
       wanResult,
       enforcementResult,
+      sites ? { },
     }:
     let
       siteName = toString (site.siteName or "${enterprise}.${siteId}");
 
       siteDomains = materializeSiteDomains site;
+
+      overlayReachability = overlayReachabilityForSite {
+        inherit enterprise;
+        site = site // {
+          domains = siteDomains;
+        };
+        allSites = sites;
+      };
+
       siteForTopology = site // {
         domains = siteDomains;
       };
@@ -357,6 +549,7 @@ in
             coreNodeNames
             policyNodeName
             upstreamSelectorNodeName
+            overlayReachability
             ;
           uplinkCoreNames = wanResult.uplinkCores or [ ];
           uplinkNames = wanResult.uplinkNames or [ ];
@@ -447,7 +640,7 @@ in
           "routerLoopbacks"
         ]
         // {
-          inherit enterprise siteId;
+          inherit enterprise siteId overlayReachability;
           siteName = routed1.siteName or siteName;
           coreNodeNames = finalCoreNodeNames;
           policyNodeName = finalPolicyNodeName;

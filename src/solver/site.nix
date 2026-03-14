@@ -3,6 +3,7 @@
   enterprise,
   siteId,
   site,
+  sites ? { },
 }:
 
 let
@@ -108,6 +109,7 @@ let
       rolesResult
       wanResult
       enforcementResult
+      sites
       ;
   };
 in

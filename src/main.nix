@@ -69,17 +69,22 @@ let
       };
     };
 
+  enrichedSitesByEnterprise = builtins.mapAttrs (
+    ent: sites: builtins.mapAttrs (siteId: site: enrichSite ent siteId site) sites
+  ) sitesByEnterprise;
+
   solvedSitesByEnterprise = builtins.mapAttrs (
     ent: sites:
     let
       solved = solveEnterprise {
         enterprise = ent;
-        sites = builtins.mapAttrs (siteId: site: enrichSite ent siteId site) sites;
+        sites = sites;
+        allSites = enrichedSitesByEnterprise;
       };
       _ = builtins.mapAttrs (_: site: invariants.checkSite { inherit site; }) solved;
     in
     solved
-  ) sitesByEnterprise;
+  ) enrichedSitesByEnterprise;
 
   flattenedSolvedSites = builtins.foldl' (
     acc: ent:

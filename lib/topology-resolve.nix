@@ -56,6 +56,8 @@ let
     else
       [ ];
 
+  overlayReachability = topoRaw.overlayReachability or { };
+
   overlayTargetNamesFrom =
     x:
     if x == null then
@@ -198,12 +200,14 @@ let
         overlay:
         let
           ifName = helpers.overlayInterfaceNameFor overlay.name;
+          reachabilityForOverlay = overlayReachability.${overlay.name} or null;
         in
         {
           name = ifName;
           value = helpers.mkOverlayIface {
             inherit nodeName ifName overlay;
             overlayName = overlay.name;
+            reachability = reachabilityForOverlay;
           };
         }
       ) items
