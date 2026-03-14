@@ -18,6 +18,23 @@ let
     else
       throw "network-solver: sites.${enterprise}.${siteId} must be an attrset";
 
+  topologyNodes =
+    if
+      site ? topology
+      && builtins.isAttrs site.topology
+      && site.topology ? nodes
+      && builtins.isAttrs site.topology.nodes
+    then
+      site.topology.nodes
+    else
+      { };
+
+  siteNodes = if site ? nodes && builtins.isAttrs site.nodes then site.nodes else { };
+
+  siteUnits = if site ? units && builtins.isAttrs site.units then site.units else { };
+
+  nodesBase = topologyNodes // siteNodes // siteUnits;
+
   ordering = utils.requireAttr "sites.${enterprise}.${siteId}.transit.ordering" (
     site.transit.ordering or null
   );
@@ -46,8 +63,9 @@ let
     orderedUnits
     ++ accessUnits
     ++ builtins.attrNames (site.routerLoopbacks or { })
-    ++ builtins.attrNames (site.nodes or { })
-    ++ builtins.attrNames (site.units or { })
+    ++ builtins.attrNames topologyNodes
+    ++ builtins.attrNames siteNodes
+    ++ builtins.attrNames siteUnits
   );
 
   rolesResult = rolesMod.compute {
@@ -69,7 +87,7 @@ let
       rolesResult
       ;
     roleFromInput = rolesResult.roleFromInput;
-    nodesBase = site.nodes or site.units or { };
+    inherit nodesBase;
   };
   enforcementResult = enfMod.build {
     inherit

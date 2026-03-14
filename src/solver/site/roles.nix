@@ -14,7 +14,17 @@
 
     let
       validate = import ./roles/validate.nix { inherit lib; };
-      derive = import ../../util/derive.nix { inherit lib; };
+
+      topologyNodes =
+        if
+          site ? topology
+          && builtins.isAttrs site.topology
+          && site.topology ? nodes
+          && builtins.isAttrs site.topology.nodes
+        then
+          site.topology.nodes
+        else
+          { };
 
       orderingEdges = map (p: {
         a = builtins.elemAt p 0;
@@ -42,7 +52,9 @@
         let
           n = toString node;
         in
-        if site ? nodes && site.nodes ? "${n}" then
+        if topologyNodes ? "${n}" then
+          (topologyNodes.${n}.role or null)
+        else if site ? nodes && site.nodes ? "${n}" then
           (site.nodes.${n}.role or null)
         else if site ? units && site.units ? "${n}" then
           (site.units.${n}.role or null)
@@ -93,59 +105,9 @@
         in
         if start == null then [ ] else go [ ] start;
 
-      anyBranchInChain = lib.any (n: (outdeg n) > 1) chain;
+      roleFromInput = node: roleFromInputExplicit node;
 
-      inferredRolesFromOrdering =
-        let
-          len = builtins.length chain;
-          at = i: builtins.elemAt chain i;
-
-          base =
-            if len == 4 then
-              {
-                "${at 0}" = "core";
-                "${at 1}" = "upstream-selector";
-                "${at 2}" = "policy";
-                "${at 3}" = "access";
-              }
-            else if len == 3 && anyBranchInChain then
-              {
-                "${at 0}" = "core";
-                "${at 1}" = "upstream-selector";
-                "${at 2}" = "policy";
-              }
-            else if len == 3 then
-              {
-                "${at 0}" = "core";
-                "${at 1}" = "policy";
-                "${at 2}" = "access";
-              }
-            else if len == 2 then
-              {
-                "${at 0}" = "core";
-                "${at 1}" = "access";
-              }
-            else
-              { };
-        in
-        builtins.foldl' (acc: u: acc // { "${toString u}" = "access"; }) base accessUnits;
-
-      roleFromInput =
-        node:
-        let
-          n = toString node;
-          explicit = roleFromInputExplicit n;
-          inferred = if inferredRolesFromOrdering ? "${n}" then inferredRolesFromOrdering.${n} else null;
-          derived = derive.roleForUnit n;
-        in
-        if explicit != null then
-          explicit
-        else if inferred != null then
-          inferred
-        else
-          derived;
-
-      missingRoles = lib.filter (n: roleFromInput n == null) allUnits;
+      missingRoles = lib.filter (n: roleFromInput n == null || roleFromInput n == "") allUnits;
 
       assertions =
         if missingRoles == [ ] then
@@ -158,17 +120,28 @@
             nodes missing roles: ${lib.concatStringsSep ", " (map toString missingRoles)}
           '';
 
-      policyUnit =
-        let
-          policies = lib.filter (n: (roleFromInput n) == "policy") allUnits;
-        in
-        if policies == [ ] then null else lib.head (lib.sort (a: b: toString a < toString b) policies);
+      policyUnits = lib.filter (n: (roleFromInput n) == "policy") allUnits;
+      _exactlyOnePolicy =
+        if builtins.length policyUnits == 1 then
+          true
+        else
+          throw ''
+            network-solver: expected exactly one node with role='policy'
+
+            site: ${enterprise}.${siteId}
+            found: ${toString (builtins.length policyUnits)}
+            nodes: ${lib.concatStringsSep ", " (map toString policyUnits)}
+          '';
+
+      policyUnit = builtins.seq _exactlyOnePolicy (
+        lib.head (lib.sort (a: b: toString a < toString b) policyUnits)
+      );
 
       traversal = {
         mode = "ordering-chain";
         chain = chain;
         edges = orderingEdges;
-        inferred = inferredRolesFromOrdering;
+        inferred = { };
         coreUnitHint = coreByOrdering;
         policyFanout = if policyUnit == null then [ ] else map (e: e.b) (outsOf (toString policyUnit));
       };
