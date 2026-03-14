@@ -11,6 +11,7 @@ let
   stripMask = ip.stripMask;
   canonicalCidr = prefix.canonicalCidr;
   ifaceRoutes = routes.ifaceRoutes;
+  dedupeRoutes = routes.dedupeRoutes;
 
   mkRoute4 = dst: via4: proto: {
     dst = canonicalCidr dst;
@@ -21,14 +22,6 @@ let
     dst = canonicalCidr dst;
     inherit via6 proto;
   };
-
-  routeKey =
-    r:
-    "${toString (r.dst or "")}|${toString (r.via4 or "")}|${toString (r.via6 or "")}|${toString (r.proto or "")}";
-
-  dedupeRoutes =
-    routes0:
-    builtins.attrValues (builtins.foldl' (acc: r: acc // { "${routeKey r}" = r; }) { } routes0);
 
   addRoutesOnLink =
     node: linkName: add4: add6:

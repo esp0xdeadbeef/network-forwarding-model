@@ -4,7 +4,10 @@ let
   derive = import ../../../util/derive.nix { inherit lib; };
   p2pAlloc = import ../../../../lib/p2p/alloc.nix { inherit lib; };
   topoResolve = import ../../../../lib/topology-resolve.nix { inherit lib; };
+  routes = import ../../../../lib/model/routes.nix { inherit lib; };
   utils = import ../../../util { inherit lib; };
+
+  dedupeRoutes = routes.dedupeRoutes;
 
   ensureMask =
     addr: family:
@@ -28,16 +31,18 @@ let
       };
 
   normalizeRouteList =
-    routes:
-    map (
-      r:
-      if builtins.isString r then
-        { dst = r; }
-      else if builtins.isAttrs r then
-        r
-      else
-        { dst = toString r; }
-    ) routes;
+    routes0:
+    dedupeRoutes (
+      map (
+        r:
+        if builtins.isString r then
+          { dst = r; }
+        else if builtins.isAttrs r then
+          r
+        else
+          { dst = toString r; }
+      ) routes0
+    );
 
   normalizeRoutes =
     iface:
