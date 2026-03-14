@@ -31,6 +31,63 @@ let
       inherit nodeName nodeNames;
     };
 
+  normalizeOverlay =
+    x:
+    if builtins.isString x then
+      {
+        name = toString x;
+      }
+    else if builtins.isAttrs x && (x.name or null) != null then
+      x // { name = toString x.name; }
+    else
+      null;
+
+  overlayItems =
+    let
+      transport = topoRaw.transport or { };
+      overlays0 = transport.overlays or [ ];
+    in
+    if builtins.isList overlays0 then
+      lib.filter (x: x != null) (map normalizeOverlay overlays0)
+    else if builtins.isAttrs overlays0 then
+      lib.filter (x: x != null) (
+        lib.mapAttrsToList (name: v: normalizeOverlay (v // { inherit name; })) overlays0
+      )
+    else
+      [ ];
+
+  overlayTargetNamesFrom =
+    x:
+    if x == null then
+      [ ]
+    else if builtins.isString x then
+      [ (toString x) ]
+    else if builtins.isList x then
+      lib.concatMap overlayTargetNamesFrom x
+    else if builtins.isAttrs x then
+      let
+        direct = lib.filter (v: v != null) [
+          (if (x.unit or null) != null then toString x.unit else null)
+          (if (x.node or null) != null then toString x.node else null)
+        ];
+      in
+      if direct != [ ] then
+        direct
+      else
+        lib.concatMap overlayTargetNamesFrom (
+          lib.filter (v: v != null) [
+            (x.terminateOn or null)
+            (x.terminatesOn or null)
+            (x.terminatedOn or null)
+          ]
+        )
+    else
+      [ ];
+
+  overlaysForNode =
+    nodeName:
+    lib.filter (overlay: lib.elem nodeName (lib.unique (overlayTargetNamesFrom overlay))) overlayItems;
+
   validateLink =
     linkName:
     let
@@ -130,18 +187,52 @@ let
       ) netNames
     );
 
+  overlayInterfacesForNode =
+    nodeName:
+    let
+      overlays = overlaysForNode nodeName;
+      items = lib.sort (a: b: a.name < b.name) overlays;
+    in
+    lib.listToAttrs (
+      map (
+        overlay:
+        let
+          ifName = helpers.overlayInterfaceNameFor overlay.name;
+        in
+        {
+          name = ifName;
+          value = helpers.mkOverlayIface {
+            inherit nodeName ifName overlay;
+            overlayName = overlay.name;
+          };
+        }
+      ) items
+    );
+
   interfacesForNode =
     nodeName:
     let
       linkInterfaces = linkInterfacesForNode nodeName;
       logicalInterfaces = logicalInterfacesForNode nodeName;
-      clashes = lib.filter (n: linkInterfaces ? "${n}") (builtins.attrNames logicalInterfaces);
+      overlayInterfaces = overlayInterfacesForNode nodeName;
 
-      _noIfaceClashes =
-        assert_ (clashes == [ ])
-          "topology-resolve: logical tenant interface(s) collide with link-backed interface(s) on node '${nodeName}': ${lib.concatStringsSep ", " clashes}";
+      logicalClashes = lib.filter (n: linkInterfaces ? "${n}") (builtins.attrNames logicalInterfaces);
+
+      overlayClashes = lib.filter (n: linkInterfaces ? "${n}" || logicalInterfaces ? "${n}") (
+        builtins.attrNames overlayInterfaces
+      );
+
+      _noLogicalIfaceClashes =
+        assert_ (logicalClashes == [ ])
+          "topology-resolve: logical tenant interface(s) collide with link-backed interface(s) on node '${nodeName}': ${lib.concatStringsSep ", " logicalClashes}";
+
+      _noOverlayIfaceClashes =
+        assert_ (overlayClashes == [ ])
+          "topology-resolve: overlay interface(s) collide with existing interface(s) on node '${nodeName}': ${lib.concatStringsSep ", " overlayClashes}";
     in
-    builtins.seq _noIfaceClashes (linkInterfaces // logicalInterfaces);
+    builtins.seq _noLogicalIfaceClashes (
+      builtins.seq _noOverlayIfaceClashes (linkInterfaces // logicalInterfaces // overlayInterfaces)
+    );
 
   stripLinuxSpecific = node: builtins.removeAttrs node [ "routingDomain" ];
 

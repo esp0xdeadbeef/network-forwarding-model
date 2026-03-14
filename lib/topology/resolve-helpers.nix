@@ -20,6 +20,8 @@ let
 
   logicalInterfaceNameFor = netName: "tenant-${toString netName}";
 
+  overlayInterfaceNameFor = overlayName: "overlay-${toString overlayName}";
+
   mkLogicalIface =
     {
       nodeName,
@@ -71,6 +73,62 @@ let
       routes = {
         ipv4 = lib.optional (subnet4 != null) (mkConnectedRoute subnet4);
         ipv6 = lib.optional (subnet6 != null) (mkConnectedRoute subnet6);
+      };
+
+      ra6Prefixes = [ ];
+      acceptRA = false;
+      dhcp = false;
+    };
+
+  mkOverlayIface =
+    {
+      nodeName,
+      ifName,
+      overlayName,
+      overlay ? { },
+    }:
+    {
+      name = ifName;
+      node = nodeName;
+      interface = ifName;
+      link = ifName;
+      logical = true;
+      virtual = true;
+      l2 = false;
+      kind = overlay.kind or "overlay";
+      type = "overlay";
+      carrier = "logical";
+
+      gateway = false;
+
+      addr4 = null;
+      peerAddr4 = null;
+      addr6 = null;
+      peerAddr6 = null;
+      addr6Public = null;
+
+      subnet4 = null;
+      subnet6 = null;
+
+      ll6 = null;
+      uplink = null;
+      upstream = null;
+      overlay = overlayName;
+
+      transport = lib.optionalAttrs (builtins.isAttrs overlay) (
+        builtins.removeAttrs overlay [
+          "terminateOn"
+          "terminatesOn"
+          "terminatedOn"
+          "unit"
+          "node"
+          "name"
+        ]
+      );
+
+      routes = {
+        ipv4 = [ ];
+        ipv6 = [ ];
       };
 
       ra6Prefixes = [ ];
@@ -159,7 +217,9 @@ in
     hasPrefixLength
     mkConnectedRoute
     logicalInterfaceNameFor
+    overlayInterfaceNameFor
     mkLogicalIface
+    mkOverlayIface
     mkIfaceBase
     mergePrebuiltIface
     networksOf
