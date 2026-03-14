@@ -201,6 +201,15 @@ let
       }) (lib.filter (name: catalog ? "${name}") names)
     );
 
+  firstNodeNameByRole =
+    nodes: role:
+    let
+      names = lib.sort (a: b: a < b) (
+        builtins.attrNames (lib.filterAttrs (_: n: (n.role or null) == role) nodes)
+      );
+    in
+    if names == [ ] then null else builtins.head names;
+
 in
 {
   build =
@@ -306,6 +315,42 @@ in
         ) (routed0.nodes or { });
       };
 
+      finalPolicyNodeName =
+        if
+          routed1 ? policyNodeName
+          && routed1.policyNodeName != null
+          && builtins.isString routed1.policyNodeName
+        then
+          routed1.policyNodeName
+        else if policyNodeName != null then
+          policyNodeName
+        else
+          firstNodeNameByRole (routed1.nodes or { }) "policy";
+
+      finalUpstreamSelectorNodeName =
+        if
+          routed1 ? upstreamSelectorNodeName
+          && routed1.upstreamSelectorNodeName != null
+          && builtins.isString routed1.upstreamSelectorNodeName
+        then
+          routed1.upstreamSelectorNodeName
+        else if upstreamSelectorNodeName != null then
+          toString upstreamSelectorNodeName
+        else
+          firstNodeNameByRole (routed1.nodes or { }) "upstream-selector";
+
+      finalCoreNodeNames =
+        if
+          routed1 ? coreNodeNames && builtins.isList routed1.coreNodeNames && routed1.coreNodeNames != [ ]
+        then
+          routed1.coreNodeNames
+        else if coreNodeNames != [ ] then
+          coreNodeNames
+        else
+          lib.sort (a: b: a < b) (
+            builtins.attrNames (lib.filterAttrs (_: n: (n.role or null) == "core") (routed1.nodes or { }))
+          );
+
       routed =
         builtins.removeAttrs routed1 [
           "_enforcement"
@@ -320,9 +365,9 @@ in
         // {
           inherit enterprise siteId;
           siteName = routed1.siteName or siteName;
-          coreNodeNames = routed1.coreNodeNames or coreNodeNames;
-          policyNodeName = routed1.policyNodeName or policyNodeName;
-          upstreamSelectorNodeName = routed1.upstreamSelectorNodeName or upstreamSelectorNodeName;
+          coreNodeNames = finalCoreNodeNames;
+          policyNodeName = finalPolicyNodeName;
+          upstreamSelectorNodeName = finalUpstreamSelectorNodeName;
           uplinkCoreNames = routed1.uplinkCoreNames or (wanResult.uplinkCores or [ ]);
           uplinkNames = routed1.uplinkNames or (wanResult.uplinkNames or [ ]);
         };
