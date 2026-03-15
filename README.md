@@ -12,14 +12,14 @@ conflict with the architectural model used here.
 The internal model and schema may change between versions.
 Backward compatibility is not guaranteed.
 
-# nixos-fabric-solver — Theory
+# network-forwarding-model — Theory
 
-`nixos-fabric-solver` turns a compiled network **Process Cell** into a deterministic operational fabric.
+`network-forwarding-model` turns a compiled network **Process Cell** into a deterministic operational fabric.
 
 The compiler defines **what communication must be possible**.  
-The solver determines **how a network must operate so that communication becomes executable**.
+The forwarding model determines **how a network must operate so that communication becomes executable**.
 
-The solver does not generate vendor configuration.  
+The forwarding model does not generate vendor configuration.  
 It produces a stable execution model that renderers may later translate to platforms.
 
 The output is therefore:
@@ -35,7 +35,7 @@ The project splits network definition into three layers:
 | Layer | Responsibility |
 | --- | --- |
 | Compiler | defines communication semantics |
-| Solver | constructs executable network behavior |
+| Forwarding Model | constructs executable network behavior |
 | Renderer | expresses behavior on a platform |
 
 
@@ -49,26 +49,26 @@ flowchart TD
 ```
 
 
-The solver is the boundary where intent becomes execution.
+The forwarding model is the boundary where intent becomes execution.
 
 
 ## Policy contract preservation
 
-The solver **does not interpret communication policy**.
+The forwarding model **does not interpret communication policy**.
 
-The behavioral policy defined by the compiler is preserved verbatim and passed through the solver unchanged.
+The behavioral policy defined by the compiler is preserved verbatim and passed through the forwarding model unchanged.
 
 Specifically, the field:
 
 communicationContract
 
-is copied directly from the compiler output into the solver output.
+is copied directly from the compiler output into the forwarding model output.
 
 compiler-output.sites.<enterprise>.<site>.communicationContract  
         ↓  
-solver-output.enterprise.<enterprise>.site.<site>.communicationContract
+forwarding-model-output.enterprise.<enterprise>.site.<site>.communicationContract
 
-The solver treats this structure as **opaque data**.
+The forwarding model treats this structure as **opaque data**.
 
 It does not:
 
@@ -83,7 +83,7 @@ It does not:
 * generate firewall rules
     
 
-The solver’s responsibility is **network realization only**:
+The forwarding model’s responsibility is **network realization only**:
 
 * link allocation
     
@@ -97,7 +97,7 @@ The solver’s responsibility is **network realization only**:
     
 
 The compiler cannot produce device-ready policy because it does not know final network addressing.  
-The solver does not resolve hosts or services.
+The forwarding model does not resolve hosts or services.
 
 The **renderer is the only stage aware of host placement and platform behavior**, and therefore the renderer is responsible for interpreting the communication contract when generating platform configuration.
 
@@ -106,7 +106,7 @@ This separation ensures a strict architectural boundary:
 | Stage | Responsibility |
 | --- | --- |
 | Compiler | defines communication semantics |
-| Solver | constructs executable network behavior |
+| Forwarding Model | constructs executable network behavior |
 | Renderer | realizes behavior on infrastructure |
 
 
@@ -126,13 +126,13 @@ The project follows ISA-88 responsibility separation.
 | Control Module | mechanism implementing the responsibility |
 
 The compiler stops at Process Cell behavior.  
-The solver realizes behavior into executable responsibilities.
+The forwarding model realizes behavior into executable responsibilities.
 
 * * *
 
-## What the solver actually produces
+## What the forwarding model actually produces
 
-The solver outputs a **Routed Operational Model**.
+The forwarding model outputs a **Routed Operational Model**.
 
 This model is not device configuration.  
 It is the minimum deterministic state required for packet forwarding to exist.
@@ -152,7 +152,7 @@ The model contains:
 
 ## Realization process
 
-The solver progresses from abstract behavior to executable structure.
+The forwarding model progresses from abstract behavior to executable structure.
 
 ```mermaid
 flowchart TD
@@ -170,7 +170,7 @@ Each step removes ambiguity while preserving meaning.
 
 ## Responsibilities realized
 
-From the behavioral contract, the solver derives operational roles.
+From the behavioral contract, the forwarding model derives operational roles.
 
 Typical responsibilities:
 
@@ -188,7 +188,7 @@ A Unit may host multiple responsibilities.
 
 ## Traversal structure
 
-The solver determines how traffic must traverse Units so the behavioral contract can be enforced.
+The forwarding model determines how traffic must traverse Units so the behavioral contract can be enforced.
 
 This produces an execution ordering — not cabling, not topology — but a required path for packets.
 
@@ -213,7 +213,7 @@ This ordering guarantees:
 
 ## Connectivity meaning
 
-Connectivity in the solver is **execution adjacency**.
+Connectivity in the forwarding model is **execution adjacency**.
 
 It does not represent switches, cables, or hardware.
 
@@ -221,13 +221,13 @@ It represents:
 
 > which execution contexts must be able to exchange packets for behavior to exist
 
-Therefore the solver builds a forwarding structure, not a physical topology.
+Therefore the forwarding model builds a forwarding structure, not a physical topology.
 
 * * *
 
 ## Deterministic network state
 
-To make forwarding real, the solver allocates stable operational state:
+To make forwarding real, the forwarding model allocates stable operational state:
 
 | Element | Purpose |
 | --- | --- |
@@ -244,7 +244,7 @@ The allocation is reproducible across evaluations.
 
 Policy is not evaluated globally.
 
-The solver determines **where enforcement must exist** so the behavior holds.
+The forwarding model determines **where enforcement must exist** so the behavior holds.
 
 This ensures:
 
@@ -280,7 +280,7 @@ The model is platform-neutral and renderer-agnostic.
 
 ## Guarantees
 
-For a given input, the solver always produces the same fabric.
+For a given input, the forwarding model always produces the same fabric.
 
 The resulting network model:
 
@@ -307,15 +307,17 @@ This produces the behavioral Site contract.
 
 ## 2) Evaluate the operational fabric
 
-The solver is evaluated as a Nix function.
+The forwarding model is evaluated as a Nix function.
 
-Codenix eval --json '  
+```code
+nix eval --json '  
 let  
   ir = builtins.fromJSON (builtins.readFile ./ir.json);  
-  solver = import ./.;  
+  forwardingModel = import ./.;  
 in  
-  solver { input = ir; }  
+  forwardingModel { input = ir; }  
 ' > solved.json
+```
 
 * * *
 
@@ -323,13 +325,15 @@ in
 
 Example: inspect a Unit execution view
 
-Codenix eval --json '  
+```code
+nix eval --json '  
 let  
   ir = builtins.fromJSON (builtins.readFile ./ir.json);  
   solved = (import ./. { input = ir; });  
 in  
   solved.query.node-context { nodeName = "s-router-policy-only"; }  
 ' | jq
+```
 
 You can inspect:
 
@@ -357,7 +361,7 @@ Typical targets:
 * lab simulation backends
     
 
-The solver itself remains platform neutral.
+The forwarding model itself remains platform neutral.
 
 * * *
 
