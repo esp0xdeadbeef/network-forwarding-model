@@ -1,6 +1,6 @@
-TODO — Solver Output Cleanup (Renderer Safe)
+TODO — Forwarding Model Output Cleanup (Renderer Safe)
 
-Remove the following unused fields from solver output:
+Remove the following unused fields from forwarding model output:
 
 acceptRA
 dhcp
