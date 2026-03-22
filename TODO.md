@@ -1,104 +1,204 @@
-# TODO — Solver output consistency
+TODO — fix compiler transit adjacency contract
+Goal
 
-## Problem
+Restore the compiler output contract for site.transit.adjacencies so downstream consumers like network-control-plane-model can consume it without schema errors.
 
-The solver output still contains one consistency issue even after `communicationContract.interfaceTags` was fixed.
+Problem
 
-The current solver output models `upstream-selector` as a real node in the emitted topology, but also emits `upstreamSelectorNodeName` pointing at a core node in single-core cases.
+The compiler currently emits:
 
-Observed result in solver output:
+site.transit.adjacencies[].endpoints as an object
+endpoint members in a link-style schema:
+node
+addr4
+addr6
+interface
 
-* `topology.nodes.<name>.role = "upstream-selector"` exists
-* `transit.ordering` still traverses that upstream-selector node
-* `links` still contains realized p2p links through that upstream-selector node
-* `upstreamSelectorNodeName` may still point to the core node instead of the actual upstream-selector node
+Downstream expects:
 
-That creates an ambiguous contract for downstream consumers.
+site.transit.adjacencies[].endpoints as a 2-element list
+endpoint members in a transit schema:
+unit
+local.ipv4
+local.ipv6
 
-There is also a second consistency issue:
+This breaks CPM with:
 
-* `transit.adjacencies` is emitted separately from realized `links`
-* emitted adjacency endpoint addresses can drift from the actual realized p2p link endpoints
+site.transit.adjacencies[0].endpoints must be a list
+Required fixes
+1. Emit transit.adjacencies[].endpoints as a list, not an object
 
-That causes downstream confusion because the solver output exposes two topology representations that can disagree.
+Current bad shape:
 
-## Required behavior
-
-When the solver emits a topology that contains a node with role `upstream-selector`, it must preserve that identity in the final normalized / canonical / signed solver output at:
-
-`enterprise.<name>.site.<name>.upstreamSelectorNodeName`
-
-That field must point to the actual emitted node whose role is `upstream-selector`.
-
-The solver must also derive:
-
-`enterprise.<name>.site.<name>.transit.adjacencies`
-
-from the realized p2p links already present in:
-
-`enterprise.<name>.site.<name>.links`
-
-## Acceptance criteria
-
-* [ ] `upstreamSelectorNodeName` always names the actual emitted upstream-selector node when one exists.
-* [ ] `upstreamSelectorNodeName` never points to a node whose emitted role is `core`.
-* [ ] `transit.adjacencies` is derived from realized `links`, not from a separate allocator or stale pre-realization view.
-* [ ] Every endpoint address in `transit.adjacencies` matches the corresponding endpoint address in emitted `links`.
-* [ ] `topology.nodes`, `transit.ordering`, `transit.adjacencies`, and `links` describe the same topology.
-* [ ] No separate fallback meaning is hidden inside `upstreamSelectorNodeName`.
-
-## Tests to add upstream
-
-* [ ] Fixture with a real `upstream-selector` node and a single core.
-* [ ] Assertion that `upstreamSelectorNodeName` equals the emitted node whose role is `upstream-selector`.
-* [ ] Assertion that `topology.nodes[upstreamSelectorNodeName].role == "upstream-selector"`.
-* [ ] Assertion that every emitted `transit.adjacencies[*]` endpoint matches the corresponding realized p2p link endpoint.
-* [ ] Regression test proving single-core mode does not silently rewrite selector identity to the core node.
-* [ ] Regression test proving adjacency addresses are not emitted from a stale numbering path.
-
-## Likely fix area
-
-Investigate the solver path that determines:
-
-* `upstreamSelectorNodeName`
-* `transit.adjacencies`
-* final site-level normalized output assembly
-
-The bug is likely in one of these places:
-
-* fallback logic that rewrites selector identity to the first core node
-* code that treats single-core routing behavior as node identity
-* adjacency emission code that is not derived from realized `links`
-* explicit attrset reconstruction of the final site object
-
-## Minimal regression checks
-
-This should evaluate to `true` after the fix:
-
-jq -e '
-.enterprise
-| to_entries[]
-| .value.site
-| to_entries[]
-| .value as $s
-| ($s.upstreamSelectorNodeName == null)
-or
-($s.topology.nodes[$s.upstreamSelectorNodeName].role == "upstream-selector")
-' output-solver-signed.json
-
-And this should show matching transit-versus-links data for a fixture site:
-
-jq '
-.enterprise.esp0xdeadbeef.site["site-a"] as $s
-| {
-transit: $s.transit.adjacencies,
-links: $s.links
+{
+  "endpoints": {
+    "s-router-access": { "...": "..." },
+    "s-router-policy": { "...": "..." }
+  }
 }
-' output-solver-signed.json
 
-## Definition of done
+Required shape:
 
-* [ ] Solver output contains a truthful `upstreamSelectorNodeName`
-* [ ] Solver output derives `transit.adjacencies` from realized `links`
-* [ ] Downstream consumers no longer receive contradictory topology representations for the s
+{
+  "endpoints": [
+    {
+      "unit": "s-router-access",
+      "local": {
+        "ipv4": "10.10.0.0",
+        "ipv6": "fd42:dead:beef:1000:0:0:0:0"
+      }
+    },
+    {
+      "unit": "s-router-policy",
+      "local": {
+        "ipv4": "10.10.0.1",
+        "ipv6": "fd42:dead:beef:1000:0:0:0:1"
+      }
+    }
+  ]
+}
 
+Checklist:
+
+ Replace object-style endpoints emission in site.transit.adjacencies
+ Preserve deterministic ordering of the 2 endpoints
+ Ensure every adjacency has exactly 2 endpoints
+2. Convert endpoint members to transit schema
+
+Current bad fields inside transit adjacency endpoints:
+
+node
+addr4
+addr6
+interface
+
+Required fields:
+
+unit
+local.ipv4
+local.ipv6
+
+Checklist:
+
+ Map node -> unit
+ Strip prefix length from addr4 and store as local.ipv4
+ Strip prefix length from addr6 and store as local.ipv6
+ Do not emit interface inside transit.adjacencies[].endpoints
+ Do not emit addr4 / addr6 inside transit.adjacencies[].endpoints
+3. Keep links.* rich, but make transit.adjacencies canonical
+
+links.* can stay renderer-friendly and verbose.
+
+transit.adjacencies must stay consumer-friendly and stable.
+
+Checklist:
+
+ Keep site.links.*.endpoints unchanged if renderers need it
+ Treat site.transit.adjacencies as a separate normalized contract
+ Do not alias transit.adjacencies directly to links
+4. Ensure transit adjacency metadata is preserved
+
+Your newer shape added useful fields like:
+
+link
+members
+kind
+name
+
+Those may be fine to keep, as long as the endpoint contract is fixed.
+
+Checklist:
+
+ Keep link if useful
+ Keep members if useful
+ Keep kind if useful
+ Keep name only if it is deterministic and not redundant
+ Do not let extra metadata change the endpoint contract
+Invariants to enforce in compiler
+
+For every site.transit.adjacencies[]:
+
+ .endpoints | type == "array"
+ .endpoints | length == 2
+ every endpoint has .unit
+ every endpoint has .local
+ .local.ipv4 exists and contains no CIDR suffix
+ .local.ipv6 exists and contains no CIDR suffix
+ no endpoint contains addr4
+ no endpoint contains addr6
+ no endpoint contains node
+ no endpoint contains interface
+jq checks to add while fixing
+Check 1: endpoints is always a list
+./compile-one.sh | jq -e '
+[
+  .enterprise
+  | to_entries[]
+  | .value.site
+  | to_entries[]
+  | .value.transit.adjacencies[]
+  | (.endpoints | type) == "array"
+]
+| all
+'
+Check 2: every adjacency has exactly 2 endpoints
+./compile-one.sh | jq -e '
+[
+  .enterprise
+  | to_entries[]
+  | .value.site
+  | to_entries[]
+  | .value.transit.adjacencies[]
+  | (.endpoints | length == 2)
+]
+| all
+'
+Check 3: every endpoint has the expected shape
+./compile-one.sh | jq -e '
+[
+  .enterprise
+  | to_entries[]
+  | .value.site
+  | to_entries[]
+  | .value.transit.adjacencies[]
+  | .endpoints[]
+  | (
+      has("unit")
+      and has("local")
+      and (.local | type == "object")
+      and (.local | has("ipv4"))
+      and (.local | has("ipv6"))
+      and (has("node") | not)
+      and (has("addr4") | not)
+      and (has("addr6") | not)
+      and (has("interface") | not)
+    )
+]
+| all
+'
+Check 4: IPv4/IPv6 locals do not contain CIDR suffixes
+./compile-one.sh | jq -e '
+[
+  .enterprise
+  | to_entries[]
+  | .value.site
+  | to_entries[]
+  | .value.transit.adjacencies[]
+  | .endpoints[]
+  | (
+      (.local.ipv4 | contains("/") | not)
+      and
+      (.local.ipv6 | contains("/") | not)
+    )
+]
+| all
+'
+Expected end state
+
+After the fix:
+
+ network-forwarding-model emits site.transit.adjacencies[].endpoints as a 2-element list
+ each endpoint is { unit, local = { ipv4, ipv6 } }
+ CPM no longer errors on site.transit.adjacencies[0].endpoints must be a list
+ links remains rich for renderers
+ transit.adjacencies remains canonical for downstream model consumers

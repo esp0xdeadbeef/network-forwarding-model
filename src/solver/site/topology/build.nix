@@ -6,8 +6,10 @@ let
   topoResolve = import ../../../../lib/topology-resolve.nix { inherit lib; };
   routes = import ../../../../lib/model/routes.nix { inherit lib; };
   utils = import ../../../util { inherit lib; };
+  ip = import ../../../../lib/net/ip-utils.nix { inherit lib; };
 
   dedupeRoutes = routes.dedupeRoutes;
+  stripMask = ip.stripMask;
 
   ensureMask =
     addr: family:
@@ -460,12 +462,29 @@ let
       linkNames = lib.sort (a: b: a < b) (builtins.attrNames links);
       p2pLinkNames = lib.filter (linkName: (links.${linkName}.kind or null) == "p2p") linkNames;
 
-      mkEndpoint = nodeName: ep: {
-        node = nodeName;
-        interface = ep.interface or null;
-        addr4 = ep.addr4 or null;
-        addr6 = ep.addr6 or null;
-      };
+      mkEndpoint =
+        nodeName: ep:
+        let
+          local4 = if (ep.addr4 or null) == null then null else stripMask ep.addr4;
+          local6 = if (ep.addr6 or null) == null then null else stripMask ep.addr6;
+        in
+        if local4 == null || local6 == null then
+          throw ''
+            network-solver: transit adjacency endpoints require both IPv4 and IPv6 locals
+
+            link: ${toString (ep.interface or "<unknown-link>")}
+            unit: ${toString nodeName}
+            addr4: ${toString (ep.addr4 or "null")}
+            addr6: ${toString (ep.addr6 or "null")}
+          ''
+        else
+          {
+            unit = nodeName;
+            local = {
+              ipv4 = local4;
+              ipv6 = local6;
+            };
+          };
 
       mkAdjacency =
         linkName:
@@ -473,18 +492,23 @@ let
           link = links.${linkName};
           endpoints = link.endpoints or { };
           nodeNames = lib.sort (a: b: a < b) (builtins.attrNames endpoints);
+          _two =
+            if builtins.length nodeNames == 2 then
+              true
+            else
+              throw ''
+                network-solver: transit adjacency must have exactly 2 endpoints
+
+                link: ${linkName}
+                endpoints: ${builtins.toJSON nodeNames}
+              '';
         in
-        {
+        builtins.seq _two {
           name = linkName;
           kind = "p2p";
           link = linkName;
           members = nodeNames;
-          endpoints = builtins.listToAttrs (
-            map (nodeName: {
-              name = nodeName;
-              value = mkEndpoint nodeName endpoints.${nodeName};
-            }) nodeNames
-          );
+          endpoints = map (nodeName: mkEndpoint nodeName endpoints.${nodeName}) nodeNames;
         };
     in
     map mkAdjacency p2pLinkNames;
