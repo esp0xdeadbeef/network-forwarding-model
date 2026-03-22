@@ -1,121 +1,104 @@
-TODO — Forwarding Model Output Cleanup (Renderer Safe)
-
-Remove the following unused fields from forwarding model output:
-
-acceptRA
-dhcp
-ra6Prefixes
-addr6Public
-
-
-
-# TODO: pass through `communicationContract.interfaceTags`
+# TODO — Solver output consistency
 
 ## Problem
 
-The upstream solver accepts lab input that contains:
+The solver output still contains one consistency issue even after `communicationContract.interfaceTags` was fixed.
 
-```nix
-communicationContract.interfaceTags = {
-  tenant-mgmt = "mgmt";
-  tenant-admin = "admin";
-  tenant-client = "client";
-  external-wan = "wan";
-  service-site-dns = "site-dns";
-};
-```
-
-But the generated solver output drops that field.
+The current solver output models `upstream-selector` as a real node in the emitted topology, but also emits `upstreamSelectorNodeName` pointing at a core node in single-core cases.
 
 Observed result in solver output:
 
-* `enterprise.<name>.site.<name>.communicationContract` exists
-* `trafficTypes`, `services`, and `allowedRelations` are present
-* `communicationContract.interfaceTags` is missing
+* `topology.nodes.<name>.role = "upstream-selector"` exists
+* `transit.ordering` still traverses that upstream-selector node
+* `links` still contains realized p2p links through that upstream-selector node
+* `upstreamSelectorNodeName` may still point to the core node instead of the actual upstream-selector node
 
-That causes downstream failure in `network-control-plane-model`:
+That creates an ambiguous contract for downstream consumers.
 
-```text
-communicationContract requires explicit communicationContract.interfaceTags
-```
+There is also a second consistency issue:
+
+* `transit.adjacencies` is emitted separately from realized `links`
+* emitted adjacency endpoint addresses can drift from the actual realized p2p link endpoints
+
+That causes downstream confusion because the solver output exposes two topology representations that can disagree.
 
 ## Required behavior
 
-When input includes:
+When the solver emits a topology that contains a node with role `upstream-selector`, it must preserve that identity in the final normalized / canonical / signed solver output at:
 
-```nix
-communicationContract.interfaceTags = { ... };
-```
+`enterprise.<name>.site.<name>.upstreamSelectorNodeName`
 
-the upstream solver must preserve it in the normalized / canonical / signed solver output at:
+That field must point to the actual emitted node whose role is `upstream-selector`.
 
-```nix
-enterprise.<name>.site.<name>.communicationContract.interfaceTags
-```
+The solver must also derive:
+
+`enterprise.<name>.site.<name>.transit.adjacencies`
+
+from the realized p2p links already present in:
+
+`enterprise.<name>.site.<name>.links`
 
 ## Acceptance criteria
 
-* [ ] `communicationContract.interfaceTags` survives canonicalization.
-* [ ] `communicationContract.interfaceTags` survives normalization.
-* [ ] `communicationContract.interfaceTags` survives signing / final solver JSON emission.
-* [ ] No legacy `policy` path is reintroduced.
-* [ ] Final solver output contains:
-
-  ```json
-  {
-    "enterprise": {
-      "<enterprise>": {
-        "site": {
-          "<site>": {
-            "communicationContract": {
-              "interfaceTags": { "...": "..." }
-            }
-          }
-        }
-      }
-    }
-  }
-  ```
+* [ ] `upstreamSelectorNodeName` always names the actual emitted upstream-selector node when one exists.
+* [ ] `upstreamSelectorNodeName` never points to a node whose emitted role is `core`.
+* [ ] `transit.adjacencies` is derived from realized `links`, not from a separate allocator or stale pre-realization view.
+* [ ] Every endpoint address in `transit.adjacencies` matches the corresponding endpoint address in emitted `links`.
+* [ ] `topology.nodes`, `transit.ordering`, `transit.adjacencies`, and `links` describe the same topology.
+* [ ] No separate fallback meaning is hidden inside `upstreamSelectorNodeName`.
 
 ## Tests to add upstream
 
-* [ ] Fixture with `communicationContract.interfaceTags`.
-* [ ] Assertion that solver output contains `communicationContract.interfaceTags`.
-* [ ] Assertion that values are unchanged.
-* [ ] Regression test proving the field is not silently dropped.
+* [ ] Fixture with a real `upstream-selector` node and a single core.
+* [ ] Assertion that `upstreamSelectorNodeName` equals the emitted node whose role is `upstream-selector`.
+* [ ] Assertion that `topology.nodes[upstreamSelectorNodeName].role == "upstream-selector"`.
+* [ ] Assertion that every emitted `transit.adjacencies[*]` endpoint matches the corresponding realized p2p link endpoint.
+* [ ] Regression test proving single-core mode does not silently rewrite selector identity to the core node.
+* [ ] Regression test proving adjacency addresses are not emitted from a stale numbering path.
 
 ## Likely fix area
 
-Investigate the upstream canonicalization / transformation path that rewrites:
+Investigate the solver path that determines:
 
-* `communicationContract.relations` -> `communicationContract.allowedRelations`
-* site-level normalized output assembly
-* final signed solver JSON emission
+* `upstreamSelectorNodeName`
+* `transit.adjacencies`
+* final site-level normalized output assembly
 
 The bug is likely in one of these places:
 
-* field whitelist during canonicalization
-* explicit attrset reconstruction of `communicationContract`
-* normalization code that copies only `trafficTypes`, `services`, and relations-derived data
+* fallback logic that rewrites selector identity to the first core node
+* code that treats single-core routing behavior as node identity
+* adjacency emission code that is not derived from realized `links`
+* explicit attrset reconstruction of the final site object
 
-## Minimal regression check
+## Minimal regression checks
 
 This should evaluate to `true` after the fix:
 
-```bash
 jq -e '
-  .enterprise
-  | to_entries[]
-  | .value.site
-  | to_entries[]
-  | .value.communicationContract.interfaceTags
-  | type == "object"
+.enterprise
+| to_entries[]
+| .value.site
+| to_entries[]
+| .value as $s
+| ($s.upstreamSelectorNodeName == null)
+or
+($s.topology.nodes[$s.upstreamSelectorNodeName].role == "upstream-selector")
 ' output-solver-signed.json
-```
+
+And this should show matching transit-versus-links data for a fixture site:
+
+jq '
+.enterprise.esp0xdeadbeef.site["site-a"] as $s
+| {
+transit: $s.transit.adjacencies,
+links: $s.links
+}
+' output-solver-signed.json
 
 ## Definition of done
 
-* [ ] Input contains `communicationContract.interfaceTags`
-* [ ] Solver output also contains `communicationContract.interfaceTags`
-* [ ] Downstream `network-control-plane-model` no longer fails on missing explicit interface tags for valid updated labs
+* [ ] Solver output contains a truthful `upstreamSelectorNodeName`
+* [ ] Solver output derives `transit.adjacencies` from realized `links`
+* [ ] Downstream consumers no longer receive contradictory topology representations for the s
 

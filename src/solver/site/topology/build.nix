@@ -305,13 +305,6 @@ let
     in
     if names == [ ] then null else builtins.head names;
 
-  firstExistingName =
-    nodes: names:
-    let
-      present = lib.filter (name: nodes ? "${name}") names;
-    in
-    if present == [ ] then null else builtins.head present;
-
   normalizeOverlay =
     x:
     if builtins.isString x then
@@ -461,6 +454,41 @@ let
       ) (overlayItemsFrom site)
     );
 
+  transitAdjacenciesFromLinks =
+    links:
+    let
+      linkNames = lib.sort (a: b: a < b) (builtins.attrNames links);
+      p2pLinkNames = lib.filter (linkName: (links.${linkName}.kind or null) == "p2p") linkNames;
+
+      mkEndpoint = nodeName: ep: {
+        node = nodeName;
+        interface = ep.interface or null;
+        addr4 = ep.addr4 or null;
+        addr6 = ep.addr6 or null;
+      };
+
+      mkAdjacency =
+        linkName:
+        let
+          link = links.${linkName};
+          endpoints = link.endpoints or { };
+          nodeNames = lib.sort (a: b: a < b) (builtins.attrNames endpoints);
+        in
+        {
+          name = linkName;
+          kind = "p2p";
+          link = linkName;
+          members = nodeNames;
+          endpoints = builtins.listToAttrs (
+            map (nodeName: {
+              name = nodeName;
+              value = mkEndpoint nodeName endpoints.${nodeName};
+            }) nodeNames
+          );
+        };
+    in
+    map mkAdjacency p2pLinkNames;
+
 in
 {
   build =
@@ -599,20 +627,11 @@ in
         else
           coreNodeNames;
 
-      multiWan = builtins.length (wanResult.uplinkCores or [ ]) > 1;
-
-      fallbackCoreNodeName =
-        let
-          nodes1 = routed1.nodes or { };
-          fromFinalCores = firstExistingName nodes1 finalCoreNodeNames;
-        in
-        if fromFinalCores != null then fromFinalCores else firstNodeNameByRole nodes1 "core";
-
-      selectedUpstreamSelectorNodeName =
+      emittedUpstreamSelectorNodeName =
         let
           nodes1 = routed1.nodes or { };
 
-          explicitSelector =
+          candidate =
             if routed1 ? upstreamSelectorNodeName && routed1.upstreamSelectorNodeName != null then
               routed1.upstreamSelectorNodeName
             else if upstreamSelectorNodeName != null then
@@ -620,29 +639,39 @@ in
             else
               firstNodeNameByRole nodes1 "upstream-selector";
         in
-        if multiWan then
-          if explicitSelector != null && nodes1 ? "${explicitSelector}" then
-            explicitSelector
-          else
-            fallbackCoreNodeName
+        if
+          candidate != null
+          && nodes1 ? "${candidate}"
+          && (nodes1.${candidate}.role or null) == "upstream-selector"
+        then
+          candidate
         else
-          fallbackCoreNodeName;
+          null;
 
       _assertUpstreamSelectorNodeName =
-        if
-          selectedUpstreamSelectorNodeName != null
-          && (routed1.nodes or { } ? "${selectedUpstreamSelectorNodeName}")
+        if emittedUpstreamSelectorNodeName == null then
+          true
+        else if
+          (routed1.nodes or { } ? "${emittedUpstreamSelectorNodeName}")
+          && ((routed1.nodes.${emittedUpstreamSelectorNodeName}.role or null) == "upstream-selector")
         then
           true
         else
           throw ''
-            network-solver: failed to determine valid upstreamSelectorNodeName
+            network-solver: invalid emitted upstreamSelectorNodeName
 
             site: ${enterprise}.${siteId}
-            multiWan: ${if multiWan then "true" else "false"}
-            candidate: ${toString selectedUpstreamSelectorNodeName}
+            candidate: ${toString emittedUpstreamSelectorNodeName}
             nodes: ${builtins.toJSON (builtins.attrNames (routed1.nodes or { }))}
           '';
+
+      realizedTransitAdjacencies = transitAdjacenciesFromLinks (routed1.links or { });
+
+      existingTopology =
+        if routed1 ? topology && builtins.isAttrs routed1.topology then routed1.topology else { };
+
+      existingTransit =
+        if routed1 ? transit && builtins.isAttrs routed1.transit then routed1.transit else { };
 
       routed =
         builtins.removeAttrs routed1 [
@@ -660,9 +689,16 @@ in
           siteName = routed1.siteName or siteName;
           coreNodeNames = finalCoreNodeNames;
           policyNodeName = finalPolicyNodeName;
-          upstreamSelectorNodeName = builtins.seq _assertUpstreamSelectorNodeName selectedUpstreamSelectorNodeName;
+          upstreamSelectorNodeName = builtins.seq _assertUpstreamSelectorNodeName emittedUpstreamSelectorNodeName;
           uplinkCoreNames = routed1.uplinkCoreNames or (wanResult.uplinkCores or [ ]);
           uplinkNames = routed1.uplinkNames or (wanResult.uplinkNames or [ ]);
+          topology = existingTopology // {
+            nodes = routed1.nodes or { };
+          };
+          transit = existingTransit // {
+            ordering = existingTransit.ordering or ordering;
+            adjacencies = realizedTransitAdjacencies;
+          };
         };
     in
     routed;
