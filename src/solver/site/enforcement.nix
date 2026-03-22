@@ -86,6 +86,28 @@
           else
             [ ];
 
+      normalizeCommunicationContract =
+        contract:
+        if !(builtins.isAttrs contract) then
+          contract
+        else
+          let
+            allowedRelations0 =
+              if contract ? allowedRelations then
+                contract.allowedRelations
+              else if contract ? relations then
+                contract.relations
+              else
+                [ ];
+          in
+          (builtins.removeAttrs contract [ "relations" ])
+          // {
+            allowedRelations = allowedRelations0;
+          }
+          // lib.optionalAttrs (contract ? interfaceTags) {
+            interfaceTags = contract.interfaceTags;
+          };
+
       validExternalRefs = lib.sort (a: b: a < b) (
         lib.unique (
           (builtins.attrNames uplinkCoreByName)
@@ -96,7 +118,7 @@
       );
     in
     {
-      communicationContract = site.communicationContract;
+      communicationContract = normalizeCommunicationContract (site.communicationContract or { });
 
       _nat = {
         mode = "none";
