@@ -125,11 +125,15 @@ let
     topo: mode: es:
     let
       sample = builtins.head es;
+
+      rawDsts = map (e: e.dst) es;
+      summarizedDsts = helpers.summarizeCidrs sample.family rawDsts;
+
       rawRoutes =
         if sample.family == 4 then
-          map (e: helpers.mkRoute4 e.dst e.via4 "internal") es
+          map (dst: helpers.mkRoute4 dst sample.via4 "internal") summarizedDsts
         else
-          map (e: helpers.mkRoute6 e.dst e.via6 "internal") es;
+          map (dst: helpers.mkRoute6 dst sample.via6 "internal") summarizedDsts;
 
       aggDst =
         if mode == "none" then

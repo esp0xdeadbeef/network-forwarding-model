@@ -37,8 +37,28 @@ let
               };
             }
           ) (common.containersOf node);
+
+          loopbackEntries =
+            let
+              lb = node.loopback or { };
+
+              mk =
+                family: attr:
+                if !(lb ? "${attr}") || lb.${attr} == null then
+                  [ ]
+                else
+                  [
+                    {
+                      family = family;
+                      ip = common.stripMask lb.${attr};
+                      where = "${siteName}:nodes.${nodeName}.loopback.${attr}";
+                      box = "${siteName}:${nodeName}";
+                    }
+                  ];
+            in
+            (mk "addr4" "ipv4") ++ (mk "addr6" "ipv6");
         in
-        nodeIfs ++ contIfs
+        nodeIfs ++ contIfs ++ loopbackEntries
       ) (builtins.attrNames nodes)
     );
 
@@ -56,19 +76,19 @@ let
 
             duplicate address across execution contexts (boxes)
 
-              address: ${toString e.ip}   (${e.family})
+            address: ${toString e.ip}   (${e.family})
 
             first seen at:
-              ${acc.seen.${k}.where}
+            ${acc.seen.${k}.where}
 
             first seen in box:
-              ${acc.seen.${k}.box}
+            ${acc.seen.${k}.box}
 
             duplicated at:
-              ${e.where}
+            ${e.where}
 
             duplicated in box:
-              ${e.box}
+            ${e.box}
           ''
         else
           acc
@@ -83,7 +103,6 @@ let
 
       st = builtins.foldl' step { seen = { }; } entries;
     in
-
     builtins.deepSeq st true;
 
 in

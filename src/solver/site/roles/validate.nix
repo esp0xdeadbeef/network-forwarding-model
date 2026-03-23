@@ -18,7 +18,7 @@ if missing == [ ] then
   true
 else
   throw ''
-    network-solver: missing required node role(s)
+    network-forwarding-model: missing required node role(s)
 
     site: ${siteName}
 

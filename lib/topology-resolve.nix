@@ -13,6 +13,9 @@ let
   nodes0 = topoRaw.nodes or { };
   nodeNames = lib.sort (a: b: a < b) (builtins.attrNames nodes0);
 
+  siteName = toString (topoRaw.siteName or "<unknown-site>");
+  linkIdFor = linkName: "link::${siteName}::${toString linkName}";
+
   _nodesAttrs = assert_ (builtins.isAttrs nodes0) "topology-resolve: topoRaw.nodes must be an attrset";
 
   linkMembersFor =
@@ -121,12 +124,76 @@ let
       _nonOrphan = assert_ (
         finalMembers != [ ]
       ) "topology-resolve: link '${linkName}' is orphaned (no valid members/endpoints)";
+
+      _p2pShape =
+        if (l.kind or null) != "p2p" then
+          true
+        else
+          let
+            membersSorted = lib.sort (a: b: a < b) finalMembers;
+          in
+          builtins.seq
+            (assert_ (builtins.length membersSorted == 2) ''
+              topology-resolve: p2p link must resolve to exactly 2 member nodes
+
+              site: ${siteName}
+              link: ${linkName}
+              members: ${lib.concatStringsSep ", " membersSorted}
+            '')
+            (
+              assert_ ((builtins.elemAt membersSorted 0) != (builtins.elemAt membersSorted 1)) ''
+                topology-resolve: p2p self-link is not allowed
+
+                site: ${siteName}
+                link: ${linkName}
+                node: ${builtins.elemAt membersSorted 0}
+              ''
+            );
     in
-    builtins.deepSeq _membersExist (builtins.deepSeq _endpointsExist (builtins.seq _nonOrphan true));
+    builtins.deepSeq _membersExist (
+      builtins.deepSeq _endpointsExist (builtins.seq _nonOrphan (builtins.seq _p2pShape true))
+    );
 
   _validatedLinks = builtins.deepSeq (lib.forEach (lib.sort (a: b: a < b) (
     builtins.attrNames links
   )) validateLink) true;
+
+  resolvedP2pPairs = lib.filter (x: x != null) (
+    map (
+      linkName:
+      let
+        l = links.${linkName};
+      in
+      if (l.kind or null) != "p2p" then
+        null
+      else
+        let
+          members = lib.sort (a: b: a < b) (linkMembersFor linkName l);
+        in
+        {
+          inherit linkName members;
+          key = "${builtins.elemAt members 0}|${builtins.elemAt members 1}";
+        }
+    ) (lib.sort (a: b: a < b) (builtins.attrNames links))
+  );
+
+  _uniqueP2pLogicalLinks =
+    let
+      step =
+        acc: entry:
+        if acc ? "${entry.key}" then
+          throw ''
+            topology-resolve: duplicate logical p2p links are not allowed
+
+            site: ${siteName}
+            pair: ${builtins.elemAt entry.members 0} <-> ${builtins.elemAt entry.members 1}
+            firstLink: ${acc.${entry.key}}
+            duplicateLink: ${entry.linkName}
+          ''
+        else
+          acc // { "${entry.key}" = entry.linkName; };
+    in
+    builtins.deepSeq (builtins.foldl' step { } resolvedP2pPairs) true;
 
   mkIface =
     linkName: l: nodeName:
@@ -267,6 +334,7 @@ let
     in
     l
     // {
+      id = linkIdFor linkName;
       kind = l.kind or null;
       type = l.type or (l.kind or null);
       members = members;
@@ -293,4 +361,4 @@ let
   topo4 = routingStatic.attach topo3;
 
 in
-builtins.seq _validatedLinks topo4
+builtins.seq _validatedLinks (builtins.seq _uniqueP2pLogicalLinks topo4)

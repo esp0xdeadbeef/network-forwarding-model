@@ -57,7 +57,7 @@
 
       _haveCore =
         if sortedCoreUnits == [ ] then
-          throw "network-solver: expected at least one node with role='core'"
+          throw "network-forwarding-model: expected at least one node with role='core'"
         else
           true;
 
@@ -178,7 +178,7 @@
       _haveUplinkCore =
         if uplinkCores == [ ] then
           throw ''
-            network-solver: no uplinks discovered for any core
+            network-forwarding-model: no uplinks discovered for any core
 
             expected one of:
             - site.upstreams.cores.<core> = [ "<uplink>" ... ]

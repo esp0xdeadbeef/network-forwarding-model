@@ -12,12 +12,13 @@ let
   wanMod = import ./site/wan.nix { inherit lib; };
   topoMod = import ./site/topology { inherit lib; };
   enfMod = import ./site/enforcement.nix { inherit lib; };
+  transitMod = import ./site/topology/transit.nix { inherit lib; };
 
   _ =
     if builtins.isAttrs site then
       true
     else
-      throw "network-solver: sites.${enterprise}.${siteId} must be an attrset";
+      throw "network-forwarding-model: sites.${enterprise}.${siteId} must be an attrset";
 
   topologyNodes =
     if
@@ -36,9 +37,16 @@ let
 
   nodesBase = topologyNodes // siteNodes // siteUnits;
 
-  ordering = utils.requireAttr "sites.${enterprise}.${siteId}.transit.ordering" (
+  rawOrdering = utils.requireAttr "sites.${enterprise}.${siteId}.transit.ordering" (
     site.transit.ordering or null
   );
+
+  ordering =
+    (transitMod.normalizeInputOrdering {
+      siteName = "${enterprise}.${siteId}";
+      ordering = rawOrdering;
+    }).pairs;
+
   p2pPool = utils.requireAttr "sites.${enterprise}.${siteId}.addressPools.p2p" (
     site.addressPools.p2p or null
   );
@@ -56,7 +64,7 @@ let
       if builtins.isList p && builtins.length p == 2 then
         p
       else
-        throw "network-solver: transit.ordering must contain 2-element pairs"
+        throw "network-forwarding-model: transit.ordering must contain 2-element pairs"
     ) ordering
   );
 
@@ -98,7 +106,7 @@ let
       wanResult
       ;
   };
-  topoResult = topoMod.build {
+  topologyResult = topoMod.build {
     inherit
       lib
       site
@@ -113,4 +121,4 @@ let
       ;
   };
 in
-builtins.seq rolesResult.assertions topoResult
+builtins.seq rolesResult.assertions topologyResult
