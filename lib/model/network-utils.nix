@@ -13,6 +13,7 @@ let
         "role"
         "interfaces"
         "networks"
+        "loopback"
       ]
       ++ extraExcluded
     ));
@@ -32,6 +33,7 @@ let
       extraExcluded ? [
         "containers"
         "uplinks"
+        "loopback"
       ],
     }:
     node:
