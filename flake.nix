@@ -1,6 +1,5 @@
-# ./flake.nix
 {
-  description = "network-solver";
+  description = "network-forwarding-model";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -49,7 +48,7 @@
         in
         {
           debug = pkgs.writeShellApplication {
-            name = "network-solver-debug";
+            name = "network-forwarding-model-debug";
 
             runtimeInputs = [
               pkgs.jq
@@ -69,10 +68,10 @@
                 nix eval --impure --json --expr '
                   let
                     flake = builtins.getFlake (toString ${self});
-                    solver = flake.lib."'${system}'";
+                    forwardingModel = flake.lib."'${system}'";
                     input = builtins.fromJSON (builtins.readFile "'"$IR"'");
                   in
-                    solver { inherit input; }
+                    forwardingModel { inherit input; }
                 '
               )"
 
@@ -87,14 +86,14 @@
               echo "$json" | ${pkgs.jq}/bin/jq -S -c \
                 --arg rev "$gitRev" \
                 --argjson dirty "$gitDirty" \
-                '.meta = (.meta // {}) + { solver: { gitRev: $rev, gitDirty: $dirty } }' \
-                | tee ./output-solver-signed.json \
+                '.meta = (.meta // {}) | .meta.networkForwardingModel = ((.meta.networkForwardingModel // {}) + { gitRev: $rev, gitDirty: $dirty })' \
+                | tee ./output-network-forwarding-model-signed.json \
                 | ${pkgs.jq}/bin/jq -S
             '';
           };
 
-          compile-and-solve = pkgs.writeShellApplication {
-            name = "compile-and-solve";
+          compile-and-build-forwarding-model = pkgs.writeShellApplication {
+            name = "compile-and-build-forwarding-model";
 
             runtimeInputs = [
               pkgs.jq
@@ -104,7 +103,7 @@
             text = ''
               set -euo pipefail
 
-              [ $# -ge 1 ] || { echo "usage: nix run ${self}#compile-and-solve -- <compiler-inputs.nix>" >&2; exit 1; }
+              [ $# -ge 1 ] || { echo "usage: nix run ${self}#compile-and-build-forwarding-model -- <compiler-inputs.nix>" >&2; exit 1; }
 
               INPUTS_NIX="$1"
 
@@ -124,12 +123,14 @@
       apps = forAll (system: {
         debug = {
           type = "app";
-          program = "${self.packages.${system}.debug}/bin/network-solver-debug";
+          program = "${self.packages.${system}.debug}/bin/network-forwarding-model-debug";
         };
 
-        compile-and-solve = {
+        compile-and-build-forwarding-model = {
           type = "app";
-          program = "${self.packages.${system}.compile-and-solve}/bin/compile-and-solve";
+          program = "${
+            self.packages.${system}.compile-and-build-forwarding-model
+          }/bin/compile-and-build-forwarding-model";
         };
       });
     };

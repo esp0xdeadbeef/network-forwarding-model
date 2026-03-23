@@ -83,7 +83,7 @@
         else if allowFanoutHere n then
           null
         else
-          throw "network-solver: transit.ordering must not branch from '${n}' (multiple outgoing edges)";
+          throw "network-forwarding-model: transit.ordering must not branch from '${n}' (multiple outgoing edges)";
 
       coreByOrdering =
         let
@@ -99,7 +99,7 @@
             if cur == null then
               seen
             else if lib.elem cur seen then
-              throw "network-solver: transit.ordering contains a cycle at '${cur}'"
+              throw "network-forwarding-model: transit.ordering contains a cycle at '${cur}'"
             else
               go (seen ++ [ cur ]) (nextOf cur);
         in
@@ -114,7 +114,7 @@
           true
         else
           throw ''
-            network-solver: missing required node role(s)
+            network-forwarding-model: missing required node role(s)
 
             site: ${enterprise}.${siteId}
             nodes missing roles: ${lib.concatStringsSep ", " (map toString missingRoles)}
@@ -126,7 +126,7 @@
           true
         else
           throw ''
-            network-solver: expected exactly one node with role='policy'
+            network-forwarding-model: expected exactly one node with role='policy'
 
             site: ${enterprise}.${siteId}
             found: ${toString (builtins.length policyUnits)}

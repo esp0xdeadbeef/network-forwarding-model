@@ -7,14 +7,14 @@
   },
 }:
 let
-  solveSite = import ./site.nix { inherit lib; };
+  buildSiteForwardingModel = import ./site.nix { inherit lib; };
 in
 if !builtins.isAttrs sites then
-  throw "network-solver: sites.${enterprise} must be an attrset"
+  throw "network-forwarding-model: sites.${enterprise} must be an attrset"
 else
   builtins.mapAttrs (
     siteId: site:
-    solveSite {
+    buildSiteForwardingModel {
       inherit enterprise siteId site;
       sites = allSites;
     }

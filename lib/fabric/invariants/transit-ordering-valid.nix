@@ -19,6 +19,9 @@ let
       (l.kind or null) == "p2p" && lib.elem a members && lib.elem b members
     ) (builtins.attrNames links);
 
+  p2pLinkNames =
+    links: lib.filter (linkName: (links.${linkName}.kind or null) == "p2p") (builtins.attrNames links);
+
 in
 {
   check =
@@ -42,8 +45,8 @@ in
 
         expected exactly one policy node
 
-          site: ${siteName}
-          found: ${toString (builtins.length policyNodes)}
+        site: ${siteName}
+        found: ${toString (builtins.length policyNodes)}
       '';
 
       _selectorCount = common.assert_ (builtins.length selectorNodes <= 1) ''
@@ -51,8 +54,8 @@ in
 
         expected at most one upstream-selector node
 
-          site: ${siteName}
-          found: ${toString (builtins.length selectorNodes)}
+        site: ${siteName}
+        found: ${toString (builtins.length selectorNodes)}
       '';
 
       _coreCount = common.assert_ (coreNodes != [ ]) ''
@@ -60,7 +63,7 @@ in
 
         expected at least one core node
 
-          site: ${siteName}
+        site: ${siteName}
       '';
 
       _coresToSelector =
@@ -74,9 +77,9 @@ in
 
               missing core -> upstream-selector p2p adjacency
 
-                site: ${siteName}
-                core: ${coreNode}
-                upstream-selector: ${selectorNode}
+              site: ${siteName}
+              core: ${coreNode}
+              upstream-selector: ${selectorNode}
             ''
           )) true;
 
@@ -89,9 +92,9 @@ in
 
             missing upstream-selector -> policy p2p adjacency
 
-              site: ${siteName}
-              upstream-selector: ${selectorNode}
-              policy: ${policyNode}
+            site: ${siteName}
+            upstream-selector: ${selectorNode}
+            policy: ${policyNode}
           '';
 
       _policyToAccess = builtins.deepSeq (lib.forEach accessNodes (
@@ -101,17 +104,101 @@ in
 
           missing policy -> access p2p adjacency
 
-            site: ${siteName}
-            policy: ${policyNode}
-            access: ${accessNode}
+          site: ${siteName}
+          policy: ${policyNode}
+          access: ${accessNode}
         ''
       )) true;
 
+      transitLinks = sorted (p2pLinkNames links);
+
+      transitLinkIds = map (linkName: toString (links.${linkName}.id or "")) transitLinks;
+
+      ordering = ((site.transit or { }).ordering or null);
+
+      _orderingPresent =
+        if transitLinks == [ ] then
+          true
+        else
+          common.assert_ (ordering != null && builtins.isList ordering) ''
+            invariants(transit-ordering-valid):
+
+            transit.ordering must be present and expressed as link identities
+
+            site: ${siteName}
+          '';
+
+      _p2pIdsPresent = lib.forEach transitLinks (
+        linkName:
+        common.assert_ ((links.${linkName}.id or null) != null) ''
+          invariants(transit-ordering-valid):
+
+          p2p link is missing stable identity
+
+          site: ${siteName}
+          link: ${linkName}
+        ''
+      );
+
+      _orderingKnown =
+        if ordering == null || !(builtins.isList ordering) then
+          true
+        else
+          lib.forEach ordering (
+            linkId:
+            common.assert_ (lib.elem (toString linkId) transitLinkIds) ''
+              invariants(transit-ordering-valid):
+
+              transit.ordering references unknown transit link identity
+
+              site: ${siteName}
+              linkId: ${toString linkId}
+            ''
+          );
+
+      _orderingUnique =
+        if ordering == null || !(builtins.isList ordering) then
+          true
+        else
+          common.assert_
+            ((builtins.length ordering) == (builtins.length (lib.unique (map toString ordering))))
+            ''
+              invariants(transit-ordering-valid):
+
+              transit.ordering contains duplicate link identities
+
+              site: ${siteName}
+              ordering: ${builtins.toJSON ordering}
+            '';
+
+      _orderingComplete =
+        if ordering == null || !(builtins.isList ordering) then
+          true
+        else
+          common.assert_ (sorted (map toString ordering) == sorted transitLinkIds) ''
+            invariants(transit-ordering-valid):
+
+            transit.ordering is incomplete or inconsistent with topology
+
+            site: ${siteName}
+            expected: ${builtins.toJSON (sorted transitLinkIds)}
+            got: ${builtins.toJSON (sorted (map toString ordering))}
+          '';
     in
     builtins.seq _policyCount (
       builtins.seq _selectorCount (
         builtins.seq _coreCount (
-          builtins.seq _coresToSelector (builtins.seq _selectorToPolicy (builtins.seq _policyToAccess true))
+          builtins.seq _coresToSelector (
+            builtins.seq _selectorToPolicy (
+              builtins.seq _policyToAccess (
+                builtins.seq _orderingPresent (
+                  builtins.deepSeq _p2pIdsPresent (
+                    builtins.deepSeq _orderingKnown (builtins.seq _orderingUnique (builtins.seq _orderingComplete true))
+                  )
+                )
+              )
+            )
+          )
         )
       )
     );

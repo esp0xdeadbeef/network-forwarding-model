@@ -34,7 +34,7 @@ in
         (builtins.elemAt octs 1)
       ]
     else
-      throw "network-solver: cannot derive tenantV4Base";
+      throw "network-forwarding-model: cannot derive tenantV4Base";
 
   ulaPrefixFrom =
     tenant6:
@@ -48,5 +48,5 @@ in
         (builtins.elemAt hextets 2)
       ]
     else
-      throw "network-solver: cannot derive ulaPrefix";
+      throw "network-forwarding-model: cannot derive ulaPrefix";
 }

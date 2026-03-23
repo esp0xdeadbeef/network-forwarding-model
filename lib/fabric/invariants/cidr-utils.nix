@@ -85,8 +85,9 @@ let
     in
     if lib.hasInfix "." c.ip then
       let
-        base = v4ToInt (parseV4 c.ip);
+        baseRaw = v4ToInt (parseV4 c.ip);
         size = pow2Small (32 - c.prefix);
+        base = (builtins.div baseRaw size) * size;
       in
       {
         family = 4;

@@ -12,4 +12,8 @@
   nodeContext = import ./node-context.nix { inherit lib; };
 
   routingTable = import ./routing-table.nix { inherit lib; };
+
+  routesPerNode = import ./routes-per-node.nix { inherit lib; };
+
+  summary = import ./summary.nix { inherit lib; };
 }

@@ -27,8 +27,8 @@ let
   normPair =
     pair:
     let
-      a0 = builtins.elemAt pair 0;
-      b0 = builtins.elemAt pair 1;
+      a0 = toString (builtins.elemAt pair 0);
+      b0 = toString (builtins.elemAt pair 1);
     in
     if a0 < b0 then
       {
@@ -42,6 +42,42 @@ let
       };
 
   pairKey = p: "${p.a}|${p.b}";
+
+  validatePairs =
+    links:
+    let
+      step =
+        acc: pair:
+        let
+          p = normPair pair;
+          k = pairKey p;
+        in
+        if p.a == p.b then
+          throw ''
+            network-forwarding-model: invalid self-link in transit ordering
+
+            node: ${p.a}
+          ''
+        else if acc.seen ? "${k}" then
+          throw ''
+            network-forwarding-model: duplicate logical p2p link in transit ordering
+
+            pair: ${p.a} <-> ${p.b}
+          ''
+        else
+          {
+            seen = acc.seen // {
+              "${k}" = true;
+            };
+            pairs = acc.pairs ++ [ p ];
+          };
+
+      res = builtins.foldl' step {
+        seen = { };
+        pairs = [ ];
+      } links;
+    in
+    res.pairs;
 
   allocIPv6Pair =
     { pool, linkIndex }:
@@ -62,7 +98,7 @@ in
     { site }:
     let
       p2p = site.p2p-pool;
-      links = site.links;
+      links = validatePairs site.links;
 
       v4 = ip.splitCidr p2p.ipv4;
       base4 = v4ToInt (parseV4 v4.ip);
@@ -90,8 +126,7 @@ in
         in
         fromNodes ++ fromTenants;
 
-      ps0 = map normPair links;
-      ps = lib.sort (x: y: pairKey x < pairKey y) ps0;
+      ps = lib.sort (x: y: pairKey x < pairKey y) links;
 
       totalHosts = pow2 (32 - v4.prefix);
       maxBlocks = builtins.div totalHosts 2;
@@ -99,7 +134,7 @@ in
       allocOne =
         used: idx:
         if idx >= maxBlocks then
-          throw "p2p pool exhausted"
+          throw "network-forwarding-model: p2p pool exhausted"
         else
           let
             offA = 2 * idx;
