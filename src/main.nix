@@ -31,8 +31,6 @@ let
     left: right:
     if builtins.isAttrs left && builtins.isAttrs right then lib.recursiveUpdate left right else right;
 
-  attrsetIsNonEmpty = value: builtins.isAttrs value && (builtins.attrNames value) != [ ];
-
   mkEmptySite = {
     addressPools = {
       local = { };
@@ -166,38 +164,23 @@ let
   normalizeAddressPools =
     site:
     let
-      explicitAddressPools =
-        if site ? addressPools && builtins.isAttrs site.addressPools then site.addressPools else { };
+      explicitAddressPools = site.addressPools or null;
+      explicitLocal = if explicitAddressPools == null then null else explicitAddressPools.local or null;
+      explicitP2p = if explicitAddressPools == null then null else explicitAddressPools.p2p or null;
 
-      explicitLocal =
-        if explicitAddressPools ? local && attrsetIsNonEmpty explicitAddressPools.local then
-          explicitAddressPools.local
-        else
-          null;
-
-      explicitP2p =
-        if explicitAddressPools ? p2p && attrsetIsNonEmpty explicitAddressPools.p2p then
-          explicitAddressPools.p2p
-        else
-          null;
-    in
-    {
-      local =
-        if explicitLocal != null then
-          explicitLocal
-        else if hasAttrPath [ "pools" "loopback" ] site then
+      derivedLocal =
+        if hasAttrPath [ "pools" "loopback" ] site then
           site.pools.loopback
         else if hasAttrPath [ "pools" "local" ] site then
           site.pools.local
         else
           { };
-      p2p =
-        if explicitP2p != null then
-          explicitP2p
-        else if hasAttrPath [ "pools" "p2p" ] site then
-          site.pools.p2p
-        else
-          { };
+
+      derivedP2p = if hasAttrPath [ "pools" "p2p" ] site then site.pools.p2p else { };
+    in
+    {
+      local = if explicitLocal != null && explicitLocal != { } then explicitLocal else derivedLocal;
+      p2p = if explicitP2p != null && explicitP2p != { } then explicitP2p else derivedP2p;
     };
 
   normalizeDomains =
@@ -234,8 +217,9 @@ let
   normalizeSite =
     enterpriseName: siteId: site:
     let
-      merged = mkEmptySite // site;
-      addressPools = normalizeAddressPools merged;
+      raw = site;
+      merged = mkEmptySite // raw;
+      addressPools = normalizeAddressPools raw;
       topology = normalizeTopology merged;
       nodes = normalizeNodes merged;
       links = normalizeLinks merged;
@@ -282,6 +266,7 @@ let
     solver {
       enterprise = enterpriseName;
       inherit sites;
+      allSites = normalizedSitesByEnterprise;
     }
   ) normalizedSitesByEnterprise;
 
@@ -304,6 +289,33 @@ let
 
   solvedSitesByEnterprise = builtins.mapAttrs extractSolvedSites solverResultByEnterprise;
 
+  flatSolvedSites = builtins.foldl' (
+    acc: enterpriseName:
+    let
+      enterpriseSites = solvedSitesByEnterprise.${enterpriseName} or { };
+      siteNames = builtins.attrNames enterpriseSites;
+    in
+    acc
+    // builtins.listToAttrs (
+      map (siteId: {
+        name = "${enterpriseName}.${siteId}";
+        value = (enterpriseSites.${siteId}) // {
+          enterprise = (enterpriseSites.${siteId}.enterprise or enterpriseName);
+          siteId = (enterpriseSites.${siteId}.siteId or siteId);
+          siteName = (enterpriseSites.${siteId}.siteName or "${enterpriseName}.${siteId}");
+        };
+      }) siteNames
+    )
+  ) { } (builtins.attrNames solvedSitesByEnterprise);
+
+  invariants = import ../lib/fabric/invariants { inherit lib; };
+
+  _siteInvariantChecks = builtins.deepSeq (builtins.attrValues (
+    builtins.mapAttrs (_: site: invariants.checkSite { inherit site; }) flatSolvedSites
+  )) true;
+
+  _globalInvariantChecks = invariants.checkAll { sites = flatSolvedSites; };
+
   enterpriseNames = builtins.attrNames solverResultByEnterprise;
 
   firstEnterpriseName = if enterpriseNames == [ ] then null else builtins.head enterpriseNames;
@@ -311,13 +323,11 @@ let
   firstSolverResult =
     if firstEnterpriseName == null then { } else solverResultByEnterprise.${firstEnterpriseName};
 
-  inheritedMetaRaw =
+  inheritedMeta =
     if builtins.isAttrs firstSolverResult && firstSolverResult ? meta then
       firstSolverResult.meta
     else
       { };
-
-  inheritedMeta = builtins.removeAttrs inheritedMetaRaw [ "solver" ];
 
   contracts = {
     input = {
@@ -399,15 +409,17 @@ let
       };
     };
   };
-in
-{
-  enterprise = builtins.mapAttrs (_: sites: { site = sites; }) solvedSitesByEnterprise;
 
-  meta = inheritedMeta // {
-    networkForwardingModel = (inheritedMeta.networkForwardingModel or { }) // {
-      name = "network-forwarding-model";
-      schemaVersion = 6;
-      inherit contracts;
+  result = {
+    enterprise = builtins.mapAttrs (_: sites: { site = sites; }) solvedSitesByEnterprise;
+
+    meta = inheritedMeta // {
+      networkForwardingModel = (inheritedMeta.networkForwardingModel or { }) // {
+        name = "network-forwarding-model";
+        schemaVersion = 6;
+        inherit contracts;
+      };
     };
   };
-}
+in
+builtins.seq _siteInvariantChecks (builtins.seq _globalInvariantChecks result)
