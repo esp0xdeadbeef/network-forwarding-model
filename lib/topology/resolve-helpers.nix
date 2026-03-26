@@ -170,8 +170,12 @@ let
         (lib.optional (rawAddr6 != null) (mkConnectedRoute rawAddr6))
         ++ (lib.optional (rawAddr6Public != null) (mkConnectedRoute rawAddr6Public))
         ++ (map mkConnectedRoute ra6);
+
+      interfaceName = if (ep.interface or null) != null then toString ep.interface else toString linkName;
     in
     {
+      name = interfaceName;
+      interface = interfaceName;
       link = linkName;
       kind = link.kind or null;
       type = link.type or (link.kind or null);
@@ -210,6 +214,8 @@ let
     generic
     // prebuilt
     // {
+      name = prebuilt.name or generic.name;
+      interface = prebuilt.interface or generic.interface;
       link = generic.link;
       kind = prebuilt.kind or generic.kind;
       type = prebuilt.type or generic.type;
