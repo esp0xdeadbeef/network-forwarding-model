@@ -13,10 +13,9 @@
     }:
 
     let
-      addr = import ../../../lib/model/addressing.nix { inherit lib; };
-      ip = import ../../../lib/net/ip-utils.nix { inherit lib; };
+      prefix = import ../../../lib/model/prefix-utils.nix { inherit lib; };
 
-      stripMask = ip.stripMask;
+      mkConnectedRoute = prefix.mkConnectedRoute;
 
       normalizeRouteEntry =
         x:
@@ -35,6 +34,8 @@
           map normalizeRouteEntry xs
         else
           [ (normalizeRouteEntry xs) ];
+
+      normalizeMaybeString = x: if x == null then null else toString x;
 
       tenantFromUplink =
         uplink:
@@ -88,6 +89,11 @@
             name = toString u;
             ipv4 = [ ];
             ipv6 = [ ];
+            addr4 = null;
+            peerAddr4 = null;
+            addr6 = null;
+            peerAddr6 = null;
+            ll6 = null;
           }
         else if builtins.isAttrs u && u ? name then
           u
@@ -95,6 +101,11 @@
             name = toString u.name;
             ipv4 = normalizeRouteList (u.ipv4 or [ ]);
             ipv6 = normalizeRouteList (u.ipv6 or [ ]);
+            addr4 = normalizeMaybeString (u.addr4 or null);
+            peerAddr4 = normalizeMaybeString (u.peerAddr4 or null);
+            addr6 = normalizeMaybeString (u.addr6 or null);
+            peerAddr6 = normalizeMaybeString (u.peerAddr6 or null);
+            ll6 = normalizeMaybeString (u.ll6 or null);
           }
         else
           null;
@@ -131,6 +142,13 @@
           name = explicit.name;
           ipv4 = normalizeRouteList ((fromNode.ipv4 or [ ]) ++ (explicit.ipv4 or [ ]));
           ipv6 = normalizeRouteList ((fromNode.ipv6 or [ ]) ++ (explicit.ipv6 or [ ]));
+          addr4 = if (explicit.addr4 or null) != null then explicit.addr4 else (fromNode.addr4 or null);
+          peerAddr4 =
+            if (explicit.peerAddr4 or null) != null then explicit.peerAddr4 else (fromNode.peerAddr4 or null);
+          addr6 = if (explicit.addr6 or null) != null then explicit.addr6 else (fromNode.addr6 or null);
+          peerAddr6 =
+            if (explicit.peerAddr6 or null) != null then explicit.peerAddr6 else (fromNode.peerAddr6 or null);
+          ll6 = if (explicit.ll6 or null) != null then explicit.ll6 else (fromNode.ll6 or null);
         };
 
       nodeOnlySpecsForCore =
@@ -198,38 +216,6 @@
 
       uplinkCoreByName = lib.listToAttrs uplinkNameEntries;
 
-      mkPairIndex = idx: 2 * idx;
-
-      mkWanAddr4 =
-        hostIndex:
-        let
-          base = "${stripMask localPool.ipv4}/31";
-        in
-        addr.hostCidr hostIndex base;
-
-      mkWanPeerAddr4 =
-        hostIndex:
-        let
-          base = "${stripMask localPool.ipv4}/31";
-        in
-        addr.hostCidr (hostIndex + 1) base;
-
-      mkWanAddr6 =
-        hostIndex:
-        let
-          base = "${stripMask localPool.ipv6}/127";
-        in
-        addr.hostCidr hostIndex base;
-
-      mkWanPeerAddr6 =
-        hostIndex:
-        let
-          base = "${stripMask localPool.ipv6}/127";
-        in
-        addr.hostCidr (hostIndex + 1) base;
-
-      mkWanLL6 = hostIndex: addr.hostCidr (hostIndex + 1) "fe80::/128";
-
       wanSpecs = lib.concatMap (
         core:
         map (uplinkSpec: {
@@ -238,21 +224,77 @@
         }) (uplinkSpecsForCore core)
       ) uplinkCores;
 
-      mkWanLink =
-        idx: spec:
+      mkPrebuiltWanInterface =
+        {
+          linkName,
+          uplinkName,
+          tenant,
+          uplink,
+        }:
         let
-          hostBase = mkPairIndex idx;
+          addr4 = uplink.addr4 or null;
+          peerAddr4 = uplink.peerAddr4 or null;
+          addr6 = uplink.addr6 or null;
+          peerAddr6 = uplink.peerAddr6 or null;
+          ll6 = uplink.ll6 or null;
+
+          hasExplicitAddressing =
+            addr4 != null || peerAddr4 != null || addr6 != null || peerAddr6 != null || ll6 != null;
+        in
+        if !hasExplicitAddressing then
+          null
+        else
+          {
+            name = linkName;
+            interface = linkName;
+            link = linkName;
+            kind = "wan";
+            type = "wan";
+            carrier = "wan";
+            uplink = uplinkName;
+            upstream = uplinkName;
+            overlay = null;
+
+            tenant = tenant;
+            gateway = true;
+
+            addr4 = addr4;
+            peerAddr4 = peerAddr4;
+            addr6 = addr6;
+            peerAddr6 = peerAddr6;
+            addr6Public = null;
+            ll6 = ll6;
+
+            uplinkRoutes4 = normalizeRouteList (uplink.ipv4 or [ ]);
+            uplinkRoutes6 = normalizeRouteList (uplink.ipv6 or [ ]);
+
+            routes = {
+              ipv4 = lib.optional (addr4 != null) (mkConnectedRoute addr4);
+              ipv6 = lib.optional (addr6 != null) (mkConnectedRoute addr6);
+            };
+
+            ra6Prefixes = [ ];
+            acceptRA = false;
+            dhcp = false;
+          };
+
+      mkWanLink =
+        _idx: spec:
+        let
           core = spec.core;
           uplink = spec.uplink;
           uplinkName = uplink.name;
           linkName = "wan-${core}-${uplinkName}";
           tenant = tenantFromUplink uplink;
 
-          coreAddr4 = if localPool ? ipv4 then mkWanAddr4 hostBase else null;
-          peerAddr4 = if localPool ? ipv4 then mkWanPeerAddr4 hostBase else null;
-
-          coreAddr6 = if localPool ? ipv6 then mkWanAddr6 hostBase else null;
-          peerAddr6 = if localPool ? ipv6 then mkWanPeerAddr6 hostBase else null;
+          prebuiltInterfaceData = mkPrebuiltWanInterface {
+            inherit
+              linkName
+              uplinkName
+              tenant
+              uplink
+              ;
+          };
         in
         {
           name = linkName;
@@ -271,13 +313,16 @@
                 uplink = uplinkName;
                 gateway = true;
                 tenant = tenant;
-                addr4 = coreAddr4;
-                peerAddr4 = peerAddr4;
-                addr6 = coreAddr6;
-                peerAddr6 = peerAddr6;
-                ll6 = mkWanLL6 hostBase;
+                addr4 = uplink.addr4 or null;
+                peerAddr4 = uplink.peerAddr4 or null;
+                addr6 = uplink.addr6 or null;
+                peerAddr6 = uplink.peerAddr6 or null;
+                ll6 = uplink.ll6 or null;
                 uplinkRoutes4 = normalizeRouteList (uplink.ipv4 or [ ]);
                 uplinkRoutes6 = normalizeRouteList (uplink.ipv6 or [ ]);
+              }
+              // lib.optionalAttrs (prebuiltInterfaceData != null) {
+                interfaceData = prebuiltInterfaceData;
               };
             };
           };

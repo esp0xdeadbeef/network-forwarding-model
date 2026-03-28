@@ -74,8 +74,7 @@ in
       );
 
       p2pPairs = lib.filter (p: builtins.isList p && builtins.length p == 2) ordering;
-      wanLinkCount = builtins.length (builtins.attrNames (wanResult.wanLinks or { }));
-      loopbackHostBase = 2 * wanLinkCount;
+      loopbackHostBase = 0;
 
       explicitLoopbackByUnit = builtins.listToAttrs (
         map (unitName: {
@@ -167,10 +166,7 @@ in
         family = 4;
         cidrStr = if localPool == null then null else localPool.ipv4 or null;
         requiredHosts =
-          if localPool == null || (localPool.ipv4 or null) == null then
-            0
-          else
-            (2 * wanLinkCount) + (builtins.length unitNames);
+          if localPool == null || (localPool.ipv4 or null) == null then 0 else builtins.length unitNames;
         required = true;
       };
 
@@ -179,10 +175,7 @@ in
         family = 6;
         cidrStr = if localPool == null then null else localPool.ipv6 or null;
         requiredHosts =
-          if localPool == null || (localPool.ipv6 or null) == null then
-            0
-          else
-            (2 * wanLinkCount) + (builtins.length unitNames);
+          if localPool == null || (localPool.ipv6 or null) == null then 0 else builtins.length unitNames;
         required = false;
       };
 
@@ -242,23 +235,6 @@ in
         }
       );
 
-      _wanAddrsInLocalPool = lib.forEach (pools.wanAddressEntriesFromLinks (wanResult.wanLinks or { })) (
-        entry:
-        pools.assertHostInPool {
-          poolLabel = "sites.${enterprise}.${siteId}.addressPools.local";
-          poolCidr =
-            if localPool == null then
-              null
-            else if entry.family == 4 then
-              localPool.ipv4 or null
-            else
-              localPool.ipv6 or null;
-          entryLabel = entry.label;
-          family = entry.family;
-          addr0 = entry.addr;
-        }
-      );
-
       p2pLinks = builtins.seq _validateP2pPool4 (
         builtins.seq _validateP2pPool6 (
           builtins.seq _validateLocalPool4 (
@@ -267,17 +243,15 @@ in
                 builtins.seq _disjointPools6 (
                   builtins.deepSeq _poolsVsUserPrefixes (
                     builtins.deepSeq _explicitLoopbacksInLocalPool (
-                      builtins.deepSeq _wanAddrsInLocalPool (
-                        p2pAlloc.alloc {
-                          site = {
-                            siteName = siteName;
-                            p2p-pool = p2pPool;
-                            links = p2pPairs;
-                            inherit nodes;
-                            domains = siteDomains;
-                          };
-                        }
-                      )
+                      p2pAlloc.alloc {
+                        site = {
+                          siteName = siteName;
+                          p2p-pool = p2pPool;
+                          links = p2pPairs;
+                          inherit nodes;
+                          domains = siteDomains;
+                        };
+                      }
                     )
                   )
                 )
