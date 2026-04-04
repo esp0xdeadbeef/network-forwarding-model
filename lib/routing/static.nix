@@ -16,13 +16,15 @@ let
       via4 ? null,
       proto,
       intentKind,
+      preserveDst ? false,
     }:
     {
       dst = helpers.canonicalCidr dst;
       inherit proto;
     }
     // lib.optionalAttrs (via4 != null) { inherit via4; }
-    // intentAttr intentKind;
+    // intentAttr intentKind
+    // lib.optionalAttrs preserveDst { inherit preserveDst; };
 
   mkRoute6 =
     {
@@ -30,13 +32,15 @@ let
       via6 ? null,
       proto,
       intentKind,
+      preserveDst ? false,
     }:
     {
       dst = helpers.canonicalCidr dst;
       inherit proto;
     }
     // lib.optionalAttrs (via6 != null) { inherit via6; }
-    // intentAttr intentKind;
+    // intentAttr intentKind
+    // lib.optionalAttrs preserveDst { inherit preserveDst; };
 
   remotePrefixesOfKind =
     topo: nodeName: kind:
@@ -173,6 +177,7 @@ let
               inherit dst intentKind;
               via4 = sample.via4;
               proto = "internal";
+              preserveDst = sample.kind == "p2p";
             }
           ) summarizedDsts
         else
@@ -182,6 +187,7 @@ let
               inherit dst intentKind;
               via6 = sample.via6;
               proto = "internal";
+              preserveDst = sample.kind == "p2p";
             }
           ) summarizedDsts;
 

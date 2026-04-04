@@ -132,6 +132,7 @@ in
                           via4 = nh.via4;
                           proto = "internal";
                           intent = internalIntent;
+                          preserveDst = true;
                         }
                       ];
 
@@ -145,6 +146,7 @@ in
                           via6 = nh.via6;
                           proto = "internal";
                           intent = internalIntent;
+                          preserveDst = true;
                         }
                       ];
                 in

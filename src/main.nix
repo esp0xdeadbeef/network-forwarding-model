@@ -110,29 +110,22 @@ let
     in
     builtins.map mkTenant (builtins.filter isTenantPrefix prefixes);
 
-  normalizePolicy =
+  rawPolicyInterfaceTags =
     site:
-    let
-      explicitPolicy = if site ? policy && builtins.isAttrs site.policy then site.policy else { };
-      cc = site.communicationContract or { };
-
-      interfaceTags =
-        if explicitPolicy ? interfaceTags && builtins.isAttrs explicitPolicy.interfaceTags then
-          explicitPolicy.interfaceTags
-        else if cc ? interfaceTags && builtins.isAttrs cc.interfaceTags then
-          cc.interfaceTags
-        else
-          { };
-    in
-    explicitPolicy
-    // {
-      inherit interfaceTags;
-    };
+    if
+      site ? policy
+      && builtins.isAttrs site.policy
+      && site.policy ? interfaceTags
+      && builtins.isAttrs site.policy.interfaceTags
+    then
+      site.policy.interfaceTags
+    else
+      { };
 
   siteExternalsFromPolicy =
     site:
     let
-      tags = (normalizePolicy site).interfaceTags or { };
+      tags = rawPolicyInterfaceTags site;
       tagNames = builtins.attrNames tags;
       externalNames = builtins.map (tagName: lib.removePrefix "external-" tagName) (
         builtins.filter (tagName: lib.hasPrefix "external-" tagName) tagNames
@@ -163,6 +156,86 @@ let
       nodeNames = builtins.attrNames nodes;
     in
     builtins.filter (nodeName: (nodes.${nodeName}.role or null) == "core") nodeNames;
+
+  siteInterfaceTagsFromAttachments =
+    attachments:
+    builtins.foldl' (
+      acc: attachment:
+      if !(attachment ? name) || attachment.name == null then
+        acc
+      else
+        let
+          tagName = attachment.name;
+          existing = acc.${tagName} or { };
+        in
+        acc
+        // {
+          "${tagName}" = mergeAttrs existing {
+            attachments = (existing.attachments or [ ]) ++ [
+              attachment
+            ];
+          };
+        }
+    ) { } attachments;
+
+  siteInterfaceTagsFromDomains =
+    domains:
+    let
+      tenantEntries = builtins.map (tenant: {
+        name = tenant.name;
+        value = {
+          domains = [
+            (
+              {
+                kind = "tenant";
+                name = tenant.name;
+              }
+              // lib.optionalAttrs (tenant ? ipv4) { ipv4 = tenant.ipv4; }
+              // lib.optionalAttrs (tenant ? ipv6) { ipv6 = tenant.ipv6; }
+            )
+          ];
+        };
+      }) (domains.tenants or [ ]);
+
+      externalEntries = builtins.map (external: {
+        name = "external-${external.name}";
+        value = {
+          domains = [
+            (
+              {
+                kind = external.kind or "external";
+                name = external.name;
+              }
+              // lib.optionalAttrs (external ? ipv4) { ipv4 = external.ipv4; }
+              // lib.optionalAttrs (external ? ipv6) { ipv6 = external.ipv6; }
+            )
+          ];
+        };
+      }) (domains.externals or [ ]);
+    in
+    builtins.listToAttrs (tenantEntries ++ externalEntries);
+
+  normalizePolicy =
+    {
+      site,
+      domains,
+      attachments,
+    }:
+    let
+      explicitPolicy = if site ? policy && builtins.isAttrs site.policy then site.policy else { };
+      explicitInterfaceTags =
+        if explicitPolicy ? interfaceTags && builtins.isAttrs explicitPolicy.interfaceTags then
+          explicitPolicy.interfaceTags
+        else
+          { };
+      derivedInterfaceTags = mergeAttrs (siteInterfaceTagsFromDomains domains) (
+        siteInterfaceTagsFromAttachments attachments
+      );
+    in
+    explicitPolicy
+    // {
+      interfaceTags = mergeAttrs derivedInterfaceTags explicitInterfaceTags;
+    };
 
   normalizeCommunicationContract =
     site:
@@ -244,13 +317,16 @@ let
       nodes = normalizeNodes merged;
       links = normalizeLinks merged;
       communicationContract = normalizeCommunicationContract merged;
-      policy = normalizePolicy merged;
       domains = normalizeDomains merged;
       attachments =
         if merged ? attachments && merged.attachments != [ ] then
           merged.attachments
         else
           siteAttachmentsFromTopology merged;
+      policy = normalizePolicy {
+        site = merged;
+        inherit domains attachments;
+      };
       coreNodeNames =
         if merged ? coreNodeNames && merged.coreNodeNames != [ ] then
           merged.coreNodeNames
@@ -395,6 +471,12 @@ let
         attachments = {
           derived = true;
           source = "site.attachments or site.topology.nodes.*.attachments";
+        };
+        policy = {
+          interfaceTags = {
+            derived = true;
+            source = "site.policy.interfaceTags merged with site.attachments and site.domains";
+          };
         };
         transit = {
           nodePairOrdering = {
