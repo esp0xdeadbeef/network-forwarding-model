@@ -50,6 +50,8 @@
         else
           "unclassified";
 
+      hasForwardingAddress = uplink: (uplink.addr4 or null) != null || (uplink.addr6 or null) != null;
+
       allNodes = builtins.attrNames nodesBase;
 
       coreUnits = lib.filter (u: (roleFromInput u) == "core") allNodes;
@@ -191,10 +193,12 @@
       uplinkSpecsForCore =
         core: if upstreamCoresEffective ? "${core}" then upstreamCoresEffective.${core} else [ ];
 
-      uplinkCores = lib.filter (core: builtins.length (uplinkSpecsForCore core) > 0) sortedCoreUnits;
+      discoveredUplinkCores = lib.filter (
+        core: builtins.length (uplinkSpecsForCore core) > 0
+      ) sortedCoreUnits;
 
       _haveUplinkCore =
-        if uplinkCores == [ ] then
+        if discoveredUplinkCores == [ ] then
           throw ''
             network-forwarding-model: no uplinks discovered for any core
 
@@ -206,12 +210,18 @@
         else
           true;
 
+      forwardingUplinkSpecsForCore = core: lib.filter hasForwardingAddress (uplinkSpecsForCore core);
+
+      uplinkCores = lib.filter (
+        core: builtins.length (forwardingUplinkSpecsForCore core) > 0
+      ) sortedCoreUnits;
+
       uplinkNameEntries = lib.concatMap (
         core:
         map (uplinkSpec: {
           name = uplinkSpec.name;
           value = toString core;
-        }) (uplinkSpecsForCore core)
+        }) (forwardingUplinkSpecsForCore core)
       ) uplinkCores;
 
       uplinkCoreByName = lib.listToAttrs uplinkNameEntries;
@@ -221,7 +231,7 @@
         map (uplinkSpec: {
           core = toString core;
           uplink = uplinkSpec;
-        }) (uplinkSpecsForCore core)
+        }) (forwardingUplinkSpecsForCore core)
       ) uplinkCores;
 
       mkPrebuiltWanInterface =
@@ -231,52 +241,39 @@
           tenant,
           uplink,
         }:
-        let
+        {
+          name = linkName;
+          interface = linkName;
+          link = linkName;
+          kind = "wan";
+          type = "wan";
+          carrier = "wan";
+          uplink = uplinkName;
+          upstream = uplinkName;
+          overlay = null;
+
+          tenant = tenant;
+          gateway = true;
+
           addr4 = uplink.addr4 or null;
           peerAddr4 = uplink.peerAddr4 or null;
           addr6 = uplink.addr6 or null;
           peerAddr6 = uplink.peerAddr6 or null;
+          addr6Public = null;
           ll6 = uplink.ll6 or null;
 
-          hasExplicitAddressing =
-            addr4 != null || peerAddr4 != null || addr6 != null || peerAddr6 != null || ll6 != null;
-        in
-        if !hasExplicitAddressing then
-          null
-        else
-          {
-            name = linkName;
-            interface = linkName;
-            link = linkName;
-            kind = "wan";
-            type = "wan";
-            carrier = "wan";
-            uplink = uplinkName;
-            upstream = uplinkName;
-            overlay = null;
+          uplinkRoutes4 = normalizeRouteList (uplink.ipv4 or [ ]);
+          uplinkRoutes6 = normalizeRouteList (uplink.ipv6 or [ ]);
 
-            tenant = tenant;
-            gateway = true;
-
-            addr4 = addr4;
-            peerAddr4 = peerAddr4;
-            addr6 = addr6;
-            peerAddr6 = peerAddr6;
-            addr6Public = null;
-            ll6 = ll6;
-
-            uplinkRoutes4 = normalizeRouteList (uplink.ipv4 or [ ]);
-            uplinkRoutes6 = normalizeRouteList (uplink.ipv6 or [ ]);
-
-            routes = {
-              ipv4 = lib.optional (addr4 != null) (mkConnectedRoute addr4);
-              ipv6 = lib.optional (addr6 != null) (mkConnectedRoute addr6);
-            };
-
-            ra6Prefixes = [ ];
-            acceptRA = false;
-            dhcp = false;
+          routes = {
+            ipv4 = lib.optional ((uplink.addr4 or null) != null) (mkConnectedRoute uplink.addr4);
+            ipv6 = lib.optional ((uplink.addr6 or null) != null) (mkConnectedRoute uplink.addr6);
           };
+
+          ra6Prefixes = [ ];
+          acceptRA = false;
+          dhcp = false;
+        };
 
       mkWanLink =
         _idx: spec:
@@ -321,7 +318,7 @@
                 uplinkRoutes4 = normalizeRouteList (uplink.ipv4 or [ ]);
                 uplinkRoutes6 = normalizeRouteList (uplink.ipv6 or [ ]);
               }
-              // lib.optionalAttrs (prebuiltInterfaceData != null) {
+              // {
                 interfaceData = prebuiltInterfaceData;
               };
             };

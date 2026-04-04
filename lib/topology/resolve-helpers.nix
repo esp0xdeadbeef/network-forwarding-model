@@ -38,7 +38,6 @@ let
       name = ifName;
       node = nodeName;
       interface = ifName;
-      link = ifName;
       logical = true;
       virtual = true;
       l2 = false;
@@ -98,7 +97,6 @@ let
       name = ifName;
       node = nodeName;
       interface = ifName;
-      link = ifName;
       logical = true;
       virtual = true;
       l2 = false;

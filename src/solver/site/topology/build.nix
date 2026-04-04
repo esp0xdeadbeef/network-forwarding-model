@@ -410,6 +410,7 @@ in
           "tenantV4Base"
           "ulaPrefix"
           "routerLoopbacks"
+          "transport"
         ]
         // {
           inherit enterprise siteId overlayReachability;
