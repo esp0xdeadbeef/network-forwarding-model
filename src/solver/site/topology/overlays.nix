@@ -134,6 +134,9 @@ let
             proto = "overlay";
             overlay = overlayName;
             peerSite = peerSiteRef;
+            intent = {
+              kind = "overlay-reachability";
+            };
           }) peerPrefixes.ipv4;
 
           routes6 = map (dst: {
@@ -141,6 +144,9 @@ let
             proto = "overlay";
             overlay = overlayName;
             peerSite = peerSiteRef;
+            intent = {
+              kind = "overlay-reachability";
+            };
           }) peerPrefixes.ipv6;
         in
         {

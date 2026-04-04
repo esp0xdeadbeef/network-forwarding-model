@@ -33,6 +33,8 @@
 
       uniq = xs: lib.unique xs;
 
+      sortedStrings = xs: lib.sort (a: b: a < b) (lib.unique (map toString xs));
+
       nodesInOrdering = uniq (
         lib.concatMap (e: [
           e.a
@@ -46,6 +48,7 @@
       outdeg = n: countIn n (map (e: e.a) orderingEdges);
 
       outsOf = n: lib.filter (e: e.a == n) orderingEdges;
+      insOf = n: lib.filter (e: e.b == n) orderingEdges;
 
       roleFromInputExplicit =
         node:
@@ -105,6 +108,14 @@
         in
         if start == null then [ ] else go [ ] start;
 
+      chainIndexOf =
+        nodeName:
+        let
+          indexed = lib.imap0 (idx: value: { inherit idx value; }) chain;
+          hits = lib.filter (x: x.value == nodeName) indexed;
+        in
+        if hits == [ ] then null else (builtins.head hits).idx;
+
       roleFromInput = node: roleFromInputExplicit node;
 
       missingRoles = lib.filter (n: roleFromInput n == null || roleFromInput n == "") allUnits;
@@ -146,6 +157,61 @@
         policyFanout = if policyUnit == null then [ ] else map (e: e.b) (outsOf (toString policyUnit));
       };
 
+      forwardingMarkers = builtins.listToAttrs (
+        map (
+          unitName0:
+          let
+            unitName = toString unitName0;
+            role = roleFromInput unitName;
+            incoming = sortedStrings (map (e: e.a) (insOf unitName));
+            outgoing = sortedStrings (map (e: e.b) (outsOf unitName));
+            participates = lib.elem unitName nodesInOrdering;
+            chainIndex = chainIndexOf unitName;
+
+            accessTermination = role == "access";
+            policyEnforcement = role == "policy";
+            transitForwarding =
+              participates || role == "core" || role == "policy" || role == "upstream-selector";
+            transitRoutingAuthority = role == "core" || role == "policy" || role == "upstream-selector";
+            upstreamSelectionAuthority = role == "upstream-selector";
+
+            functions = lib.sort (a: b: a < b) (
+              lib.unique (
+                (lib.optional accessTermination "access-gateway")
+                ++ (lib.optional policyEnforcement "policy-enforcement")
+                ++ (lib.optional transitForwarding "transit-forwarder")
+                ++ (lib.optional (role == "core") "routing-core")
+                ++ (lib.optional upstreamSelectionAuthority "upstream-selection")
+              )
+            );
+          in
+          {
+            name = unitName;
+            value = {
+              inherit role functions;
+              traversal = {
+                participates = participates;
+                chainIndex = chainIndex;
+                entry = participates && incoming == [ ];
+                terminal = participates && outgoing == [ ];
+                incoming = incoming;
+                outgoing = outgoing;
+              };
+              responsibilities = {
+                accessTermination = accessTermination;
+                policyEnforcement = policyEnforcement;
+                transitForwarding = transitForwarding;
+              };
+              authority = {
+                attachedPrefixRouting = accessTermination;
+                transitRouting = transitRoutingAuthority;
+                upstreamSelection = upstreamSelectionAuthority;
+              };
+            };
+          }
+        ) allUnits
+      );
+
     in
     {
       validate = validate;
@@ -156,6 +222,7 @@
         traversal
         policyUnit
         assertions
+        forwardingMarkers
         ;
     };
 }

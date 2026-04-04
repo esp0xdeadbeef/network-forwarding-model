@@ -363,15 +363,54 @@ let
       in
       lib.concatMap (r: rangeToCidrs6 r.start r.end) merged;
 
-  mkRoute4 = dst: via4: proto: {
-    dst = canonicalCidr dst;
-    inherit via4 proto;
-  };
+  normalizeIntent =
+    x:
+    if x == null then
+      null
+    else if builtins.isAttrs x && (x.kind or null) != null then
+      x // { kind = toString x.kind; }
+    else if builtins.isString x then
+      { kind = toString x; }
+    else
+      { kind = toString x; };
 
-  mkRoute6 = dst: via6: proto: {
-    dst = canonicalCidr dst;
-    inherit via6 proto;
-  };
+  mkRoute4 =
+    {
+      dst,
+      via4,
+      proto,
+      intent ? null,
+      extra ? { },
+      routeExtra ? { },
+    }:
+    {
+      dst = canonicalCidr dst;
+      inherit via4 proto;
+    }
+    // lib.optionalAttrs (normalizeIntent intent != null) {
+      intent = normalizeIntent intent;
+    }
+    // extra
+    // routeExtra;
+
+  mkRoute6 =
+    {
+      dst,
+      via6,
+      proto,
+      intent ? null,
+      extra ? { },
+      routeExtra ? { },
+    }:
+    {
+      dst = canonicalCidr dst;
+      inherit via6 proto;
+    }
+    // lib.optionalAttrs (normalizeIntent intent != null) {
+      intent = normalizeIntent intent;
+    }
+    // extra
+    // routeExtra;
 
   routeBase = r: builtins.removeAttrs r [ "dst" ];
 
