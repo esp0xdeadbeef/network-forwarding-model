@@ -210,6 +210,14 @@
         else
           true;
 
+      declaredUplinkNames = lib.sort (a: b: a < b) (
+        lib.unique (
+          lib.concatMap (
+            core: map (uplinkSpec: uplinkSpec.name) (uplinkSpecsForCore core)
+          ) discoveredUplinkCores
+        )
+      );
+
       forwardingUplinkSpecsForCore = core: lib.filter hasForwardingAddress (uplinkSpecsForCore core);
 
       uplinkCores = lib.filter (
@@ -336,6 +344,8 @@
         uplinkCores = uplinkCores;
         uplinkCoreByName = uplinkCoreByName;
         uplinkNames = uplinkNames;
+        declaredUplinkCores = discoveredUplinkCores;
+        declaredUplinkNames = declaredUplinkNames;
         wanLinks = wanLinks;
       }
     );

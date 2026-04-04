@@ -4,6 +4,40 @@ let
   graph = import ./graph.nix { inherit lib; };
   helpers = import ./static-helpers.nix { inherit lib; };
 
+  intentAttr = kind: {
+    intent = {
+      kind = kind;
+    };
+  };
+
+  mkRoute4 =
+    {
+      dst,
+      via4 ? null,
+      proto,
+      intentKind,
+    }:
+    {
+      dst = helpers.canonicalCidr dst;
+      inherit proto;
+    }
+    // lib.optionalAttrs (via4 != null) { inherit via4; }
+    // intentAttr intentKind;
+
+  mkRoute6 =
+    {
+      dst,
+      via6 ? null,
+      proto,
+      intentKind,
+    }:
+    {
+      dst = helpers.canonicalCidr dst;
+      inherit proto;
+    }
+    // lib.optionalAttrs (via6 != null) { inherit via6; }
+    // intentAttr intentKind;
+
   remotePrefixesOfKind =
     topo: nodeName: kind:
     let
@@ -129,45 +163,25 @@ let
       rawDsts = map (e: e.dst) es;
       summarizedDsts = helpers.summarizeCidrs sample.family rawDsts;
 
-      routeIntent =
-        if sample.kind == "overlay" then
-          {
-            kind = "overlay-reachability";
-          }
-        else
-          {
-            kind = "internal-reachability";
-          };
-
-      routeExtra =
-        (lib.optionalAttrs (sample.kind == "overlay" && (sample.overlay or null) != null) {
-          overlay = sample.overlay;
-        })
-        // (lib.optionalAttrs (sample.kind == "overlay" && (sample.peerSite or null) != null) {
-          peerSite = sample.peerSite;
-        });
+      intentKind = if sample.kind == "overlay" then "overlay-reachability" else "internal-reachability";
 
       rawRoutes =
         if sample.family == 4 then
           map (
             dst:
-            helpers.mkRoute4 {
-              inherit dst routeExtra;
+            mkRoute4 {
+              inherit dst intentKind;
               via4 = sample.via4;
               proto = "internal";
-              intent = routeIntent;
-              extra = routeExtra;
             }
           ) summarizedDsts
         else
           map (
             dst:
-            helpers.mkRoute6 {
-              inherit dst routeExtra;
+            mkRoute6 {
+              inherit dst intentKind;
               via6 = sample.via6;
               proto = "internal";
-              intent = routeIntent;
-              extra = routeExtra;
             }
           ) summarizedDsts;
 
@@ -186,24 +200,20 @@ let
           [ ]
         else if sample.family == 4 then
           [
-            (helpers.mkRoute4 {
+            (mkRoute4 {
               dst = aggDst;
               via4 = sample.via4;
               proto = "internal";
-              intent = {
-                kind = "internal-reachability";
-              };
+              inherit intentKind;
             })
           ]
         else
           [
-            (helpers.mkRoute6 {
+            (mkRoute6 {
               dst = aggDst;
               via6 = sample.via6;
               proto = "internal";
-              intent = {
-                kind = "internal-reachability";
-              };
+              inherit intentKind;
             })
           ];
     in
@@ -283,13 +293,11 @@ let
             else
               map (
                 dst:
-                helpers.mkRoute4 {
+                mkRoute4 {
                   inherit dst;
                   via4 = helpers.stripMask iface.peerAddr4;
                   proto = "uplink";
-                  intent = {
-                    kind = "uplink-learned-reachability";
-                  };
+                  intentKind = "uplink-learned-reachability";
                 }
               ) (iface.uplinkRoutes4 or [ ]);
 
@@ -299,13 +307,11 @@ let
             else
               map (
                 dst:
-                helpers.mkRoute6 {
+                mkRoute6 {
                   inherit dst;
                   via6 = helpers.stripMask iface.peerAddr6;
                   proto = "uplink";
-                  intent = {
-                    kind = "uplink-learned-reachability";
-                  };
+                  intentKind = "uplink-learned-reachability";
                 }
               ) (iface.uplinkRoutes6 or [ ]);
 
@@ -314,13 +320,11 @@ let
               (iface.kind or null) == "wan" && (iface.gateway or false) && (iface.peerAddr4 or null) != null
             then
               [
-                (helpers.mkRoute4 {
+                (mkRoute4 {
                   dst = helpers.default4;
                   via4 = helpers.stripMask iface.peerAddr4;
-                  proto = "uplink";
-                  intent = {
-                    kind = "default-reachability";
-                  };
+                  proto = "default";
+                  intentKind = "default-reachability";
                 })
               ]
             else if
@@ -329,7 +333,7 @@ let
               [
                 {
                   dst = helpers.default4;
-                  proto = "uplink";
+                  proto = "default";
                   intent = {
                     kind = "default-reachability";
                   };
@@ -343,13 +347,11 @@ let
               (iface.kind or null) == "wan" && (iface.gateway or false) && (iface.peerAddr6 or null) != null
             then
               [
-                (helpers.mkRoute6 {
+                (mkRoute6 {
                   dst = helpers.default6;
                   via6 = helpers.stripMask iface.peerAddr6;
-                  proto = "uplink";
-                  intent = {
-                    kind = "default-reachability";
-                  };
+                  proto = "default";
+                  intentKind = "default-reachability";
                 })
               ]
             else if
@@ -358,7 +360,7 @@ let
               [
                 {
                   dst = helpers.default6;
-                  proto = "uplink";
+                  proto = "default";
                   intent = {
                     kind = "default-reachability";
                   };
@@ -418,13 +420,11 @@ let
               [ ]
             else
               [
-                (helpers.mkRoute4 {
+                (mkRoute4 {
                   dst = helpers.default4;
                   via4 = nh.via4;
                   proto = "default";
-                  intent = {
-                    kind = "default-reachability";
-                  };
+                  intentKind = "default-reachability";
                 })
               ];
           add6 =
@@ -432,13 +432,11 @@ let
               [ ]
             else
               [
-                (helpers.mkRoute6 {
+                (mkRoute6 {
                   dst = helpers.default6;
                   via6 = nh.via6;
                   proto = "default";
-                  intent = {
-                    kind = "default-reachability";
-                  };
+                  intentKind = "default-reachability";
                 })
               ];
         in
@@ -525,13 +523,11 @@ let
           add4 =
             if e.family == 4 then
               [
-                (helpers.mkRoute4 {
+                (mkRoute4 {
                   dst = e.dst;
                   via4 = e.via4;
                   proto = "uplink";
-                  intent = {
-                    kind = "uplink-learned-reachability";
-                  };
+                  intentKind = "uplink-learned-reachability";
                 })
               ]
             else
@@ -540,13 +536,11 @@ let
           add6 =
             if e.family == 6 then
               [
-                (helpers.mkRoute6 {
+                (mkRoute6 {
                   dst = e.dst;
                   via6 = e.via6;
                   proto = "uplink";
-                  intent = {
-                    kind = "uplink-learned-reachability";
-                  };
+                  intentKind = "uplink-learned-reachability";
                 })
               ]
             else

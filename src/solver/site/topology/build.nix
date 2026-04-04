@@ -11,6 +11,7 @@ let
   overlays = import ./overlays.nix { inherit lib; };
   pools = import ./pools.nix { inherit lib; };
   transit = import ./transit.nix { inherit lib; };
+  semantics = import ./semantics.nix { inherit lib; };
 
 in
 {
@@ -393,82 +394,74 @@ in
         in
         builtins.seq _unique (builtins.seq _complete ids);
 
-      finalUplinkCoreNames = routed1.uplinkCoreNames or (wanResult.uplinkCores or [ ]);
-
-      sortedStrings = xs: lib.sort (a: b: a < b) (lib.unique (map toString xs));
-
-      wanInterfaceNamesForNode =
-        nodeName:
-        let
-          ifaces = (routed1.nodes.${nodeName}.interfaces or { });
-        in
-        lib.sort (a: b: a < b) (
-          lib.filter (ifName: (ifaces.${ifName}.kind or null) == "wan") (builtins.attrNames ifaces)
-        );
-
-      uplinkNamesForNode =
-        nodeName:
-        let
-          ifaces = (routed1.nodes.${nodeName}.interfaces or { });
-        in
-        sortedStrings (
-          map (
-            ifName:
-            let
-              iface = ifaces.${ifName};
-            in
-            toString (iface.uplink or iface.upstream or ifName)
-          ) (wanInterfaceNamesForNode nodeName)
-        );
-
-      forwardingMarkerForNode =
-        nodeName:
-        rolesResult.forwardingMarkers.${nodeName} or {
-          role = routed1.nodes.${nodeName}.role or null;
-          functions = [ ];
-          traversal = {
-            participates = false;
-            chainIndex = null;
-            entry = false;
-            terminal = false;
-            incoming = [ ];
-            outgoing = [ ];
-          };
-          responsibilities = {
-            accessTermination = false;
-            policyEnforcement = false;
-            transitForwarding = false;
-          };
-          authority = {
-            attachedPrefixRouting = false;
-            transitRouting = false;
-            upstreamSelection = false;
-          };
-        };
-
-      egressMarkersForNode =
-        nodeName:
-        let
-          wanInterfaces = wanInterfaceNamesForNode nodeName;
-          uplinkNames = uplinkNamesForNode nodeName;
-          authority = (lib.elem nodeName finalUplinkCoreNames) || wanInterfaces != [ ];
-          upstreamSelection =
-            emittedUpstreamSelectorNodeName != null && nodeName == emittedUpstreamSelectorNodeName;
-        in
-        {
-          authority = authority;
-          upstreamSelection = upstreamSelection;
-          exitEligible = authority;
-          wanInterfaces = wanInterfaces;
-          uplinkNames = uplinkNames;
-          candidateExitNodes = if upstreamSelection then finalUplinkCoreNames else [ ];
-        };
-
       existingTopology =
         if routed1 ? topology && builtins.isAttrs routed1.topology then routed1.topology else { };
 
       existingTransit =
         if routed1 ? transit && builtins.isAttrs routed1.transit then routed1.transit else { };
+
+      emittedUplinkCoreNames =
+        let
+          routedNames =
+            if routed1 ? uplinkCoreNames && builtins.isList routed1.uplinkCoreNames then
+              routed1.uplinkCoreNames
+            else
+              [ ];
+
+          wanNames =
+            if wanResult ? declaredUplinkCores && builtins.isList wanResult.declaredUplinkCores then
+              wanResult.declaredUplinkCores
+            else if wanResult ? uplinkCores && builtins.isList wanResult.uplinkCores then
+              wanResult.uplinkCores
+            else
+              [ ];
+
+          egressNames =
+            if routed1 ? egressIntent && builtins.isAttrs routed1.egressIntent then
+              routed1.egressIntent.uplinkCoreNodeNames or [ ]
+            else
+              [ ];
+        in
+        lib.sort (a: b: a < b) (
+          lib.unique (
+            if routedNames != [ ] then
+              routedNames
+            else if wanNames != [ ] then
+              wanNames
+            else
+              egressNames
+          )
+        );
+
+      emittedUplinkNames =
+        let
+          routedNames =
+            if routed1 ? uplinkNames && builtins.isList routed1.uplinkNames then routed1.uplinkNames else [ ];
+
+          wanNames =
+            if wanResult ? declaredUplinkNames && builtins.isList wanResult.declaredUplinkNames then
+              wanResult.declaredUplinkNames
+            else if wanResult ? uplinkNames && builtins.isList wanResult.uplinkNames then
+              wanResult.uplinkNames
+            else
+              [ ];
+
+          egressNames =
+            if routed1 ? egressIntent && builtins.isAttrs routed1.egressIntent then
+              routed1.egressIntent.externalDomains or [ ]
+            else
+              [ ];
+        in
+        lib.sort (a: b: a < b) (
+          lib.unique (
+            if routedNames != [ ] then
+              routedNames
+            else if wanNames != [ ] then
+              wanNames
+            else
+              egressNames
+          )
+        );
 
       routed =
         builtins.removeAttrs routed1 [
@@ -489,16 +482,8 @@ in
           coreNodeNames = finalCoreNodeNames;
           policyNodeName = finalPolicyNodeName;
           upstreamSelectorNodeName = builtins.seq _assertUpstreamSelectorNodeName emittedUpstreamSelectorNodeName;
-          uplinkCoreNames = finalUplinkCoreNames;
-          uplinkNames = routed1.uplinkNames or (wanResult.uplinkNames or [ ]);
-          nodes = lib.mapAttrs (
-            nodeName: node:
-            node
-            // {
-              forwarding = forwardingMarkerForNode nodeName;
-              egress = egressMarkersForNode nodeName;
-            }
-          ) (routed1.nodes or { });
+          uplinkCoreNames = emittedUplinkCoreNames;
+          uplinkNames = emittedUplinkNames;
           topology = (builtins.removeAttrs existingTopology [ "nodes" ]) // {
             links = existingTopology.links or [ ];
           };
@@ -507,6 +492,11 @@ in
             adjacencies = realizedTransitAdjacencies;
           };
         };
+
+      annotated = semantics.annotateSite {
+        inherit rolesResult wanResult;
+        site = routed;
+      };
     in
-    routed;
+    annotated;
 }
