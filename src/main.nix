@@ -390,6 +390,46 @@ let
       link = {
         id = "link::<siteName>::<linkName>";
       };
+      node = {
+        forwarding = {
+          functions = "explicit";
+          traversal = {
+            participates = "explicit";
+            chainIndex = "explicit";
+            incoming = "explicit";
+            outgoing = "explicit";
+          };
+          responsibilities = {
+            accessTermination = "explicit";
+            policyEnforcement = "explicit";
+            transitForwarding = "explicit";
+          };
+          authority = {
+            attachedPrefixRouting = "explicit";
+            transitRouting = "explicit";
+            upstreamSelection = "explicit";
+          };
+        };
+        egress = {
+          authority = "explicit";
+          upstreamSelection = "explicit";
+          exitEligible = "explicit";
+          wanInterfaces = "explicit";
+          uplinkNames = "explicit";
+        };
+      };
+      route = {
+        intent = {
+          field = "intent.kind";
+          values = [
+            "connected-reachability"
+            "internal-reachability"
+            "overlay-reachability"
+            "uplink-learned-reachability"
+            "default-reachability"
+          ];
+        };
+      };
       transit = {
         adjacencies = {
           idField = "id";
@@ -416,7 +456,7 @@ let
     meta = inheritedMeta // {
       networkForwardingModel = (inheritedMeta.networkForwardingModel or { }) // {
         name = "network-forwarding-model";
-        schemaVersion = 6;
+        schemaVersion = 7;
         inherit contracts;
       };
     };

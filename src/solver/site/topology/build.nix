@@ -393,6 +393,77 @@ in
         in
         builtins.seq _unique (builtins.seq _complete ids);
 
+      finalUplinkCoreNames = routed1.uplinkCoreNames or (wanResult.uplinkCores or [ ]);
+
+      sortedStrings = xs: lib.sort (a: b: a < b) (lib.unique (map toString xs));
+
+      wanInterfaceNamesForNode =
+        nodeName:
+        let
+          ifaces = (routed1.nodes.${nodeName}.interfaces or { });
+        in
+        lib.sort (a: b: a < b) (
+          lib.filter (ifName: (ifaces.${ifName}.kind or null) == "wan") (builtins.attrNames ifaces)
+        );
+
+      uplinkNamesForNode =
+        nodeName:
+        let
+          ifaces = (routed1.nodes.${nodeName}.interfaces or { });
+        in
+        sortedStrings (
+          map (
+            ifName:
+            let
+              iface = ifaces.${ifName};
+            in
+            toString (iface.uplink or iface.upstream or ifName)
+          ) (wanInterfaceNamesForNode nodeName)
+        );
+
+      forwardingMarkerForNode =
+        nodeName:
+        rolesResult.forwardingMarkers.${nodeName} or {
+          role = routed1.nodes.${nodeName}.role or null;
+          functions = [ ];
+          traversal = {
+            participates = false;
+            chainIndex = null;
+            entry = false;
+            terminal = false;
+            incoming = [ ];
+            outgoing = [ ];
+          };
+          responsibilities = {
+            accessTermination = false;
+            policyEnforcement = false;
+            transitForwarding = false;
+          };
+          authority = {
+            attachedPrefixRouting = false;
+            transitRouting = false;
+            upstreamSelection = false;
+          };
+        };
+
+      egressMarkersForNode =
+        nodeName:
+        let
+          wanInterfaces = wanInterfaceNamesForNode nodeName;
+          uplinkNames = uplinkNamesForNode nodeName;
+          authority = (lib.elem nodeName finalUplinkCoreNames) || wanInterfaces != [ ];
+          upstreamSelection =
+            emittedUpstreamSelectorNodeName != null && nodeName == emittedUpstreamSelectorNodeName;
+        in
+        {
+          authority = authority;
+          upstreamSelection = upstreamSelection;
+          exitEligible = authority;
+          wanInterfaces = wanInterfaces;
+          uplinkNames = uplinkNames;
+          candidateExitNodes = if upstreamSelection then finalUplinkCoreNames else [ ];
+        };
+
       existingTopology =
         if routed1 ? topology && builtins.isAttrs routed1.topology then routed1.topology else { };
 
@@ -418,8 +489,16 @@ in
           coreNodeNames = finalCoreNodeNames;
           policyNodeName = finalPolicyNodeName;
           upstreamSelectorNodeName = builtins.seq _assertUpstreamSelectorNodeName emittedUpstreamSelectorNodeName;
-          uplinkCoreNames = routed1.uplinkCoreNames or (wanResult.uplinkCores or [ ]);
+          uplinkCoreNames = finalUplinkCoreNames;
           uplinkNames = routed1.uplinkNames or (wanResult.uplinkNames or [ ]);
+          nodes = lib.mapAttrs (
+            nodeName: node:
+            node
+            // {
+              forwarding = forwardingMarkerForNode nodeName;
+              egress = egressMarkersForNode nodeName;
+            }
+          ) (routed1.nodes or { });
           topology = (builtins.removeAttrs existingTopology [ "nodes" ]) // {
             links = existingTopology.links or [ ];
           };

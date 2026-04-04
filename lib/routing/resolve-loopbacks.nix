@@ -127,6 +127,9 @@ in
                           dst = hostDst4 lb.ipv4;
                           via4 = nh.via4;
                           proto = "internal";
+                          intent = {
+                            kind = "internal-reachability";
+                          };
                         }
                       ];
 
@@ -139,6 +142,9 @@ in
                           dst = hostDst6 lb.ipv6;
                           via6 = nh.via6;
                           proto = "internal";
+                          intent = {
+                            kind = "internal-reachability";
+                          };
                         }
                       ];
                 in

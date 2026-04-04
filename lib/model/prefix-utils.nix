@@ -9,6 +9,9 @@ let
   mkConnectedRoute = dst: {
     dst = canonicalCidr dst;
     proto = "connected";
+    intent = {
+      kind = "connected-reachability";
+    };
   };
 
   networksOf =
