@@ -7,7 +7,11 @@
       normalizeCommunicationContract =
         contract:
         if !(builtins.isAttrs contract) then
-          contract
+          {
+            allowedRelations = [ ];
+            services = [ ];
+            trafficTypes = [ ];
+          }
         else
           let
             allowedRelations0 =
@@ -18,15 +22,32 @@
               else
                 [ ];
           in
-          (builtins.removeAttrs contract [ "relations" ])
+          (builtins.removeAttrs contract [
+            "relations"
+            "interfaceTags"
+          ])
           // {
             allowedRelations = allowedRelations0;
+          };
+
+      normalizePolicy =
+        policy:
+        if !(builtins.isAttrs policy) then
+          {
+            interfaceTags = { };
           }
+        else
+          policy
           // {
-            interfaceTags = if contract ? interfaceTags then contract.interfaceTags else { };
+            interfaceTags =
+              if policy ? interfaceTags && builtins.isAttrs policy.interfaceTags then
+                policy.interfaceTags
+              else
+                { };
           };
     in
     {
       communicationContract = normalizeCommunicationContract (site.communicationContract or { });
+      policy = normalizePolicy (site.policy or { });
     };
 }

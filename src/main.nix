@@ -38,10 +38,12 @@ let
     };
     attachments = [ ];
     communicationContract = {
-      interfaceTags = { };
       allowedRelations = [ ];
       services = [ ];
       trafficTypes = [ ];
+    };
+    policy = {
+      interfaceTags = { };
     };
     coreNodeNames = [ ];
     domains = {
@@ -108,10 +110,29 @@ let
     in
     builtins.map mkTenant (builtins.filter isTenantPrefix prefixes);
 
-  siteExternalsFromCommunicationContract =
+  normalizePolicy =
     site:
     let
-      tags = getAttrPathOr [ "communicationContract" "interfaceTags" ] { } site;
+      explicitPolicy = if site ? policy && builtins.isAttrs site.policy then site.policy else { };
+      cc = site.communicationContract or { };
+
+      interfaceTags =
+        if explicitPolicy ? interfaceTags && builtins.isAttrs explicitPolicy.interfaceTags then
+          explicitPolicy.interfaceTags
+        else if cc ? interfaceTags && builtins.isAttrs cc.interfaceTags then
+          cc.interfaceTags
+        else
+          { };
+    in
+    explicitPolicy
+    // {
+      inherit interfaceTags;
+    };
+
+  siteExternalsFromPolicy =
+    site:
+    let
+      tags = (normalizePolicy site).interfaceTags or { };
       tagNames = builtins.attrNames tags;
       externalNames = builtins.map (tagName: lib.removePrefix "external-" tagName) (
         builtins.filter (tagName: lib.hasPrefix "external-" tagName) tagNames
@@ -149,7 +170,6 @@ let
       cc = site.communicationContract or { };
     in
     {
-      interfaceTags = cc.interfaceTags or { };
       allowedRelations =
         if cc ? allowedRelations then
           cc.allowedRelations
@@ -192,7 +212,7 @@ let
 
       explicitExternals = explicitDomains.externals or [ ];
       derivedExternals =
-        if explicitExternals != [ ] then explicitExternals else siteExternalsFromCommunicationContract site;
+        if explicitExternals != [ ] then explicitExternals else siteExternalsFromPolicy site;
     in
     explicitDomains
     // {
@@ -224,6 +244,7 @@ let
       nodes = normalizeNodes merged;
       links = normalizeLinks merged;
       communicationContract = normalizeCommunicationContract merged;
+      policy = normalizePolicy merged;
       domains = normalizeDomains merged;
       attachments =
         if merged ? attachments && merged.attachments != [ ] then
@@ -243,6 +264,7 @@ let
       addressPools = addressPools;
       attachments = attachments;
       communicationContract = communicationContract;
+      policy = policy;
       coreNodeNames = coreNodeNames;
       domains = domains;
       topology = topology;
@@ -367,7 +389,7 @@ let
           };
           externals = {
             derived = true;
-            source = "site.domains.externals or communicationContract.interfaceTags[external-*]";
+            source = "site.domains.externals or site.policy.interfaceTags[external-*]";
           };
         };
         attachments = {
