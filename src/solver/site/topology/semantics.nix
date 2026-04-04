@@ -205,6 +205,12 @@ in
                 "tenant-edge"
                 "traversal-entry"
               ]
+            else if role == "downstream-selector" then
+              [
+                "downstream-selector"
+                "router-identity"
+                "transit-forwarder"
+              ]
             else if role == "policy" then
               [
                 "policy-enforcer"

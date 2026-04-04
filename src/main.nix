@@ -456,7 +456,7 @@ let
     meta = inheritedMeta // {
       networkForwardingModel = (inheritedMeta.networkForwardingModel or { }) // {
         name = "network-forwarding-model";
-        schemaVersion = 7;
+        schemaVersion = 8;
         inherit contracts;
       };
     };

@@ -12,7 +12,9 @@ in
     let
       s = toString n;
     in
-    if lib.hasInfix "upstream-selector" s || lib.hasInfix "upstream_selector" s then
+    if lib.hasInfix "downstream-selector" s || lib.hasInfix "downstream_selector" s then
+      "downstream-selector"
+    else if lib.hasInfix "upstream-selector" s || lib.hasInfix "upstream_selector" s then
       "upstream-selector"
     else if lib.hasInfix "policy" s then
       "policy"
