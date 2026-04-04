@@ -171,14 +171,20 @@
             accessTermination = role == "access";
             policyEnforcement = role == "policy";
             transitForwarding =
-              participates || role == "core" || role == "policy" || role == "upstream-selector";
-            transitRoutingAuthority = role == "core" || role == "policy" || role == "upstream-selector";
+              participates
+              || role == "core"
+              || role == "policy"
+              || role == "downstream-selector"
+              || role == "upstream-selector";
+            transitRoutingAuthority =
+              role == "core" || role == "policy" || role == "downstream-selector" || role == "upstream-selector";
             upstreamSelectionAuthority = role == "upstream-selector";
 
             functions = lib.sort (a: b: a < b) (
               lib.unique (
                 (lib.optional accessTermination "access-gateway")
                 ++ (lib.optional policyEnforcement "policy-enforcement")
+                ++ (lib.optional (role == "downstream-selector") "downstream-selection")
                 ++ (lib.optional transitForwarding "transit-forwarder")
                 ++ (lib.optional (role == "core") "routing-core")
                 ++ (lib.optional upstreamSelectionAuthority "upstream-selection")

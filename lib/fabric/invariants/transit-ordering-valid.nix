@@ -34,10 +34,11 @@ in
       coreNodes = nodeNamesByRole "core" nodes;
       accessNodes = nodeNamesByRole "access" nodes;
       policyNodes = nodeNamesByRole "policy" nodes;
+      downstreamNodes = nodeNamesByRole "downstream-selector" nodes;
       selectorNodes = nodeNamesByRole "upstream-selector" nodes;
 
       policyNode = if policyNodes == [ ] then null else builtins.head policyNodes;
-
+      downstreamNode = if downstreamNodes == [ ] then null else builtins.head downstreamNodes;
       selectorNode = if selectorNodes == [ ] then null else builtins.head selectorNodes;
 
       _policyCount = common.assert_ (builtins.length policyNodes == 1) ''
@@ -47,6 +48,15 @@ in
 
         site: ${siteName}
         found: ${toString (builtins.length policyNodes)}
+      '';
+
+      _downstreamCount = common.assert_ (builtins.length downstreamNodes <= 1) ''
+        invariants(transit-ordering-valid):
+
+        expected at most one downstream-selector node
+
+        site: ${siteName}
+        found: ${toString (builtins.length downstreamNodes)}
       '';
 
       _selectorCount = common.assert_ (builtins.length selectorNodes <= 1) ''
@@ -66,10 +76,8 @@ in
         site: ${siteName}
       '';
 
-      _coresToSelector =
-        if selectorNode == null then
-          true
-        else
+      _coresToUpstreamBoundary =
+        if selectorNode != null then
           builtins.deepSeq (lib.forEach coreNodes (
             coreNode:
             common.assert_ (hasP2pLinkBetween links coreNode selectorNode) ''
@@ -80,6 +88,21 @@ in
               site: ${siteName}
               core: ${coreNode}
               upstream-selector: ${selectorNode}
+            ''
+          )) true
+        else if policyNode == null then
+          true
+        else
+          builtins.deepSeq (lib.forEach coreNodes (
+            coreNode:
+            common.assert_ (hasP2pLinkBetween links coreNode policyNode) ''
+              invariants(transit-ordering-valid):
+
+              missing core -> policy p2p adjacency
+
+              site: ${siteName}
+              core: ${coreNode}
+              policy: ${policyNode}
             ''
           )) true;
 
@@ -97,17 +120,42 @@ in
             policy: ${policyNode}
           '';
 
-      _policyToAccess = builtins.deepSeq (lib.forEach accessNodes (
+      _policyToDownstream =
+        if downstreamNode == null || policyNode == null then
+          true
+        else
+          common.assert_ (hasP2pLinkBetween links policyNode downstreamNode) ''
+            invariants(transit-ordering-valid):
+
+            missing policy -> downstream-selector p2p adjacency
+
+            site: ${siteName}
+            policy: ${policyNode}
+            downstream-selector: ${downstreamNode}
+          '';
+
+      _downstreamBoundaryToAccess = builtins.deepSeq (lib.forEach accessNodes (
         accessNode:
-        common.assert_ (hasP2pLinkBetween links policyNode accessNode) ''
-          invariants(transit-ordering-valid):
+        if downstreamNode != null then
+          common.assert_ (hasP2pLinkBetween links downstreamNode accessNode) ''
+            invariants(transit-ordering-valid):
 
-          missing policy -> access p2p adjacency
+            missing downstream-selector -> access p2p adjacency
 
-          site: ${siteName}
-          policy: ${policyNode}
-          access: ${accessNode}
-        ''
+            site: ${siteName}
+            downstream-selector: ${downstreamNode}
+            access: ${accessNode}
+          ''
+        else
+          common.assert_ (hasP2pLinkBetween links policyNode accessNode) ''
+            invariants(transit-ordering-valid):
+
+            missing policy -> access p2p adjacency
+
+            site: ${siteName}
+            policy: ${policyNode}
+            access: ${accessNode}
+          ''
       )) true;
 
       transitLinks = sorted (p2pLinkNames links);
@@ -186,14 +234,18 @@ in
           '';
     in
     builtins.seq _policyCount (
-      builtins.seq _selectorCount (
-        builtins.seq _coreCount (
-          builtins.seq _coresToSelector (
-            builtins.seq _selectorToPolicy (
-              builtins.seq _policyToAccess (
-                builtins.seq _orderingPresent (
-                  builtins.deepSeq _p2pIdsPresent (
-                    builtins.deepSeq _orderingKnown (builtins.seq _orderingUnique (builtins.seq _orderingComplete true))
+      builtins.seq _downstreamCount (
+        builtins.seq _selectorCount (
+          builtins.seq _coreCount (
+            builtins.seq _coresToUpstreamBoundary (
+              builtins.seq _selectorToPolicy (
+                builtins.seq _policyToDownstream (
+                  builtins.seq _downstreamBoundaryToAccess (
+                    builtins.seq _orderingPresent (
+                      builtins.deepSeq _p2pIdsPresent (
+                        builtins.deepSeq _orderingKnown (builtins.seq _orderingUnique (builtins.seq _orderingComplete true))
+                      )
+                    )
                   )
                 )
               )

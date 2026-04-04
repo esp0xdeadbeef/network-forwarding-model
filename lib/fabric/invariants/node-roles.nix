@@ -22,6 +22,7 @@ in
         "core"
         "access"
         "policy"
+        "downstream-selector"
         "upstream-selector"
       ];
 
@@ -43,6 +44,11 @@ in
       _exactlyOnePolicy = common.assert_ (
         builtins.length policyNodes == 1
       ) "invariants(node-roles): exactly one node with role='policy' is required";
+
+      downstreamNodes = nodeNamesByRole "downstream-selector" nodes;
+      _downstreamOptionalButUnique = common.assert_ (
+        builtins.length downstreamNodes <= 1
+      ) "invariants(node-roles): at most one node with role='downstream-selector' is allowed";
 
       upstreamNodes = nodeNamesByRole "upstream-selector" nodes;
       _upstreamOptionalButUnique = common.assert_ (
@@ -70,8 +76,10 @@ in
     builtins.seq _mustHaveNodes (
       builtins.seq _rolesOk (
         builtins.seq _exactlyOnePolicy (
-          builtins.seq _upstreamOptionalButUnique (
-            builtins.seq _atLeastOneCore (builtins.seq _accessOnlyNetworks true)
+          builtins.seq _downstreamOptionalButUnique (
+            builtins.seq _upstreamOptionalButUnique (
+              builtins.seq _atLeastOneCore (builtins.seq _accessOnlyNetworks true)
+            )
           )
         )
       )
