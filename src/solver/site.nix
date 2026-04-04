@@ -13,6 +13,7 @@ let
   topoMod = import ./site/topology { inherit lib; };
   enfMod = import ./site/enforcement.nix { inherit lib; };
   transitMod = import ./site/topology/transit.nix { inherit lib; };
+  transitOrderingMod = import ./site/transit-ordering.nix { inherit lib; };
 
   _ =
     if builtins.isAttrs site then
@@ -37,15 +38,33 @@ let
 
   nodesBase = topologyNodes // siteNodes // siteUnits;
 
+  roleFromInputExplicit =
+    node:
+    let
+      n = toString node;
+    in
+    if topologyNodes ? "${n}" then
+      topologyNodes.${n}.role or null
+    else if siteNodes ? "${n}" then
+      siteNodes.${n}.role or null
+    else if siteUnits ? "${n}" then
+      siteUnits.${n}.role or null
+    else
+      null;
+
   rawOrdering = utils.requireAttr "sites.${enterprise}.${siteId}.transit.ordering" (
     site.transit.ordering or null
   );
 
-  ordering =
-    (transitMod.normalizeInputOrdering {
-      siteName = "${enterprise}.${siteId}";
-      ordering = rawOrdering;
-    }).pairs;
+  ordering = transitOrderingMod.canonicalize {
+    siteName = "${enterprise}.${siteId}";
+    pairs =
+      (transitMod.normalizeInputOrdering {
+        siteName = "${enterprise}.${siteId}";
+        ordering = rawOrdering;
+      }).pairs;
+    roleFromInput = roleFromInputExplicit;
+  };
 
   p2pPool = utils.requireAttr "sites.${enterprise}.${siteId}.addressPools.p2p" (
     site.addressPools.p2p or null

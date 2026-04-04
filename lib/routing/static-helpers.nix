@@ -412,9 +412,16 @@ let
     // extra
     // routeExtra;
 
-  routeBase = r: builtins.removeAttrs r [ "dst" ];
+  routeBase =
+    r:
+    builtins.removeAttrs r [
+      "dst"
+      "preserveDst"
+    ];
 
   detectRouteFamily = r: if lib.hasInfix ":" (stripMask r.dst) then 6 else 4;
+
+  routePreservesDst = r: (r.preserveDst or false) == true;
 
   normalizeRouteList =
     family: rs:
@@ -427,9 +434,13 @@ let
           group = grouped.${key};
           base = routeBase (builtins.head group);
           cidrs = lib.unique (map (r: canonicalCidr r.dst) group);
-          summarized = summarizeCidrs family cidrs;
+          renderedCidrs =
+            if lib.any routePreservesDst group then
+              lib.sort (a: b: a < b) cidrs
+            else
+              summarizeCidrs family cidrs;
         in
-        map (dst: base // { dst = dst; }) summarized
+        map (dst: base // { dst = dst; }) renderedCidrs
       ) (builtins.attrNames grouped);
     in
     lib.sort (a: b: (builtins.toJSON a) < (builtins.toJSON b)) normalizedGroups;

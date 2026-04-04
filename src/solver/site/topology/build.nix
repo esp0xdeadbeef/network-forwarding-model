@@ -484,9 +484,14 @@ in
           upstreamSelectorNodeName = builtins.seq _assertUpstreamSelectorNodeName emittedUpstreamSelectorNodeName;
           uplinkCoreNames = emittedUplinkCoreNames;
           uplinkNames = emittedUplinkNames;
-          topology = (builtins.removeAttrs existingTopology [ "nodes" ]) // {
-            links = existingTopology.links or [ ];
-          };
+          topology =
+            (builtins.removeAttrs existingTopology [
+              "nodes"
+              "links"
+            ])
+            // {
+              links = ordering;
+            };
           transit = existingTransit // {
             ordering = transitOrdering;
             adjacencies = realizedTransitAdjacencies;

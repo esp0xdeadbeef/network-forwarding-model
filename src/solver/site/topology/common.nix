@@ -28,19 +28,16 @@ let
         ipv6 = ensureMask (lb.ipv6 or null) 6;
       };
 
-  normalizeRouteList =
-    routes0:
-    dedupeRoutes (
-      map (
-        r:
-        if builtins.isString r then
-          { dst = r; }
-        else if builtins.isAttrs r then
-          r
-        else
-          { dst = toString r; }
-      ) routes0
-    );
+  normalizeRouteEntry =
+    r:
+    if builtins.isString r then
+      { dst = r; }
+    else if builtins.isAttrs r then
+      builtins.removeAttrs r [ "preserveDst" ]
+    else
+      { dst = toString r; };
+
+  normalizeRouteList = routes0: dedupeRoutes (map normalizeRouteEntry routes0);
 
   stripRendererUnsafe =
     iface:
@@ -113,6 +110,7 @@ in
     stripMask
     ensureMask
     normalizeLoopback
+    normalizeRouteEntry
     normalizeRouteList
     normalizeRoutes
     nodeFromSite
