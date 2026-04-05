@@ -22,6 +22,7 @@ in
       siteId,
       enterprise,
       ordering,
+      linkPairs ? null,
       p2pPool,
       rolesResult,
       wanResult,
@@ -31,6 +32,7 @@ in
     let
       siteName = toString (site.siteName or "${enterprise}.${siteId}");
       localPool = site.addressPools.local or null;
+      topologyPairs = if linkPairs == null then ordering else linkPairs;
 
       siteDomains = domains.materializeSiteDomains site;
 
@@ -49,7 +51,7 @@ in
       orderingUnits = lib.unique (
         lib.concatMap (
           p: if builtins.isList p && builtins.length p == 2 then map toString p else [ ]
-        ) ordering
+        ) topologyPairs
       );
 
       topologyNodeNames =
@@ -74,7 +76,7 @@ in
         )
       );
 
-      p2pPairs = lib.filter (p: builtins.isList p && builtins.length p == 2) ordering;
+      p2pPairs = lib.filter (p: builtins.isList p && builtins.length p == 2) topologyPairs;
       loopbackHostBase = 0;
 
       explicitLoopbackByUnit = builtins.listToAttrs (
@@ -490,7 +492,7 @@ in
               "links"
             ])
             // {
-              links = ordering;
+              links = topologyPairs;
             };
           transit = existingTransit // {
             ordering = transitOrdering;

@@ -56,13 +56,15 @@ let
     site.transit.ordering or null
   );
 
-  ordering = transitOrderingMod.canonicalize {
+  rawOrderingPairs =
+    (transitMod.normalizeInputOrdering {
+      siteName = "${enterprise}.${siteId}";
+      ordering = rawOrdering;
+    }).pairs;
+
+  canonicalOrdering = transitOrderingMod.canonicalize {
     siteName = "${enterprise}.${siteId}";
-    pairs =
-      (transitMod.normalizeInputOrdering {
-        siteName = "${enterprise}.${siteId}";
-        ordering = rawOrdering;
-      }).pairs;
+    pairs = rawOrderingPairs;
     roleFromInput = roleFromInputExplicit;
   };
 
@@ -84,7 +86,7 @@ let
         p
       else
         throw "network-forwarding-model: transit.ordering must contain 2-element pairs"
-    ) ordering
+    ) rawOrderingPairs
   );
 
   allUnits = lib.unique (
@@ -102,10 +104,10 @@ let
       site
       enterprise
       siteId
-      ordering
       accessUnits
       allUnits
       ;
+    ordering = canonicalOrdering;
   };
   wanResult = wanMod.build {
     inherit
@@ -131,13 +133,14 @@ let
       site
       siteId
       enterprise
-      ordering
       p2pPool
       rolesResult
       wanResult
       enforcementResult
       sites
       ;
+    ordering = canonicalOrdering;
+    linkPairs = rawOrderingPairs;
   };
 in
 builtins.seq rolesResult.assertions topologyResult
