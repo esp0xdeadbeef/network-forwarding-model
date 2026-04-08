@@ -23,23 +23,91 @@
 
       forAll = f: nixpkgs.lib.genAttrs systems f;
 
-      mkLib =
-        system:
-        let
-          pkgs = import nixpkgs { inherit system; };
-          patched = import nixpkgs-network { inherit system; };
-        in
-        import ./src/main.nix {
-          lib = pkgs.lib // {
-            network = patched.lib.network;
-          };
-        };
+      readValue =
+        valueOrPath:
+        if builtins.isPath valueOrPath then
+          readValue (builtins.toString valueOrPath)
+        else if builtins.isString valueOrPath then
+          if valueOrPath == "" then
+            { }
+          else if builtins.match ".*\\.json$" valueOrPath != null then
+            builtins.fromJSON (builtins.readFile valueOrPath)
+          else
+            let
+              value = import valueOrPath;
+            in
+            if builtins.isFunction value then value { } else value
+        else if builtins.isFunction valueOrPath then
+          valueOrPath { }
+        else
+          valueOrPath;
 
       mkPkgs = system: import nixpkgs { inherit system; };
 
+      mkSystemLib =
+        system:
+        let
+          pkgs = mkPkgs system;
+          patched = import nixpkgs-network { inherit system; };
+
+          applyForwardingModel = import ./src/main.nix {
+            lib = pkgs.lib // {
+              network = patched.lib.network;
+            };
+          };
+
+          compilerLib =
+            if network-compiler ? libBySystem then
+              network-compiler.libBySystem.${system}
+            else
+              {
+                compile = network-compiler.lib.compile system;
+                compilePath = valueOrPath: (network-compiler.lib.compile system) (readValue valueOrPath);
+              };
+        in
+        rec {
+          model = input: applyForwardingModel { inherit input; };
+
+          readInput = readValue;
+
+          build = { input }: model input;
+
+          buildFromCompilerInputs =
+            { input }:
+            build {
+              input = compilerLib.compile input;
+            };
+
+          buildFromCompilerInputPath =
+            valueOrPath:
+            buildFromCompilerInputs {
+              input = readValue valueOrPath;
+            };
+
+          writeJSON =
+            {
+              input,
+              name ? "output-network-forwarding-model.json",
+            }:
+            pkgs.writeText name (
+              builtins.toJSON (build {
+                inherit input;
+              })
+            );
+
+          writeFromCompilerInputPath =
+            {
+              path,
+              name ? "output-network-forwarding-model.json",
+            }:
+            pkgs.writeText name (builtins.toJSON (buildFromCompilerInputPath path));
+        };
+
     in
     {
-      lib = forAll mkLib;
+      lib = forAll (system: (mkSystemLib system).model);
+
+      libBySystem = forAll mkSystemLib;
 
       packages = forAll (
         system:
