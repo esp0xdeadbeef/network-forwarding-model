@@ -8,7 +8,7 @@ echo "[hook] formatting staged nix files..."
 
 for f in "${changed[@]}"; do
     [ -f "$f" ] || continue
-    sed -i 's/^[[:space:]]*#.*$//' "$f"
+    #sed -i 's/^[[:space:]]*#.*$//' "$f"
 done
 
 for f in "${changed[@]}"; do
@@ -23,8 +23,8 @@ echo "[hook] parsing staged nix files..."
 for f in "${changed[@]}"; do
     [ -f "$f" ] || continue
     nix-instantiate --parse "$f" >/dev/null
-    sed -i 's/^#.*//g' "$f"
-    sed -i 's/# .*//g' "$f"
+    #sed -i 's/^#.*//g' "$f"
+    #sed -i 's/# .*//g' "$f"
 done
 
 echo "[hook] done"
