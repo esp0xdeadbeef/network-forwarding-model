@@ -1,12 +1,11 @@
 {
-  description = "network-control-plane-model";
+  description = "network-forwarding-model";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     nixpkgs-network.url = "github:NixOS/nixpkgs/ac56c456ebe4901c561d3ebf1c98fbd970aea753";
-
-    network-forwarding-model.url = "github:esp0xdeadbeef/network-forwarding-model";
-    network-forwarding-model.inputs.nixpkgs.follows = "nixpkgs";
+    network-compiler.url = "github:esp0xdeadbeef/network-compiler";
+    network-compiler.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs =
@@ -14,7 +13,7 @@
       self,
       nixpkgs,
       nixpkgs-network,
-      network-forwarding-model,
+      network-compiler,
     }:
     let
       systems = [
@@ -43,111 +42,70 @@
         else
           valueOrPath;
 
-      mkPkgs =
-        system:
-        let
-          patchedPkgs = import nixpkgs-network { inherit system; };
-          patchedNetwork = patchedPkgs.lib.network;
-        in
-        import nixpkgs {
-          inherit system;
-          overlays = [
-            (final: prev: {
-              lib = prev.lib // {
-                network = patchedNetwork;
-              };
-            })
-          ];
-        };
+      mkPkgs = system: import nixpkgs { inherit system; };
 
       mkSystemLib =
         system:
         let
           pkgs = mkPkgs system;
-          lib = pkgs.lib;
+          patched = import nixpkgs-network { inherit system; };
 
-          buildCPM = import ./src/build-cpm.nix { inherit lib; };
+          applyForwardingModel = import ./src/main.nix {
+            lib = pkgs.lib // {
+              network = patched.lib.network;
+            };
+          };
 
-          forwardingLib =
-            if network-forwarding-model ? libBySystem then
-              network-forwarding-model.libBySystem.${system}
+          compilerLib =
+            if network-compiler ? libBySystem then
+              network-compiler.libBySystem.${system}
             else
-              throw "network-control-plane-model: network-forwarding-model.libBySystem.${system} is required for compileAndBuild";
+              {
+                compile = network-compiler.lib.compile system;
+                compilePath = valueOrPath: (network-compiler.lib.compile system) (readValue valueOrPath);
+              };
         in
         rec {
-          build =
-            {
-              input,
-              inventory ? { },
-            }:
-            import ./src/main.nix {
-              inherit input inventory lib;
-            };
-
-          get_CPM =
-            {
-              input,
-              inventory ? { },
-            }:
-            buildCPM {
-              forwardingModel = input;
-              inherit inventory;
-            };
-
-          getCPM = get_CPM;
+          model = input: applyForwardingModel { inherit input; };
 
           readInput = readValue;
 
-          compileAndBuild =
-            {
-              input,
-              inventory ? { },
-            }:
-            buildCPM {
-              forwardingModel = forwardingLib.buildFromCompilerInputs { inherit input; };
-              inherit inventory;
+          build = { input }: model input;
+
+          buildFromCompilerInputs =
+            { input }:
+            build {
+              input = compilerLib.compile input;
             };
 
-          compileAndBuildFromPaths =
-            {
-              inputPath,
-              inventoryPath ? null,
-            }:
-            compileAndBuild {
-              input = readValue inputPath;
-              inventory = if inventoryPath == null then { } else readValue inventoryPath;
+          buildFromCompilerInputPath =
+            valueOrPath:
+            buildFromCompilerInputs {
+              input = readValue valueOrPath;
             };
 
           writeJSON =
             {
               input,
-              inventory ? { },
-              name ? "output-control-plane-model.json",
+              name ? "output-network-forwarding-model.json",
             }:
             pkgs.writeText name (
               builtins.toJSON (build {
-                inherit input inventory;
+                inherit input;
               })
             );
 
-          writeCompileAndBuildJSON =
+          writeFromCompilerInputPath =
             {
-              inputPath,
-              inventoryPath ? null,
-              name ? "output-control-plane-model.json",
+              path,
+              name ? "output-network-forwarding-model.json",
             }:
-            pkgs.writeText name (
-              builtins.toJSON (compileAndBuildFromPaths {
-                inherit
-                  inputPath
-                  inventoryPath
-                  ;
-              })
-            );
+            pkgs.writeText name (builtins.toJSON (buildFromCompilerInputPath path));
         };
+
     in
     {
-      lib = forAll mkSystemLib;
+      lib = forAll (system: (mkSystemLib system).model);
 
       libBySystem = forAll mkSystemLib;
 
@@ -158,7 +116,7 @@
         in
         {
           debug = pkgs.writeShellApplication {
-            name = "network-control-plane-model-debug";
+            name = "network-forwarding-model-debug";
 
             runtimeInputs = [
               pkgs.jq
@@ -170,46 +128,19 @@
             text = ''
               set -euo pipefail
 
-              case "$#" in
-                1)
-                  INPUT="$1"
-                  INVENTORY=""
-                  OUTPUT="./output-control-plane-model.json"
-                  ;;
-                2)
-                  INPUT="$1"
-                  INVENTORY="$2"
-                  OUTPUT="./output-control-plane-model.json"
-                  ;;
-                *)
-                  INPUT="$1"
-                  INVENTORY="$2"
-                  OUTPUT="$3"
-                  ;;
-              esac
+              [ $# -ge 1 ] || { echo "usage: nix run ${self}#debug -- <ir.json>" >&2; exit 1; }
 
-              expr="$(cat <<EOF
-              let
-                flake = builtins.getFlake (toString ${self});
-                builder = flake.lib.${system}.build;
-                readValue =
-                  path:
-                  if path == "" then
-                    {}
-                  else if builtins.match ".*\\.json$" path != null then
-                    builtins.fromJSON (builtins.readFile path)
-                  else
-                    import path;
-              in
-                builder {
-                  input = readValue (builtins.getEnv "INPUT");
-                  inventory = readValue (builtins.getEnv "INVENTORY");
-                }
-              EOF
-              )"
+              IR="$1"
 
               json="$(
-                INPUT="$INPUT" INVENTORY="$INVENTORY" nix eval --impure --no-write-lock-file --json --expr "$expr"
+                nix eval --impure --json --expr '
+                  let
+                    flake = builtins.getFlake (toString ${self});
+                    forwardingModel = flake.lib."'${system}'";
+                    input = builtins.fromJSON (builtins.readFile "'"$IR"'");
+                  in
+                    forwardingModel { inherit input; }
+                '
               )"
 
               gitRev="$(${pkgs.git}/bin/git rev-parse HEAD 2>/dev/null || echo "unknown")"
@@ -223,54 +154,33 @@
               echo "$json" | ${pkgs.jq}/bin/jq -S -c \
                 --arg rev "$gitRev" \
                 --argjson dirty "$gitDirty" \
-                '.control_plane_model.meta = (.control_plane_model.meta // {})
-                 | .control_plane_model.meta.networkControlPlaneModel =
-                     ((.control_plane_model.meta.networkControlPlaneModel // {})
-                      + { name: "network-control-plane-model", gitRev: $rev, gitDirty: $dirty })' \
-                | tee "$OUTPUT" \
+                '.meta = (.meta // {}) | .meta.networkForwardingModel = ((.meta.networkForwardingModel // {}) + { gitRev: $rev, gitDirty: $dirty })' \
+                | tee ./output-network-forwarding-model-signed.json \
                 | ${pkgs.jq}/bin/jq -S
             '';
           };
 
-          compile-and-build-control-plane-model = pkgs.writeShellApplication {
-            name = "compile-and-build-control-plane-model";
+          compile-and-build-forwarding-model = pkgs.writeShellApplication {
+            name = "compile-and-build-forwarding-model";
 
             runtimeInputs = [
+              pkgs.jq
               pkgs.nix
-              pkgs.coreutils
             ];
 
             text = ''
               set -euo pipefail
 
-              case "$#" in
-                1)
-                  INPUTS_NIX="$1"
-                  INVENTORY=""
-                  OUTPUT="./output-control-plane-model.json"
-                  ;;
-                2)
-                  INPUTS_NIX="$1"
-                  INVENTORY="$2"
-                  OUTPUT="./output-control-plane-model.json"
-                  ;;
-                *)
-                  INPUTS_NIX="$1"
-                  INVENTORY="$2"
-                  OUTPUT="$3"
-                  ;;
-              esac
+              [ $# -ge 1 ] || { echo "usage: nix run ${self}#compile-and-build-forwarding-model -- <compiler-inputs.nix>" >&2; exit 1; }
 
-              FORWARDING_JSON="$(mktemp --suffix .json)"
-              trap 'rm -f "$FORWARDING_JSON"' EXIT
+              INPUTS_NIX="$1"
 
-              nix run --no-warn-dirty --no-write-lock-file ${network-forwarding-model}#compile-and-build-forwarding-model -- "$INPUTS_NIX" > "$FORWARDING_JSON"
+              IR_JSON="$(mktemp)"
+              trap 'rm -f "$IR_JSON"' EXIT
 
-              if [ -n "$INVENTORY" ]; then
-                nix run --no-warn-dirty --no-write-lock-file ${self}#debug -- "$FORWARDING_JSON" "$INVENTORY" "$OUTPUT"
-              else
-                nix run --no-warn-dirty --no-write-lock-file ${self}#debug -- "$FORWARDING_JSON" "" "$OUTPUT"
-              fi
+              nix run --no-warn-dirty ${network-compiler}#compile -- "$INPUTS_NIX" > "$IR_JSON"
+
+              nix run ${self}#debug -- "$IR_JSON"
             '';
           };
 
@@ -281,17 +191,15 @@
       apps = forAll (system: {
         debug = {
           type = "app";
-          program = "${self.packages.${system}.debug}/bin/network-control-plane-model-debug";
+          program = "${self.packages.${system}.debug}/bin/network-forwarding-model-debug";
         };
 
-        compile-and-build-control-plane-model = {
+        compile-and-build-forwarding-model = {
           type = "app";
           program = "${
-            self.packages.${system}.compile-and-build-control-plane-model
-          }/bin/compile-and-build-control-plane-model";
+            self.packages.${system}.compile-and-build-forwarding-model
+          }/bin/compile-and-build-forwarding-model";
         };
-
-        default = self.apps.${system}.debug;
       });
     };
 }
