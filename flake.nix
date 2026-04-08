@@ -128,7 +128,7 @@
             text = ''
               set -euo pipefail
 
-              [ $# -ge 1 ] || { echo "usage: nix run ${self}#debug -- <ir.json>" >&2; exit 1; }
+              [ $
 
               IR="$1"
 
@@ -171,7 +171,7 @@
             text = ''
               set -euo pipefail
 
-              [ $# -ge 1 ] || { echo "usage: nix run ${self}#compile-and-build-forwarding-model -- <compiler-inputs.nix>" >&2; exit 1; }
+              [ $
 
               INPUTS_NIX="$1"
 
