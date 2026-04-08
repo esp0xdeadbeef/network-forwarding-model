@@ -56,6 +56,13 @@
             };
           };
 
+          normalizeModelInput =
+            value:
+            if builtins.isAttrs value && value ? input && !(value ? sites) && !(value ? enterprise) then
+              value.input
+            else
+              value;
+
           compilerLib =
             if network-compiler ? libBySystem then
               network-compiler.libBySystem.${system}
@@ -66,16 +73,16 @@
               };
         in
         rec {
-          model = input: applyForwardingModel { inherit input; };
+          model = inputOrArgs: applyForwardingModel { input = normalizeModelInput inputOrArgs; };
 
           readInput = readValue;
 
-          build = { input }: model input;
+          build = args: model args;
 
           buildFromCompilerInputs =
-            { input }:
+            args:
             build {
-              input = compilerLib.compile input;
+              input = compilerLib.compile (normalizeModelInput args);
             };
 
           buildFromCompilerInputPath =
@@ -136,7 +143,7 @@
                 nix eval --impure --json --expr '
                   let
                     flake = builtins.getFlake (toString ${self});
-                    forwardingModel = flake.lib."'${system}'";
+                    forwardingModel = flake.libBySystem."'${system}'".build;
                     input = builtins.fromJSON (builtins.readFile "'"$IR"'");
                   in
                     forwardingModel { inherit input; }
