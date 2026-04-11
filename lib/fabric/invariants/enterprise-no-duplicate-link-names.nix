@@ -3,6 +3,24 @@
 let
   enterprise = import ./enterprise-utils.nix { inherit lib; };
 
+  keyForLink =
+    linkName: link:
+    let
+      linkId = link.id or null;
+    in
+    if linkId != null then
+      {
+        key = "id:${toString linkId}";
+        kind = "stable link identity";
+        value = toString linkId;
+      }
+    else
+      {
+        key = "name:${toString linkName}";
+        kind = "link name";
+        value = toString linkName;
+      };
+
 in
 {
   checkAll =
@@ -24,26 +42,32 @@ in
 
               stepLink =
                 acc2: linkName:
-                if acc2.seen ? "${linkName}" then
+                let
+                  link = links.${linkName};
+                  keyInfo = keyForLink linkName link;
+                  renderedFirst = acc2.seen.${keyInfo.key} or null;
+                  here = "${siteKey}:${linkName}";
+                in
+                if acc2.seen ? "${keyInfo.key}" then
                   throw ''
                     invariants(enterprise-no-duplicate-link-names):
 
                     (enterprise: ${entName})
 
-                    duplicate link name detected within enterprise:
+                    duplicate ${keyInfo.kind} detected within enterprise:
 
-                      ${linkName}
+                    ${keyInfo.value}
 
-                    first seen in site:
-                      ${acc2.seen.${linkName}}
+                    first seen at:
+                    ${renderedFirst}
 
-                    duplicated in site:
-                      ${siteKey}
+                    duplicated at:
+                    ${here}
                   ''
                 else
                   {
                     seen = acc2.seen // {
-                      "${linkName}" = siteKey;
+                      "${keyInfo.key}" = here;
                     };
                   };
             in

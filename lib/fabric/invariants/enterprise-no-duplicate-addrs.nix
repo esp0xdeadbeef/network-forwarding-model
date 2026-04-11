@@ -5,62 +5,73 @@ let
   enterprise = import ./enterprise-utils.nix { inherit lib; };
   iface = import ./interface-utils.nix { inherit lib; };
 
+  loopbackEntriesFrom =
+    {
+      whereBase,
+      lb,
+      extra ? { },
+    }:
+    if !(builtins.isAttrs lb) then
+      [ ]
+    else
+      lib.flatten [
+        (lib.optional (lb ? ipv4 && lb.ipv4 != null) (
+          {
+            family = "addr4";
+            ip = common.stripMask lb.ipv4;
+            where = "${whereBase}.ipv4";
+          }
+          // extra
+        ))
+        (lib.optional (lb ? ipv6 && lb.ipv6 != null) (
+          {
+            family = "addr6";
+            ip = common.stripMask lb.ipv6;
+            where = "${whereBase}.ipv6";
+          }
+          // extra
+        ))
+      ];
+
   collectSite =
     siteKey: site:
     let
-      links = site.links or { };
       nodes = site.nodes or { };
-
-      linkEntries = lib.concatMap (
-        linkName:
-        let
-          l = links.${linkName};
-          eps = l.endpoints or { };
-        in
-        lib.concatMap (
-          nodeName:
-          let
-            ep = eps.${nodeName};
-
-            mk = fam: addr: {
-              family = fam;
-              ip = common.stripMask addr;
-              where = "${siteKey}:links.${linkName}.endpoints.${nodeName}.${fam}";
-            };
-          in
-          lib.flatten [
-            (lib.optional (ep ? addr4 && ep.addr4 != null) (mk "addr4" ep.addr4))
-            (lib.optional (ep ? addr6 && ep.addr6 != null) (mk "addr6" ep.addr6))
-          ]
-        ) (builtins.attrNames eps)
-      ) (builtins.attrNames links);
 
       nodeEntries = lib.concatMap (
         nodeName:
         let
           node = nodes.${nodeName};
 
+          nodeIfaces = iface.ifaceEntriesFrom {
+            whereBase = "${siteKey}:nodes.${nodeName}.interfaces";
+            ifaces = node.interfaces or { };
+          };
+
+          nodeLoopback = loopbackEntriesFrom {
+            whereBase = "${siteKey}:nodes.${nodeName}.loopback";
+            lb = node.loopback or { };
+          };
+
           contEntries = lib.concatMap (
             cname:
             let
               c = node.${cname} or { };
             in
-            iface.ifaceEntriesFrom {
+            (iface.ifaceEntriesFrom {
               whereBase = "${siteKey}:nodes.${nodeName}.${cname}.interfaces";
               ifaces = c.interfaces or { };
-            }
+            })
+            ++ (loopbackEntriesFrom {
+              whereBase = "${siteKey}:nodes.${nodeName}.${cname}.loopback";
+              lb = c.loopback or { };
+            })
           ) (common.containersOf node);
         in
-        (iface.ifaceEntriesFrom {
-          whereBase = "${siteKey}:nodes.${nodeName}.interfaces";
-          ifaces = node.interfaces or { };
-        })
-        ++ contEntries
+        nodeIfaces ++ nodeLoopback ++ contEntries
       ) (builtins.attrNames nodes);
-
-      entries = linkEntries ++ nodeEntries;
     in
-    iface.nonEmptyEntries entries;
+    iface.nonEmptyEntries nodeEntries;
 
   checkUniq =
     { entName, entries }:
@@ -78,13 +89,13 @@ let
 
             duplicate address generated within enterprise
 
-              address: ${toString e.ip}   (${e.family})
+            address: ${toString e.ip}   (${e.family})
 
             first seen at:
-              ${acc.seen.${k}}
+            ${acc.seen.${k}}
 
             duplicated at:
-              ${e.where}
+            ${e.where}
           ''
         else
           {

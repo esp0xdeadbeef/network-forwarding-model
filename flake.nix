@@ -110,11 +110,45 @@
             pkgs.writeText name (builtins.toJSON (buildFromCompilerInputPath path));
         };
 
+      mkCheckPackage =
+        system:
+        let
+          pkgs = mkPkgs system;
+        in
+        pkgs.writeShellApplication {
+          name = "network-forwarding-model-check";
+
+          runtimeInputs = [
+            pkgs.nix
+            pkgs.coreutils
+            pkgs.bash
+          ];
+
+          text = ''
+            set -euo pipefail
+            exec ${self}/tests/test.sh
+          '';
+        };
+
     in
     {
-      lib = forAll (system: (mkSystemLib system).model);
+      lib = forAll mkSystemLib;
+
+      model = forAll (system: (mkSystemLib system).model);
 
       libBySystem = forAll mkSystemLib;
+
+      checks = forAll (
+        system:
+        let
+          pkgs = mkPkgs system;
+        in
+        {
+          forwarding-model = pkgs.runCommand "network-forwarding-model-check" { } ''
+            ${self.packages.${system}.check}/bin/network-forwarding-model-check > "$out"
+          '';
+        }
+      );
 
       packages = forAll (
         system:
@@ -143,7 +177,7 @@
                 nix eval --impure --json --expr '
                   let
                     flake = builtins.getFlake (toString ${self});
-                    forwardingModel = flake.libBySystem."'${system}'".build;
+                    forwardingModel = flake.lib.${system}.build;
                     input = builtins.fromJSON (builtins.readFile "'"$IR"'");
                   in
                     forwardingModel { inherit input; }
@@ -166,6 +200,8 @@
                 | ${pkgs.jq}/bin/jq -S
             '';
           };
+
+          check = mkCheckPackage system;
 
           compile-and-build-forwarding-model = pkgs.writeShellApplication {
             name = "compile-and-build-forwarding-model";
@@ -199,6 +235,11 @@
         debug = {
           type = "app";
           program = "${self.packages.${system}.debug}/bin/network-forwarding-model-debug";
+        };
+
+        check = {
+          type = "app";
+          program = "${self.packages.${system}.check}/bin/network-forwarding-model-check";
         };
 
         compile-and-build-forwarding-model = {
