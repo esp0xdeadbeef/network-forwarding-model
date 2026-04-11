@@ -437,6 +437,12 @@ let
         domains = {
           tenants = "canonical";
         };
+        forwardingSemantics = {
+          nodes = "accepted-as-role-hints";
+          coreNodeNames = "accepted-as-role-hints";
+          policyNodeName = "accepted-as-role-hints";
+          upstreamSelectorNodeName = "accepted-as-role-hints";
+        };
         topology = {
           links = {
             directed = true;
@@ -471,6 +477,10 @@ let
         attachments = {
           derived = true;
           source = "site.attachments or site.topology.nodes.*.attachments";
+        };
+        roles = {
+          derived = true;
+          source = "site.topology.nodes.*.role or site.nodes.*.role or site.units.*.role or site.forwardingSemantics";
         };
         policy = {
           interfaceTags = {
@@ -560,7 +570,7 @@ let
     meta = inheritedMeta // {
       networkForwardingModel = (inheritedMeta.networkForwardingModel or { }) // {
         name = "network-forwarding-model";
-        schemaVersion = 8;
+        schemaVersion = 9;
         inherit contracts;
       };
     };

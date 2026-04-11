@@ -14,17 +14,7 @@
 
     let
       validate = import ./roles/validate.nix { inherit lib; };
-
-      topologyNodes =
-        if
-          site ? topology
-          && builtins.isAttrs site.topology
-          && site.topology ? nodes
-          && builtins.isAttrs site.topology.nodes
-        then
-          site.topology.nodes
-        else
-          { };
+      inputRoleMod = import ./roles/input-role.nix { inherit lib; };
 
       orderingEdges = map (p: {
         a = builtins.elemAt p 0;
@@ -49,20 +39,6 @@
 
       outsOf = n: lib.filter (e: e.a == n) orderingEdges;
       insOf = n: lib.filter (e: e.b == n) orderingEdges;
-
-      roleFromInputExplicit =
-        node:
-        let
-          n = toString node;
-        in
-        if topologyNodes ? "${n}" then
-          (topologyNodes.${n}.role or null)
-        else if site ? nodes && site.nodes ? "${n}" then
-          (site.nodes.${n}.role or null)
-        else if site ? units && site.units ? "${n}" then
-          (site.units.${n}.role or null)
-        else
-          null;
 
       allowFanoutHere =
         n:
@@ -116,7 +92,7 @@
         in
         if hits == [ ] then null else (builtins.head hits).idx;
 
-      roleFromInput = node: roleFromInputExplicit node;
+      roleFromInput = inputRoleMod.roleFromSite site;
 
       missingRoles = lib.filter (n: roleFromInput n == null || roleFromInput n == "") allUnits;
 
