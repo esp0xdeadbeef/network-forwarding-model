@@ -3,8 +3,10 @@
 let
   cidr = import ./cidr-utils.nix { inherit lib; };
   common = import ./common.nix { inherit lib; };
+  network = import ../../model/network-utils.nix { inherit lib; };
 
   overlaps = a: b: a.family == b.family && !(a.end < b.start || b.end < a.start);
+  networksOf = network.networksOfRaw { extraExcluded = [ ]; };
 
 in
 {
@@ -15,23 +17,26 @@ in
         name:
         let
           n = nodes.${name};
-          nets = n.networks or null;
+          nets = networksOf n;
         in
-        if nets == null then
-          [ ]
-        else
+        lib.concatMap (
+          netName:
+          let
+            net = nets.${netName};
+          in
           lib.flatten [
-            (lib.optional (nets ? ipv4) {
-              cidr = nets.ipv4;
-              owner = "node '${name}' ipv4";
-              range = cidr.cidrRange nets.ipv4;
+            (lib.optional (net ? ipv4 && net.ipv4 != null) {
+              cidr = net.ipv4;
+              owner = "node '${name}' network '${netName}' ipv4";
+              range = cidr.cidrRange net.ipv4;
             })
-            (lib.optional (nets ? ipv6) {
-              cidr = nets.ipv6;
-              owner = "node '${name}' ipv6";
-              range = cidr.cidrRange nets.ipv6;
+            (lib.optional (net ? ipv6 && net.ipv6 != null) {
+              cidr = net.ipv6;
+              owner = "node '${name}' network '${netName}' ipv6";
+              range = cidr.cidrRange net.ipv6;
             })
           ]
+        ) (builtins.attrNames nets)
       ) (builtins.attrNames nodes);
 
       ps = common.pairs entries;
