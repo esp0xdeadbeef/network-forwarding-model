@@ -66,8 +66,6 @@ let
       ) names
     );
 
-in
-{
   annotateSite =
     {
       site,
@@ -327,5 +325,8 @@ in
       nodes = annotatedNodes;
     };
 
-  build = args: (import ./semantics.nix { inherit lib; }).annotateSite args;
+in
+{
+  inherit annotateSite;
+  build = args: annotateSite args;
 }

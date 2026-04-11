@@ -325,8 +325,6 @@
                 ll6 = uplink.ll6 or null;
                 uplinkRoutes4 = normalizeRouteList (uplink.ipv4 or [ ]);
                 uplinkRoutes6 = normalizeRouteList (uplink.ipv6 or [ ]);
-              }
-              // {
                 interfaceData = prebuiltInterfaceData;
               };
             };

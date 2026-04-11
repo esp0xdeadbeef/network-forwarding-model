@@ -26,7 +26,7 @@ else
     ${builtins.toJSON nodes}
 
     inferredRoles:
-    ${builtins.toJSON (builtins.mapAttrs (_: roleFromInput) nodes)}
+    ${builtins.toJSON (builtins.mapAttrs (name: _: roleFromInput name) nodes)}
 
     nodes missing roles:
     ${builtins.concatStringsSep ", " missing}

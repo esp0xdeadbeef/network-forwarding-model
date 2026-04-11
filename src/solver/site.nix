@@ -14,6 +14,7 @@ let
   enfMod = import ./site/enforcement.nix { inherit lib; };
   transitMod = import ./site/topology/transit.nix { inherit lib; };
   transitOrderingMod = import ./site/transit-ordering.nix { inherit lib; };
+  inputRoleMod = import ./site/roles/input-role.nix { inherit lib; };
 
   _ =
     if builtins.isAttrs site then
@@ -36,21 +37,20 @@ let
 
   siteUnits = if site ? units && builtins.isAttrs site.units then site.units else { };
 
-  nodesBase = topologyNodes // siteNodes // siteUnits;
-
-  roleFromInputExplicit =
-    node:
-    let
-      n = toString node;
-    in
-    if topologyNodes ? "${n}" then
-      topologyNodes.${n}.role or null
-    else if siteNodes ? "${n}" then
-      siteNodes.${n}.role or null
-    else if siteUnits ? "${n}" then
-      siteUnits.${n}.role or null
+  forwardingSemanticsNodes =
+    if
+      site ? forwardingSemantics
+      && builtins.isAttrs site.forwardingSemantics
+      && site.forwardingSemantics ? nodes
+      && builtins.isAttrs site.forwardingSemantics.nodes
+    then
+      site.forwardingSemantics.nodes
     else
-      null;
+      { };
+
+  nodesBase = forwardingSemanticsNodes // topologyNodes // siteNodes // siteUnits;
+
+  roleFromInputExplicit = inputRoleMod.roleFromSite site;
 
   rawOrdering = utils.requireAttr "sites.${enterprise}.${siteId}.transit.ordering" (
     site.transit.ordering or null
@@ -96,6 +96,7 @@ let
     ++ builtins.attrNames topologyNodes
     ++ builtins.attrNames siteNodes
     ++ builtins.attrNames siteUnits
+    ++ builtins.attrNames forwardingSemanticsNodes
   );
 
   rolesResult = rolesMod.compute {

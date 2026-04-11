@@ -92,6 +92,14 @@ let
       site.units.${n}
     else if site ? nodes && builtins.isAttrs site.nodes && site.nodes ? "${n}" then
       site.nodes.${n}
+    else if
+      site ? forwardingSemantics
+      && builtins.isAttrs site.forwardingSemantics
+      && site.forwardingSemantics ? nodes
+      && builtins.isAttrs site.forwardingSemantics.nodes
+      && site.forwardingSemantics.nodes ? "${n}"
+    then
+      site.forwardingSemantics.nodes.${n}
     else
       { };
 

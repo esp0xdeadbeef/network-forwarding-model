@@ -65,11 +65,23 @@ in
         else
           [ ];
 
+      forwardingSemanticsNodeNames =
+        if
+          site ? forwardingSemantics
+          && builtins.isAttrs site.forwardingSemantics
+          && site.forwardingSemantics ? nodes
+          && builtins.isAttrs site.forwardingSemantics.nodes
+        then
+          builtins.attrNames site.forwardingSemantics.nodes
+        else
+          [ ];
+
       unitNames = lib.sort (a: b: a < b) (
         lib.unique (
           (if site ? units && builtins.isAttrs site.units then builtins.attrNames site.units else [ ])
           ++ (if site ? nodes && builtins.isAttrs site.nodes then builtins.attrNames site.nodes else [ ])
           ++ topologyNodeNames
+          ++ forwardingSemanticsNodeNames
           ++ orderingUnits
           ++ (rolesResult.traversal.chain or [ ])
           ++ builtins.attrNames (rolesResult.traversal.inferred or { })
