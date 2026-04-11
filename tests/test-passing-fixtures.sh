@@ -1,173 +1,173 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
-tmpdir="$(mktemp -d)"
-trap 'rm -rf "$tmpdir"' EXIT
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+system="${NIX_SYSTEM:-$(nix eval --impure --raw --expr 'builtins.currentSystem')}"
+examples_root="${repo_root}/../network-labs/examples"
 
-pass() {
-  printf 'PASS %s\n' "$1"
+resolve_fixtures_root() {
+  local candidate
+
+  for candidate in \
+    "${repo_root}/fixtures/passing" \
+    "${repo_root}/tests/fixtures/passing" \
+    "${repo_root}/tests/fixtures"
+  do
+    if [[ -d "${candidate}" ]] && find "${candidate}" -type f -name input.nix | grep -q .; then
+      printf '%s\n' "${candidate}"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+fixtures_root="$(resolve_fixtures_root || true)"
+
+log() {
+  echo "==> $*"
 }
 
 fail() {
-  printf 'FAIL %s\n' "$1" >&2
-  if [ "${2-}" != "" ]; then
-    printf '%s\n' "$2" >&2
-  fi
+  echo "$1"
   exit 1
 }
 
-write_positive_input() {
-  cat > "$1" <<'EOF'
-{
-  sites = {
-    acme = {
-      ams = {
-        addressPools = {
-          local = {
-            ipv4 = "10.0.0.0/24";
-          };
+validate_output() {
+  local name="$1"
+  local output_json="$2"
 
-          p2p = {
-            ipv4 = "10.0.1.0/24";
-          };
-        };
+  OUTPUT_JSON="${output_json}" nix eval --impure --expr '
+    let
+      data = builtins.fromJSON (builtins.readFile (builtins.getEnv "OUTPUT_JSON"));
+      meta = data.meta.networkForwardingModel or { };
+      enterprises = data.enterprise or { };
+      enterpriseNames = builtins.attrNames enterprises;
+      firstEnterprise = if enterpriseNames == [ ] then null else builtins.head enterpriseNames;
+      firstSiteSet =
+        if firstEnterprise == null then
+          { }
+        else
+          (enterprises.${firstEnterprise}.site or { });
+      siteNames = builtins.attrNames firstSiteSet;
+    in
+      builtins.isAttrs data
+      && (meta.name or null) == "network-forwarding-model"
+      && (meta.schemaVersion or null) == 9
+      && builtins.isAttrs enterprises
+      && enterpriseNames != [ ]
+      && builtins.isAttrs firstSiteSet
+      && siteNames != [ ]
+  ' >/dev/null || fail "FAIL ${name}: validation failed"
 
-        attachments = [
-          {
-            unit = "access1";
-            kind = "tenant";
-            name = "tenant-a";
-          }
-        ];
-
-        domains = {
-          externals = [
-            {
-              kind = "external";
-              name = "internet";
-            }
-          ];
-
-          tenants = [
-            {
-              kind = "tenant";
-              name = "tenant-a";
-              ipv4 = "10.10.0.0/24";
-            }
-          ];
-        };
-
-        transit = {
-          ordering = [
-            [
-              "access1"
-              "policy1"
-            ]
-            [
-              "policy1"
-              "core1"
-            ]
-          ];
-        };
-
-        units = {
-          access1 = {
-            role = "access";
-          };
-
-          policy1 = {
-            role = "policy";
-          };
-
-          core1 = {
-            role = "core";
-            uplinks = {
-              internet = {
-                addr4 = "198.51.100.2/31";
-                peerAddr4 = "198.51.100.3";
-                ipv4 = [ "203.0.113.0/24" ];
-              };
-            };
-          };
-        };
-      };
-    };
-  };
-}
-EOF
+  echo "PASS ${name}"
 }
 
-positive_input="$tmpdir/positive.nix"
-write_positive_input "$positive_input"
+run_direct_case() {
+  local name="$1"
+  local input_nix="$2"
 
-expr_minimal="$(cat <<EOF
-let
-  flake = builtins.getFlake "${repo_root}";
-  input = import "${positive_input}";
-  out = flake.lib.x86_64-linux.build { inherit input; };
-  site = out.enterprise.acme.site.ams;
-  iface = site.nodes.access1.interfaces."tenant-tenant-a";
-  expectedOrdering = [
-    "link::acme.ams::p2p-access1-policy1"
-    "link::acme.ams::p2p-core1-policy1"
-  ];
-  expectedLinks = [
-    "p2p-access1-policy1"
-    "p2p-core1-policy1"
-    "wan-core1-internet"
-  ];
-in
-  if
-    site.siteName == "acme.ams"
-    && site.topology.links == [
-      [
-        "access1"
-        "policy1"
-      ]
-      [
-        "policy1"
-        "core1"
-      ]
-    ]
-    && site.transit.ordering == expectedOrdering
-    && (map (adj: toString adj.id) (site.transit.adjacencies or [ ])) == expectedOrdering
-    && (site.policyNodeName or null) == "policy1"
-    && (site.coreNodeNames or [ ]) == [ "core1" ]
-    && (site.upstreamSelectorNodeName or null) == null
-    && (builtins.attrNames (site.nodes or { })) == [ "access1" "core1" "policy1" ]
-    && (builtins.attrNames (site.links or { })) == expectedLinks
-    && builtins.hasAttr "tenant-tenant-a" (site.nodes.access1.interfaces or { })
-    && (iface.network.name or null) == "tenant-a"
-    && builtins.elem "access-gateway" (site.nodes.access1.forwardingFunctions or [ ])
-    && ((site.nodes.core1.egressIntent.exit or false) == true)
-  then
-    "ok"
-  else
-    throw "positive-minimal assertion failed"
-EOF
-)"
+  log "Running ${name}"
 
-if ! nix eval --impure --raw --expr "$expr_minimal" >/dev/null; then
-  fail "positive-minimal"
-fi
-pass "positive-minimal"
+  local tmp_dir
+  local expr
 
-expr_deterministic="$(cat <<EOF
-let
-  flake = builtins.getFlake "${repo_root}";
-  input = import "${positive_input}";
-  out1 = flake.lib.x86_64-linux.build { inherit input; };
-  out2 = flake.lib.x86_64-linux.build { inherit input; };
-in
-  if builtins.toJSON out1 == builtins.toJSON out2 then
-    "ok"
-  else
-    throw "deterministic-output assertion failed"
-EOF
-)"
+  tmp_dir="$(mktemp -d)"
+  trap 'rm -rf "'"${tmp_dir}"'"' RETURN
 
-if ! nix eval --impure --raw --expr "$expr_deterministic" >/dev/null; then
-  fail "deterministic-output"
-fi
-pass "deterministic-output"
+  expr="let
+    flake = builtins.getFlake (toString ${repo_root});
+    input = import ${input_nix};
+  in
+    flake.lib.${system}.build { inherit input; }"
+
+  nix eval --show-trace --impure --json --expr "${expr}" > "${tmp_dir}/out.json" \
+    || {
+      echo "--- INPUT (${name}) ---"
+      cat "${input_nix}"
+      fail "FAIL ${name}: evaluation failed"
+    }
+
+  validate_output "${name}" "${tmp_dir}/out.json"
+  rm -rf "${tmp_dir}"
+  trap - RETURN
+}
+
+run_local_passing_fixtures() {
+  if [[ -z "${fixtures_root}" ]]; then
+    log "Skipping local passing fixtures (missing fixtures roots with input.nix)"
+    return 0
+  fi
+
+  log "Running local passing fixtures from ${fixtures_root}"
+
+  while read -r input; do
+    local dir
+    local rel
+    local name
+
+    dir="$(dirname "${input}")"
+    rel="${dir#${fixtures_root}/}"
+    name="${rel}"
+
+    if [[ "${name}" == "${dir}" || -z "${name}" ]]; then
+      name="$(basename "${dir}")"
+    fi
+
+    run_direct_case "fixture:${name}" "${input}"
+  done < <(find "${fixtures_root}" -type f -name input.nix | sort)
+}
+
+run_external_examples() {
+  if [[ ! -d "${examples_root}" ]]; then
+    log "Skipping external examples (missing ${examples_root})"
+    return 0
+  fi
+
+  log "Running external examples"
+
+  while read -r dir; do
+    local name
+    local intent
+    local tmp_dir
+    local stderr_file
+    local expr
+
+    name="$(basename "${dir}")"
+    intent="${dir}/intent.nix"
+
+    [[ -f "${intent}" ]] || {
+      echo "SKIP ${name} (no intent.nix)"
+      continue
+    }
+
+    log "Example ${name}"
+
+    tmp_dir="$(mktemp -d)"
+    stderr_file="${tmp_dir}/stderr.log"
+    trap 'rm -rf "'"${tmp_dir}"'"' RETURN
+
+    expr="let
+      flake = builtins.getFlake (toString ${repo_root});
+    in
+      flake.libBySystem.\"${system}\".buildFromCompilerInputPath ${intent}"
+
+    nix eval --show-trace --impure --json --expr "${expr}" > "${tmp_dir}/out.json" 2>"${stderr_file}" \
+      || {
+        echo "--- INTENT (${name}) ---"
+        cat "${intent}"
+        echo "--- STDERR (${name}) ---"
+        cat "${stderr_file}"
+        fail "FAIL network-labs-example:${name}"
+      }
+
+    validate_output "network-labs-example:${name}" "${tmp_dir}/out.json"
+    rm -rf "${tmp_dir}"
+    trap - RETURN
+  done < <(find "${examples_root}" -mindepth 1 -maxdepth 1 -type d | sort)
+}
+
+run_local_passing_fixtures
+run_external_examples
+
+exit 0
