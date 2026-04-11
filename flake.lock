@@ -38,6 +38,22 @@
         "url": "ssh://git@github.com/esp0xdeadbeef/network-labs.git"
       }
     },
+    "network-labs_2": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1775921247,
+        "narHash": "sha256-np3yIJJCUAJOnFmlv8HfyaTFH/t35v6q8LmoYXveLog=",
+        "ref": "refs/heads/main",
+        "rev": "93e8aa7c807cd422fc9d72d9d1b597c9019f3db8",
+        "revCount": 22,
+        "type": "git",
+        "url": "ssh://git@github.com/esp0xdeadbeef/network-labs.git"
+      },
+      "original": {
+        "type": "git",
+        "url": "ssh://git@github.com/esp0xdeadbeef/network-labs.git"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1775710090,
@@ -89,6 +105,7 @@
     "root": {
       "inputs": {
         "network-compiler": "network-compiler",
+        "network-labs": "network-labs_2",
         "nixpkgs": "nixpkgs",
         "nixpkgs-network": "nixpkgs-network_2"
       }

@@ -3,7 +3,29 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 system="${NIX_SYSTEM:-$(nix eval --impure --raw --expr 'builtins.currentSystem')}"
-examples_root="${repo_root}/../network-labs/examples"
+
+resolve_examples_root() {
+  local archive_json
+  archive_json="$(mktemp)"
+
+  nix flake archive --json "path:${repo_root}" > "${archive_json}"
+
+  ARCHIVE_JSON="${archive_json}" nix eval --impure --raw --expr '
+    let
+      archived = builtins.fromJSON (builtins.readFile (builtins.getEnv "ARCHIVE_JSON"));
+      labs = archived.inputs."network-labs" or null;
+      labsPath = if labs == null then null else labs.path or null;
+    in
+      if labsPath == null then
+        throw "tests: missing archived network-labs input path"
+      else
+        "${labsPath}/examples"
+  '
+
+  rm -f "${archive_json}"
+}
+
+examples_root="$(resolve_examples_root)"
 
 resolve_fixtures_root() {
   local candidate
@@ -79,7 +101,7 @@ run_direct_case() {
     flake = builtins.getFlake (toString ${repo_root});
     input = import ${input_nix};
   in
-    flake.lib.${system}.build { inherit input; }"
+    flake.libBySystem.\"${system}\".build { inherit input; }"
 
   nix eval --show-trace --impure --json --expr "${expr}" > "${tmp_dir}/out.json" \
     || {
@@ -124,7 +146,7 @@ run_external_examples() {
     return 0
   fi
 
-  log "Running external examples"
+  log "Running external examples from ${examples_root}"
 
   while read -r dir; do
     local name
