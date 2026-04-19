@@ -147,18 +147,19 @@
               json="$(
                 nix eval --impure --json --expr '
                   let
-                    # Avoid git+file:///nix/store/... flake refs (git ownership checks can fail).
-                    # We force a "plain path" flake by stripping any embedded .git directory.
-                    src = builtins.path {
-                      path = ${self.outPath};
-                      name = "network-forwarding-model-src";
-                      filter = p: t: builtins.baseNameOf p != ".git";
+                    system = "'${system}'";
+                    pkgs = import ${nixpkgs} { inherit system; };
+                    patched = import ${nixpkgs-network} { inherit system; };
+
+                    applyForwardingModel = import ${self.outPath}/src/main.nix {
+                      lib = pkgs.lib // {
+                        network = patched.lib.network;
+                      };
                     };
-                    flake = builtins.getFlake (toString src);
-                    forwardingModel = flake.libBySystem."'${system}'".build;
+
                     input = builtins.fromJSON (builtins.readFile "'"$IR"'");
                   in
-                    forwardingModel { inherit input; }
+                    applyForwardingModel { inherit input; }
                 '
               )"
 
