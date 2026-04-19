@@ -34,13 +34,11 @@ in
       localPool = site.addressPools.local or null;
       topologyPairs = if linkPairs == null then ordering else linkPairs;
 
-      # Optional: derive dedicated transit lanes from upstream intent.
-      # This is deliberately opt-in until examples/inventories are migrated.
-      dedicatedLanes =
-        let
-          v = (site.transit.dedicatedLanes or null);
-        in
-        v == true || v == "true" || v == "dedicated" || v == "derived";
+      # Dedicated transit lanes are always enabled.
+      #
+      # This does not require a literal dedicated L2 interface per lane:
+      # renderers/inventory can realize lanes as VLAN trunks, bridges, loopbacks, etc.
+      dedicatedLanes = true;
 
       siteDomains = domains.materializeSiteDomains site;
 
