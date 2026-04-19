@@ -147,7 +147,8 @@
               json="$(
                 nix eval --impure --json --expr '
                   let
-                    flake = builtins.getFlake (toString ${self});
+                    # Avoid git+file:///nix/store/... flake refs (git ownership checks can fail).
+                    flake = builtins.getFlake "path:${self.outPath}";
                     forwardingModel = flake.libBySystem."'${system}'".build;
                     input = builtins.fromJSON (builtins.readFile "'"$IR"'");
                   in
