@@ -4,6 +4,7 @@ set -euo pipefail
 repo_root="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT
+system="${NIX_SYSTEM:-$(nix eval --impure --raw --expr 'builtins.currentSystem')}"
 
 pass() {
   printf 'PASS %s\n' "$1"
@@ -105,7 +106,7 @@ expr_no_guessing="$(cat <<EOF
 let
   flake = builtins.getFlake "${repo_root}";
   input = import "${input_file}";
-  out = flake.lib.x86_64-linux.build { inherit input; };
+  out = flake.libBySystem."${system}".build { inherit input; };
   site = out.enterprise.acme.site.ams;
   nodeNames = builtins.attrNames (site.nodes or { });
   linkNames = builtins.attrNames (site.links or { });
@@ -149,7 +150,7 @@ expr_no_inventory_required="$(cat <<EOF
 let
   flake = builtins.getFlake "${repo_root}";
   input = import "${input_file}";
-  out = flake.lib.x86_64-linux.build { inherit input; };
+  out = flake.libBySystem."${system}".build { inherit input; };
 in
   if builtins.isAttrs out.enterprise.acme.site.ams then
     "ok"
