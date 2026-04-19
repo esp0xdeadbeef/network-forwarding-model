@@ -61,7 +61,6 @@ write_input() {
         };
 
         transit = {
-          dedicatedLanes = true;
           ordering = [
             [ "access1" "downstream1" ]
             [ "downstream1" "policy1" ]
