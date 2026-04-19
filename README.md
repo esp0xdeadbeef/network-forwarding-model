@@ -235,6 +235,18 @@ The forwarding model removes that ambiguity by making forwarding structure expli
 
 ---
 
+# Current limitation (important)
+
+Today, this stage effectively assumes “one p2p transit adjacency per node pair”.
+That makes it impossible to *guarantee* policy-driven “dedicated links / L2 lanes” between the same two staged nodes.
+
+The intended direction is to make dedicated lanes a first-class, deterministic output of this stage, derived from explicit upstream intent
+(e.g. which access classes are allowed to reach which uplinks / overlays), and then bound to VLANs/subifs/etc via inventory downstream.
+
+See `TODO.md` in this repository for the lane-aware p2p plan.
+
+---
+
 # Forwarding responsibilities
 
 The forwarding model derives the forwarding responsibilities implied by the compiled architecture.
@@ -449,19 +461,19 @@ It may not decide that the model means something else.
 
 # Running the model
 
-Evaluate a compiled site model:
+Build from a compiled IR JSON (output of `network-compiler`):
 
 ```bash
-nix eval --json \
-  'let
-     flake = builtins.getFlake (toString ./.);
-     input = builtins.fromJSON (builtins.readFile ./compiler-output.json);
-   in
-     flake.lib.x86_64-linux.build { inherit input; }'
+nix run .#debug -- ./output-compiler-signed.json
 ```
 
-The exact entrypoints in this repository may evolve, but the role stays the same:
-this stage consumes compiled input and produces a deterministic forwarding model.
+Or compile + build in one step (starting from a compiler input Nix file, e.g. `intent.nix`):
+
+```bash
+nix run .#compile-and-build-forwarding-model -- ./path/to/intent.nix
+```
+
+This stage consumes compiler output (or compiler inputs via the helper app) and produces a deterministic forwarding model.
 
 ---
 
@@ -470,7 +482,7 @@ this stage consumes compiled input and produces a deterministic forwarding model
 Run the test suite:
 
 ```bash
-nix run .#check
+./tests/test.sh
 ```
 
 The test suite should validate things like:
@@ -545,4 +557,3 @@ Not a side effect.
 
 If that architecture fits your goals, this stage gives later consumers a stable forwarding foundation.
 If it does not, this repository is probably not the right tool.
-
