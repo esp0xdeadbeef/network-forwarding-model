@@ -176,17 +176,35 @@ in
       allowedUplinksByAccessUnit =
         let
           relations = (site.communicationContract.allowedRelations or [ ]);
+          hasAnyAllowRelation = lib.any (rel: (rel.action or null) == "allow") relations;
+
+          # When the forwarding-model is used directly (without the compiler), sites may omit
+          # explicit allow-relations. In that case, assume "no contract == no restriction" and
+          # allow all uplinks that exist in the site definition.
+          allUplinkNames =
+            let
+              cores = (site.upstreams.cores or { });
+              coreNames = builtins.attrNames cores;
+              names = lib.concatMap (
+                coreName: map (u: toString (u.name or "")) (cores.${coreName} or [ ])
+              ) coreNames;
+            in
+            lib.sort (a: b: a < b) (lib.unique (lib.filter (s: s != "") names));
 
           mkForUnit =
             unit:
             let
-              uplinks = lib.concatMap (
-                rel:
-                if (rel.action or null) == "allow" && relationAppliesToAccessUnit unit rel then
-                  relationToUplinkNames rel
+              uplinks =
+                if !hasAnyAllowRelation then
+                  allUplinkNames
                 else
-                  [ ]
-              ) relations;
+                  lib.concatMap (
+                    rel:
+                    if (rel.action or null) == "allow" && relationAppliesToAccessUnit unit rel then
+                      relationToUplinkNames rel
+                    else
+                      [ ]
+                  ) relations;
             in
             {
               name = unit;
