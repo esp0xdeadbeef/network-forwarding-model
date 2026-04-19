@@ -25,59 +25,112 @@ let
   overlaps = a: b: !(a.end < b.start || b.end < a.start);
 
   normPair =
-    pair:
+    a0: b0:
     let
-      a0 = toString (builtins.elemAt pair 0);
-      b0 = toString (builtins.elemAt pair 1);
+      a = toString a0;
+      b = toString b0;
     in
-    if a0 < b0 then
-      {
-        a = a0;
-        b = b0;
-      }
+    if a < b then
+      { inherit a b; }
     else
       {
-        a = b0;
-        b = a0;
+        a = b;
+        b = a;
       };
 
-  pairKey = p: "${p.a}|${p.b}";
+  sanitize =
+    s:
+    let
+      raw = toString s;
+      chars = lib.stringToCharacters raw;
+      ok =
+        c:
+        (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || (c >= "0" && c <= "9") || c == "-" || c == "_";
+      normalized = builtins.concatStringsSep "" (map (c: if ok c then c else "-") chars);
+    in
+    if normalized == "" then "lane" else normalized;
 
-  validatePairs =
+  linkNameFor =
+    p:
+    let
+      lane = p.lane or "default";
+      laneHash = builtins.substring 0 10 (builtins.hashString "sha256" (toString lane));
+      laneSlug = sanitize lane;
+    in
+    if lane == "default" then
+      "p2p-${p.a}-${p.b}"
+    else
+      "p2p-${p.a}-${p.b}--lane-${laneSlug}-${laneHash}";
+
+  normalizeLinkSpec =
+    link:
+    if builtins.isList link && builtins.length link == 2 then
+      let
+        p = normPair (builtins.elemAt link 0) (builtins.elemAt link 1);
+      in
+      p
+      // {
+        lane = "default";
+        linkName = linkNameFor (p // { lane = "default"; });
+      }
+    else if builtins.isAttrs link then
+      let
+        a0 = link.a or null;
+        b0 = link.b or null;
+        _ =
+          if a0 == null || b0 == null then
+            throw "network-forwarding-model: p2p link spec requires a and b"
+          else
+            true;
+        p = normPair a0 b0;
+        lane = if (link.lane or null) == null then "default" else toString link.lane;
+        p' = p // {
+          inherit lane;
+        };
+        explicitName = link.name or link.linkName or null;
+        linkName =
+          if explicitName != null && toString explicitName != "" then
+            toString explicitName
+          else
+            linkNameFor p';
+      in
+      p' // { inherit linkName; }
+    else
+      throw "network-forwarding-model: invalid p2p link spec (expected [a b] or { a, b, lane? })";
+
+  validateLinkSpecs =
     links:
     let
+      specs = map normalizeLinkSpec links;
+
       step =
-        acc: pair:
-        let
-          p = normPair pair;
-          k = pairKey p;
-        in
+        acc: p:
         if p.a == p.b then
           throw ''
-            network-forwarding-model: invalid self-link in transit ordering
+            network-forwarding-model: invalid self-link in p2p link specs
 
             node: ${p.a}
           ''
-        else if acc.seen ? "${k}" then
+        else if acc.seen ? "${p.linkName}" then
           throw ''
-            network-forwarding-model: duplicate logical p2p link in transit ordering
+            network-forwarding-model: duplicate p2p linkName in p2p link specs
 
-            pair: ${p.a} <-> ${p.b}
+            linkName: ${p.linkName}
           ''
         else
           {
             seen = acc.seen // {
-              "${k}" = true;
+              "${p.linkName}" = true;
             };
-            pairs = acc.pairs ++ [ p ];
+            specs = acc.specs ++ [ p ];
           };
 
       res = builtins.foldl' step {
         seen = { };
-        pairs = [ ];
-      } links;
+        specs = [ ];
+      } specs;
     in
-    res.pairs;
+    lib.sort (x: y: x.linkName < y.linkName) res.specs;
 
   allocIPv6Pair =
     { pool, linkIndex }:
@@ -98,7 +151,7 @@ in
     { site }:
     let
       p2p = site.p2p-pool;
-      links = validatePairs site.links;
+      links = validateLinkSpecs site.links;
 
       v4 = ip.splitCidr p2p.ipv4;
       base4 = v4ToInt (parseV4 v4.ip);
@@ -126,7 +179,7 @@ in
         in
         fromNodes ++ fromTenants;
 
-      ps = lib.sort (x: y: pairKey x < pairKey y) links;
+      ps = links;
 
       totalHosts = pow2 (32 - v4.prefix);
       maxBlocks = builtins.div totalHosts 2;
@@ -184,7 +237,7 @@ in
                 inherit linkIndex;
               };
 
-          linkName = "p2p-${p.a}-${p.b}";
+          linkName = p.linkName;
         in
         {
           idx = found.nextIdx;
