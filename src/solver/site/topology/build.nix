@@ -207,6 +207,16 @@ in
         in
         (x == a && y == b) || (x == b && y == a);
 
+      p2pNameWithSuffix =
+        a: b: suffix:
+        let
+          a0 = toString a;
+          b0 = toString b;
+          left = if a0 < b0 then a0 else b0;
+          right = if a0 < b0 then b0 else a0;
+        in
+        "p2p-${left}-${right}--${toString suffix}";
+
       basePairsWithoutSelectorBuses =
         if !dedicatedLanes || policyUnit == null then
           baseP2pPairs
@@ -237,6 +247,7 @@ in
                   a = policyUnit;
                   b = downstreamSelectorUnit;
                   lane = "access::${toString accessUnit}";
+                  name = p2pNameWithSuffix policyUnit downstreamSelectorUnit "access-${toString accessUnit}";
                 }
               ]
           ) accessUnitNames)
@@ -252,6 +263,9 @@ in
                 a = policyUnit;
                 b = upstreamSelectorUnit;
                 lane = "access::${toString accessUnit}::uplink::${toString uplinkName}";
+                name =
+                  p2pNameWithSuffix policyUnit upstreamSelectorUnit
+                    "access-${toString accessUnit}--uplink-${toString uplinkName}";
               }) uplinks
           ) accessUnitNames);
 

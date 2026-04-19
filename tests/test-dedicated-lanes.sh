@@ -118,10 +118,10 @@ let
   site = out.enterprise.acme.site.ams;
   linkNames = builtins.attrNames (site.links or { });
 
-  isLane = name: builtins.match "p2p-policy1-upstream1--lane-.*" name != null;
+  isLane = name: builtins.match "p2p-policy1-upstream1--access-access1--uplink-.*" name != null;
   policyUpstreamLaneLinks = builtins.filter isLane linkNames;
 
-  isDsLane = name: builtins.match "p2p-downstream1-policy1--lane-.*" name != null;
+  isDsLane = name: builtins.match "p2p-downstream1-policy1--access-access1" name != null;
   dsPolicyLaneLinks = builtins.filter isDsLane linkNames;
 in
   if
@@ -141,4 +141,3 @@ if ! nix eval --impure --raw --expr "$expr" >/dev/null; then
 fi
 
 pass "dedicated-lanes"
-
