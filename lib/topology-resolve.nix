@@ -177,23 +177,9 @@ let
     ) (lib.sort (a: b: a < b) (builtins.attrNames links))
   );
 
-  _uniqueP2pLogicalLinks =
-    let
-      step =
-        acc: entry:
-        if acc ? "${entry.key}" then
-          throw ''
-            topology-resolve: duplicate logical p2p links are not allowed
-
-            site: ${siteName}
-            pair: ${builtins.elemAt entry.members 0} <-> ${builtins.elemAt entry.members 1}
-            firstLink: ${acc.${entry.key}}
-            duplicateLink: ${entry.linkName}
-          ''
-        else
-          acc // { "${entry.key}" = entry.linkName; };
-    in
-    builtins.deepSeq (builtins.foldl' step { } resolvedP2pPairs) true;
+  # Allow multiple p2p links between the same node pair (lane-aware transit).
+  # Uniqueness is enforced by linkName (attrset key) instead of pair membership.
+  _p2pLinkMembershipValidated = builtins.deepSeq resolvedP2pPairs true;
 
   mkIface =
     linkName: l: nodeName:
@@ -361,4 +347,4 @@ let
   topo4 = routingStatic.attach topo3;
 
 in
-builtins.seq _validatedLinks (builtins.seq _uniqueP2pLogicalLinks topo4)
+builtins.seq _validatedLinks (builtins.seq _p2pLinkMembershipValidated topo4)

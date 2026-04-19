@@ -34,6 +34,14 @@ in
       localPool = site.addressPools.local or null;
       topologyPairs = if linkPairs == null then ordering else linkPairs;
 
+      # Optional: derive dedicated transit lanes from upstream intent.
+      # This is deliberately opt-in until examples/inventories are migrated.
+      dedicatedLanes =
+        let
+          v = (site.transit.dedicatedLanes or null);
+        in
+        v == true || v == "true" || v == "dedicated" || v == "derived";
+
       siteDomains = domains.materializeSiteDomains site;
 
       overlayReachability = overlays.overlayReachabilityForSite {
@@ -88,7 +96,167 @@ in
         )
       );
 
-      p2pPairs = lib.filter (p: builtins.isList p && builtins.length p == 2) topologyPairs;
+      # ---- Lane derivation helpers ----
+
+      firstUnitByRole =
+        role:
+        let
+          names = lib.sort (a: b: a < b) unitNames;
+          hits = lib.filter (n: rolesResult.roleFromInput (toString n) == role) names;
+        in
+        if hits == [ ] then null else toString (builtins.head hits);
+
+      downstreamSelectorUnit = firstUnitByRole "downstream-selector";
+      upstreamSelectorUnit = firstUnitByRole "upstream-selector";
+      policyUnit = if rolesResult.policyUnit == null then null else toString rolesResult.policyUnit;
+      accessUnitNames =
+        let
+          names = lib.sort (a: b: a < b) unitNames;
+        in
+        map toString (lib.filter (n: rolesResult.roleFromInput (toString n) == "access") names);
+
+      # Map unit -> attached tenant names.
+      tenantsByAccessUnit =
+        let
+          attachments = site.attachments or [ ];
+          step =
+            acc: a:
+            if !(builtins.isAttrs a) then
+              acc
+            else
+              let
+                unit = toString (a.unit or "");
+                kind = toString (a.kind or "");
+                name = toString (a.name or "");
+              in
+              if unit == "" || kind != "tenant" || name == "" then
+                acc
+              else
+                acc
+                // {
+                  "${unit}" = (acc.${unit} or [ ]) ++ [ name ];
+                };
+        in
+        builtins.foldl' step { } attachments;
+
+      relationToUplinkNames =
+        rel:
+        let
+          to = rel.to or { };
+          kind = to.kind or null;
+          uplinks = to.uplinks or null;
+          name = to.name or null;
+        in
+        if kind != "external" then
+          [ ]
+        else if builtins.isList uplinks then
+          map toString uplinks
+        else if name != null && toString name != "" then
+          [ (toString name) ]
+        else
+          [ ];
+
+      relationAppliesToAccessUnit =
+        unit: rel:
+        let
+          from = rel.from or { };
+          unitTenants = tenantsByAccessUnit.${unit} or [ ];
+          kind = from.kind or null;
+        in
+        if kind == "tenant" then
+          builtins.elem (toString (from.name or "")) unitTenants
+        else if kind == "tenant-set" then
+          let
+            members = if builtins.isList (from.members or null) then map toString from.members else [ ];
+          in
+          lib.any (t: builtins.elem t members) unitTenants
+        else
+          false;
+
+      # Per-access uplinks are a conservative superset: any "allow" relation to external uplinks.
+      # Precise deny/priority semantics should stay in the upstream policy contract.
+      allowedUplinksByAccessUnit =
+        let
+          relations = (site.communicationContract.allowedRelations or [ ]);
+
+          mkForUnit =
+            unit:
+            let
+              uplinks = lib.concatMap (
+                rel:
+                if (rel.action or null) == "allow" && relationAppliesToAccessUnit unit rel then
+                  relationToUplinkNames rel
+                else
+                  [ ]
+              ) relations;
+            in
+            {
+              name = unit;
+              value = lib.sort (a: b: a < b) (lib.unique (lib.filter (s: s != "") (map toString uplinks)));
+            };
+        in
+        builtins.listToAttrs (map mkForUnit accessUnitNames);
+
+      baseP2pPairs = lib.filter (p: builtins.isList p && builtins.length p == 2) topologyPairs;
+
+      isPair =
+        a: b: pair:
+        let
+          x = toString (builtins.elemAt pair 0);
+          y = toString (builtins.elemAt pair 1);
+        in
+        (x == a && y == b) || (x == b && y == a);
+
+      basePairsWithoutSelectorBuses =
+        if !dedicatedLanes || policyUnit == null then
+          baseP2pPairs
+        else
+          lib.filter (
+            pair:
+            let
+              dropDsPolicy = downstreamSelectorUnit != null && isPair policyUnit downstreamSelectorUnit pair;
+              dropPolicyUp = upstreamSelectorUnit != null && isPair policyUnit upstreamSelectorUnit pair;
+            in
+            !(dropDsPolicy || dropPolicyUp)
+          ) baseP2pPairs;
+
+      # Derived links:
+      # - downstream-selector <-> policy: one lane per access unit (policy enforces per ingress lane)
+      # - policy <-> upstream-selector: one lane per (access unit, allowed uplink)
+      derivedLaneSpecs =
+        if !dedicatedLanes || policyUnit == null then
+          [ ]
+        else
+          (lib.concatMap (
+            accessUnit:
+            if downstreamSelectorUnit == null then
+              [ ]
+            else
+              [
+                {
+                  a = policyUnit;
+                  b = downstreamSelectorUnit;
+                  lane = "access::${toString accessUnit}";
+                }
+              ]
+          ) accessUnitNames)
+          ++ (lib.concatMap (
+            accessUnit:
+            let
+              uplinks = allowedUplinksByAccessUnit.${toString accessUnit} or [ ];
+            in
+            if upstreamSelectorUnit == null then
+              [ ]
+            else
+              map (uplinkName: {
+                a = policyUnit;
+                b = upstreamSelectorUnit;
+                lane = "access::${toString accessUnit}::uplink::${toString uplinkName}";
+              }) uplinks
+          ) accessUnitNames);
+
+      p2pLinkSpecs = (map (p: p) basePairsWithoutSelectorBuses) ++ derivedLaneSpecs;
+
       loopbackHostBase = 0;
 
       explicitLoopbackByUnit = builtins.listToAttrs (
@@ -164,7 +332,7 @@ in
         label = "sites.${enterprise}.${siteId}.addressPools.p2p.ipv4";
         family = 4;
         cidrStr = p2pPool.ipv4 or null;
-        requiredHosts = 2 * (builtins.length p2pPairs);
+        requiredHosts = 2 * (builtins.length p2pLinkSpecs);
         required = true;
       };
 
@@ -172,7 +340,7 @@ in
         label = "sites.${enterprise}.${siteId}.addressPools.p2p.ipv6";
         family = 6;
         cidrStr = p2pPool.ipv6 or null;
-        requiredHosts = if (p2pPool.ipv6 or null) == null then 0 else 2 * (builtins.length p2pPairs);
+        requiredHosts = if (p2pPool.ipv6 or null) == null then 0 else 2 * (builtins.length p2pLinkSpecs);
         required = false;
       };
 
@@ -262,7 +430,7 @@ in
                         site = {
                           siteName = siteName;
                           p2p-pool = p2pPool;
-                          links = p2pPairs;
+                          links = p2pLinkSpecs;
                           inherit nodes;
                           domains = siteDomains;
                         };
@@ -377,7 +545,49 @@ in
 
       transitOrdering =
         let
-          ids = map (pair: transit.transitLinkIdForPair (routed1.links or { }) pair) p2pPairs;
+          stageRank =
+            role:
+            if role == "access" then
+              0
+            else if role == "downstream-selector" then
+              1
+            else if role == "policy" then
+              2
+            else if role == "upstream-selector" then
+              3
+            else if role == "core" then
+              4
+            else
+              9;
+
+          linkOrderKey =
+            adj:
+            let
+              ms = adj.members or [ ];
+              a = toString (builtins.elemAt ms 0);
+              b = toString (builtins.elemAt ms 1);
+              ra = rolesResult.roleFromInput a;
+              rb = rolesResult.roleFromInput b;
+              rka = stageRank ra;
+              rkb = stageRank rb;
+              oriented =
+                if rka < rkb then
+                  {
+                    src = a;
+                    dst = b;
+                    rank = rka;
+                  }
+                else
+                  {
+                    src = b;
+                    dst = a;
+                    rank = rkb;
+                  };
+            in
+            "${toString oriented.rank}|${oriented.src}|${oriented.dst}|${toString (adj.name or "")}";
+
+          p2pAdj = lib.filter (a: (a.kind or null) == "p2p") realizedTransitAdjacencies;
+          ids = map (adj: toString adj.id) (lib.sort (x: y: (linkOrderKey x) < (linkOrderKey y)) p2pAdj);
 
           expected = lib.sort (a: b: a < b) (map (adj: toString adj.id) realizedTransitAdjacencies);
 
