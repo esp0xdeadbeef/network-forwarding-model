@@ -235,15 +235,21 @@ The forwarding model removes that ambiguity by making forwarding structure expli
 
 ---
 
-# Current limitation (important)
+# Dedicated transit lanes (important)
 
-Today, this stage effectively assumes “one p2p transit adjacency per node pair”.
-That makes it impossible to *guarantee* policy-driven “dedicated links / L2 lanes” between the same two staged nodes.
+This stage emits policy-driven “dedicated links / L2 lanes” as explicit, deterministic transit adjacencies.
 
-The intended direction is to make dedicated lanes a first-class, deterministic output of this stage, derived from explicit upstream intent
-(e.g. which access classes are allowed to reach which uplinks / overlays), and then bound to VLANs/subifs/etc via inventory downstream.
+In practice this means the forwarding model may emit multiple parallel p2p links between the same staged units, derived from:
 
-See `TODO.md` in this repository for the lane-aware p2p plan.
+- which access units exist (attachments)
+- which uplinks those access units are allowed to reach (relations)
+
+Lanes are always enabled and explicitly advertised as:
+
+- `site.transit.dedicatedLanes = true`
+
+Downstream, the control-plane model requires inventory to bind every emitted lane link name to a concrete L2 realization
+(dedicated link, VLAN trunk, subifs, loopback bridges, etc).
 
 ---
 
