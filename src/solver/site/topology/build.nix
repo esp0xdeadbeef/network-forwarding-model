@@ -741,6 +741,9 @@ in
               links = topologyPairs;
             };
           transit = existingTransit // {
+            # Dedicated transit lanes are always enabled. The inventory decides how
+            # each lane is realized (dedicated L2 link, VLAN trunk, subifs, etc).
+            dedicatedLanes = true;
             ordering = transitOrdering;
             adjacencies = realizedTransitAdjacencies;
           };
