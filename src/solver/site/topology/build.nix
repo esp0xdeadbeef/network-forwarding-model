@@ -34,12 +34,6 @@ in
       localPool = site.addressPools.local or null;
       topologyPairs = if linkPairs == null then ordering else linkPairs;
 
-      # Dedicated transit lanes are always enabled.
-      #
-      # This does not require a literal dedicated L2 interface per lane:
-      # renderers/inventory can realize lanes as VLAN trunks, bridges, loopbacks, etc.
-      dedicatedLanes = true;
-
       siteDomains = domains.materializeSiteDomains site;
 
       overlayReachability = overlays.overlayReachabilityForSite {
@@ -234,7 +228,7 @@ in
         "p2p-${left}-${right}--${toString suffix}";
 
       basePairsWithoutSelectorBuses =
-        if !dedicatedLanes || policyUnit == null then
+        if policyUnit == null then
           baseP2pPairs
         else
           lib.filter (
@@ -250,7 +244,7 @@ in
       # - downstream-selector <-> policy: one lane per access unit (policy enforces per ingress lane)
       # - policy <-> upstream-selector: one lane per (access unit, allowed uplink)
       derivedLaneSpecs =
-        if !dedicatedLanes || policyUnit == null then
+        if policyUnit == null then
           [ ]
         else
           (lib.concatMap (
