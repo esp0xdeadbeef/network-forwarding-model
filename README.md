@@ -187,6 +187,32 @@ It should not collapse into target-specific implementation details prematurely.
 
 ---
 
+# Forwarding contract
+
+The forwarding-model is the canonical place where compiler semantics become forwarding-executable S88 structure.
+
+Downstream stages should treat the following as normative forwarding artifacts:
+
+* stable lane link identities
+* overlay reachability ownership and termination
+* logical interface identities created for forwarding purposes
+* route intent classes derived from the staged architecture
+
+The forwarding model is therefore allowed to decide:
+
+* which dedicated lanes exist
+* which nodes own overlay reachability
+* which forwarding identities must later be realized by inventory
+
+It is not allowed to decide:
+
+* host uplink mapping
+* bridge names
+* VLAN attachment choices
+* container placement
+
+---
+
 # Canonical fabric stages
 
 The forwarding model works with the same five canonical forwarding stages established by the compiler:
