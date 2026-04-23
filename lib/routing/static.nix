@@ -25,6 +25,24 @@ let
     in
     if segments == [ ] then null else builtins.elemAt segments 0;
 
+  loopbackOwnerNodeForDst =
+    topo: family: dst:
+    let
+      wanted = helpers.stripMask dst;
+      nodes = topo.nodes or { };
+      names = builtins.attrNames nodes;
+      matches = lib.filter (
+        nodeName:
+        let
+          node = nodes.${nodeName};
+          loopback = node.loopback or { };
+          raw = if family == 4 then loopback.ipv4 or null else loopback.ipv6 or null;
+        in
+        raw != null && helpers.stripMask raw == wanted
+      ) names;
+    in
+    if matches == [ ] then null else builtins.head matches;
+
   nextHopWithPreferredUplinks =
     {
       topo,
@@ -238,7 +256,12 @@ let
             topo.uplinkNames or [ ]
           else
             [ ];
-        preferredAccessNodes = if (dstEntry.owner or null) != null then [ dstEntry.owner ] else [ ];
+        preferredAccessNodes = lib.unique (
+          lib.filter (x: x != null) [
+            (dstEntry.owner or null)
+            (loopbackOwnerNodeForDst topo dstEntry.family dstEntry.dst)
+          ]
+        );
         nh = nextHopWithPreferredUplinks {
           inherit topo;
           from = nodeName;

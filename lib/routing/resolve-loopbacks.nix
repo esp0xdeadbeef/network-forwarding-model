@@ -3,6 +3,27 @@
 let
   graph = import ./graph.nix { inherit lib; };
 
+  laneUplinkNameFromLinkName =
+    linkName:
+    let
+      marker = "--uplink-";
+      s = toString linkName;
+      parts = lib.splitString marker s;
+    in
+    if builtins.length parts < 2 then null else builtins.elemAt parts ((builtins.length parts) - 1);
+
+  laneAccessNodeNameFromLinkName =
+    linkName:
+    let
+      marker = "--access-";
+      s = toString linkName;
+      parts = lib.splitString marker s;
+      lastPart =
+        if builtins.length parts < 2 then null else builtins.elemAt parts ((builtins.length parts) - 1);
+      segments = if lastPart == null then [ ] else lib.splitString "--uplink-" lastPart;
+    in
+    if segments == [ ] then null else builtins.elemAt segments 0;
+
   strip =
     a:
     let
@@ -41,6 +62,79 @@ let
   internalIntent = {
     kind = "internal-reachability";
   };
+
+  nextHopWithPreferences =
+    {
+      links,
+      from,
+      to,
+      preferredUplinks ? [ ],
+      preferredAccessNodes ? [ ],
+    }:
+    let
+      candidates = lib.sort (a: b: a < b) (
+        lib.filter (
+          lname:
+          let
+            l = links.${lname};
+            members = graph.membersOf l;
+          in
+          lib.elem from members && lib.elem to members
+        ) (builtins.attrNames links)
+      );
+
+      preferredUplinkSet = lib.unique (map toString (lib.filter (x: x != null) preferredUplinks));
+      preferredAccessSet = lib.unique (map toString (lib.filter (x: x != null) preferredAccessNodes));
+
+      preferredUplinkCandidates =
+        if preferredUplinkSet == [ ] then
+          [ ]
+        else
+          lib.filter (
+            lname:
+            let
+              uplinkName = laneUplinkNameFromLinkName lname;
+            in
+            uplinkName != null && builtins.elem uplinkName preferredUplinkSet
+          ) candidates;
+
+      preferredAccessCandidates =
+        if preferredAccessSet == [ ] then
+          [ ]
+        else
+          lib.filter (
+            lname:
+            let
+              accessNodeName = laneAccessNodeNameFromLinkName lname;
+            in
+            accessNodeName != null && builtins.elem accessNodeName preferredAccessSet
+          ) candidates;
+
+      chosen =
+        if preferredUplinkCandidates != [ ] && preferredAccessCandidates != [ ] then
+          let
+            overlap = lib.filter (
+              lname: builtins.elem lname preferredAccessCandidates
+            ) preferredUplinkCandidates;
+          in
+          if overlap != [ ] then builtins.head overlap else builtins.head preferredUplinkCandidates
+        else if preferredUplinkCandidates != [ ] then
+          builtins.head preferredUplinkCandidates
+        else if preferredAccessCandidates != [ ] then
+          builtins.head preferredAccessCandidates
+        else if candidates != [ ] then
+          builtins.head candidates
+        else
+          null;
+
+      linkObj = if chosen == null then null else links.${chosen};
+      epTo = if linkObj == null then { } else graph.getEp chosen linkObj to;
+    in
+    {
+      linkName = chosen;
+      via4 = if epTo ? addr4 && epTo.addr4 != null then strip epTo.addr4 else null;
+      via6 = if epTo ? addr6 && epTo.addr6 != null then strip epTo.addr6 else null;
+    };
 
 in
 {
@@ -115,10 +209,13 @@ in
               else
                 let
                   hop = builtins.elemAt path 1;
-                  nh = graph.nextHop {
+                  nh = nextHopWithPreferences {
                     inherit links;
                     from = nodeName;
                     to = hop;
+                    preferredUplinks =
+                      if builtins.elem dst (topo.uplinkCoreNames or [ ]) then topo.uplinkNames or [ ] else [ ];
+                    preferredAccessNodes = [ dst ];
                   };
                   lb = lbs.${dst};
 
