@@ -13,12 +13,25 @@ let
     in
     if builtins.length parts < 2 then null else builtins.elemAt parts ((builtins.length parts) - 1);
 
+  laneAccessNodeNameFromLinkName =
+    linkName:
+    let
+      marker = "--access-";
+      s = toString linkName;
+      parts = lib.splitString marker s;
+      lastPart =
+        if builtins.length parts < 2 then null else builtins.elemAt parts ((builtins.length parts) - 1);
+      segments = if lastPart == null then [ ] else lib.splitString "--uplink-" lastPart;
+    in
+    if segments == [ ] then null else builtins.elemAt segments 0;
+
   nextHopWithPreferredUplinks =
     {
       topo,
       from,
       to,
       preferredUplinks ? [ ],
+      preferredAccessNodes ? [ ],
     }:
     let
       links = topo.links or { };
@@ -35,6 +48,7 @@ let
       );
 
       preferredSet = lib.unique (map toString (lib.filter (x: x != null) preferredUplinks));
+      preferredAccessSet = lib.unique (map toString (lib.filter (x: x != null) preferredAccessNodes));
 
       preferredCandidates =
         if preferredSet == [ ] then
@@ -48,9 +62,28 @@ let
             uplinkName != null && builtins.elem uplinkName preferredSet
           ) candidates;
 
+      preferredAccessCandidates =
+        if preferredAccessSet == [ ] then
+          [ ]
+        else
+          lib.filter (
+            lname:
+            let
+              accessNodeName = laneAccessNodeNameFromLinkName lname;
+            in
+            accessNodeName != null && builtins.elem accessNodeName preferredAccessSet
+          ) candidates;
+
       chosen =
-        if preferredCandidates != [ ] then
+        if preferredCandidates != [ ] && preferredAccessCandidates != [ ] then
+          let
+            overlap = lib.filter (lname: builtins.elem lname preferredAccessCandidates) preferredCandidates;
+          in
+          if overlap != [ ] then builtins.head overlap else builtins.head preferredCandidates
+        else if preferredCandidates != [ ] then
           builtins.head preferredCandidates
+        else if preferredAccessCandidates != [ ] then
+          builtins.head preferredAccessCandidates
         else if candidates != [ ] then
           builtins.head candidates
         else
@@ -205,11 +238,13 @@ let
             topo.uplinkNames or [ ]
           else
             [ ];
+        preferredAccessNodes = if (dstEntry.owner or null) != null then [ dstEntry.owner ] else [ ];
         nh = nextHopWithPreferredUplinks {
           inherit topo;
           from = nodeName;
           to = hop;
           inherit preferredUplinks;
+          inherit preferredAccessNodes;
         };
       in
       if nh.linkName == null then
