@@ -14,7 +14,7 @@ output_json="${tmp_dir}/out.json"
   nix run .#compile-and-build-forwarding-model -- "${intent}" > "${output_json}"
 )
 
-OUTPUT_JSON="${output_json}" nix eval --impure --expr '
+  OUTPUT_JSON="${output_json}" nix eval --impure --expr '
   let
     data = builtins.fromJSON (builtins.readFile (builtins.getEnv "OUTPUT_JSON"));
     policy = data.enterprise.esp0xdeadbeef.site."site-a".nodes."s-router-policy-only";
@@ -35,6 +35,11 @@ OUTPUT_JSON="${output_json}" nix eval --impure --expr '
     && hasRoute "p2p-s-router-downstream-selector-s-router-policy-only--access-s-router-access-client" "10.20.20.0/24" "10.10.0.16"
     && hasRoute "p2p-s-router-downstream-selector-s-router-policy-only--access-s-router-access-dmz" "10.20.30.0/24" "10.10.0.20"
     && hasRoute "p2p-s-router-downstream-selector-s-router-policy-only--access-s-router-access-client2" "10.20.40.0/24" "10.10.0.18"
+    && hasRoute "p2p-s-router-downstream-selector-s-router-policy-only--access-s-router-access-mgmt" "10.19.0.4/32" "10.10.0.22"
+    && hasRoute "p2p-s-router-downstream-selector-s-router-policy-only--access-s-router-access-admin" "10.19.0.0/32" "10.10.0.14"
+    && hasRoute "p2p-s-router-downstream-selector-s-router-policy-only--access-s-router-access-client" "10.19.0.1/32" "10.10.0.16"
+    && hasRoute "p2p-s-router-downstream-selector-s-router-policy-only--access-s-router-access-client2" "10.19.0.2/32" "10.10.0.18"
+    && hasRoute "p2p-s-router-downstream-selector-s-router-policy-only--access-s-router-access-dmz" "10.19.0.3/32" "10.10.0.20"
 ' >/dev/null || {
   echo "FAIL preferred-access-lanes" >&2
   exit 1
