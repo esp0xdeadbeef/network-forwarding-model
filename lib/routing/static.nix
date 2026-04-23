@@ -4,6 +4,67 @@ let
   graph = import ./graph.nix { inherit lib; };
   helpers = import ./static-helpers.nix { inherit lib; };
 
+  laneUplinkNameFromLinkName =
+    linkName:
+    let
+      marker = "--uplink-";
+      s = toString linkName;
+      parts = lib.splitString marker s;
+    in
+    if builtins.length parts < 2 then null else builtins.elemAt parts ((builtins.length parts) - 1);
+
+  nextHopWithPreferredUplinks =
+    {
+      topo,
+      from,
+      to,
+      preferredUplinks ? [ ],
+    }:
+    let
+      links = topo.links or { };
+
+      candidates = lib.sort (a: b: a < b) (
+        lib.filter (
+          lname:
+          let
+            l = links.${lname};
+            members = graph.membersOf l;
+          in
+          lib.elem from members && lib.elem to members
+        ) (builtins.attrNames links)
+      );
+
+      preferredSet = lib.unique (map toString (lib.filter (x: x != null) preferredUplinks));
+
+      preferredCandidates =
+        if preferredSet == [ ] then
+          [ ]
+        else
+          lib.filter (
+            lname:
+            let
+              uplinkName = laneUplinkNameFromLinkName lname;
+            in
+            uplinkName != null && builtins.elem uplinkName preferredSet
+          ) candidates;
+
+      chosen =
+        if preferredCandidates != [ ] then
+          builtins.head preferredCandidates
+        else if candidates != [ ] then
+          builtins.head candidates
+        else
+          null;
+
+      linkObj = if chosen == null then null else links.${chosen};
+      epTo = if linkObj == null then { } else graph.getEp chosen linkObj to;
+    in
+    {
+      linkName = chosen;
+      via4 = if epTo ? addr4 && epTo.addr4 != null then helpers.stripMask epTo.addr4 else null;
+      via6 = if epTo ? addr6 && epTo.addr6 != null then helpers.stripMask epTo.addr6 else null;
+    };
+
   intentAttr = kind: {
     intent = {
       kind = kind;
@@ -137,11 +198,18 @@ let
     else
       let
         hop = builtins.elemAt path 1;
-        nh = graph.nextHop {
-          links = topo.links or { };
-          stripMask = helpers.stripMask;
+        preferredUplinks =
+          if dstEntry.kind == "overlay" && (dstEntry.overlay or null) != null then
+            [ dstEntry.overlay ]
+          else if builtins.elem (dstEntry.owner or null) (helpers.uplinkCores topo) then
+            topo.uplinkNames or [ ]
+          else
+            [ ];
+        nh = nextHopWithPreferredUplinks {
+          inherit topo;
           from = nodeName;
           to = hop;
+          inherit preferredUplinks;
         };
       in
       if nh.linkName == null then
@@ -415,11 +483,11 @@ let
             dst = target;
           };
           hop = builtins.elemAt path 1;
-          nh = graph.nextHop {
-            links = topo.links or { };
-            stripMask = helpers.stripMask;
+          nh = nextHopWithPreferredUplinks {
+            inherit topo;
             from = nodeName;
             to = hop;
+            preferredUplinks = topo.uplinkNames or [ ];
           };
           add4 =
             if nh.via4 == null then
@@ -494,11 +562,11 @@ let
         else
           let
             hop = builtins.elemAt path 1;
-            nh = graph.nextHop {
-              links = topo.links or { };
-              stripMask = helpers.stripMask;
+            nh = nextHopWithPreferredUplinks {
+              inherit topo;
               from = nodeName;
               to = hop;
+              preferredUplinks = topo.uplinkNames or [ ];
             };
 
             exported = lib.filter (e: e.dst != null && !(ownSet ? "${toString e.family}|${e.dst}")) (
