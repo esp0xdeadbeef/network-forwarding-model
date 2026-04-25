@@ -354,6 +354,96 @@ write_negative_missing_role_input() {
 EOF
 }
 
+write_negative_overlay_core_reuses_wan_input() {
+  cat > "$1" <<'EOF'
+{
+  sites = {
+    acme = {
+      ams = {
+        addressPools = {
+          local = {
+            ipv4 = "10.0.0.0/24";
+          };
+
+          p2p = {
+            ipv4 = "10.0.1.0/24";
+          };
+        };
+
+        attachments = [
+          {
+            unit = "access1";
+            kind = "tenant";
+            name = "tenant-a";
+          }
+        ];
+
+        domains = {
+          externals = [
+            {
+              kind = "external";
+              name = "internet";
+            }
+          ];
+
+          tenants = [
+            {
+              kind = "tenant";
+              name = "tenant-a";
+              ipv4 = "10.10.0.0/24";
+            }
+          ];
+        };
+
+        transit = {
+          ordering = [
+            [
+              "access1"
+              "policy1"
+            ]
+            [
+              "policy1"
+              "core1"
+            ]
+          ];
+        };
+
+        transport = {
+          overlays = [
+            {
+              name = "east-west";
+              terminateOn = "core1";
+            }
+          ];
+        };
+
+        units = {
+          access1 = {
+            role = "access";
+          };
+
+          policy1 = {
+            role = "policy";
+          };
+
+          core1 = {
+            role = "core";
+            uplinks = {
+              internet = {
+                addr4 = "198.51.100.2/31";
+                peerAddr4 = "198.51.100.3";
+                ipv4 = [ "203.0.113.0/24" ];
+              };
+            };
+          };
+        };
+      };
+    };
+  };
+}
+EOF
+}
+
 expect_failure_any() {
   local name="$1"
   local input_file="$2"
@@ -383,11 +473,13 @@ negative_stable_link_id_input="$tmpdir/negative-stable-link-id.nix"
 negative_duplicate_loopback_input="$tmpdir/negative-duplicate-loopback.nix"
 negative_pool_overlap_input="$tmpdir/negative-pool-overlap.nix"
 negative_missing_role_input="$tmpdir/negative-missing-role.nix"
+negative_overlay_core_reuses_wan_input="$tmpdir/negative-overlay-core-reuses-wan.nix"
 
 write_negative_stable_link_id_input "$negative_stable_link_id_input"
 write_negative_duplicate_loopback_input "$negative_duplicate_loopback_input"
 write_negative_pool_overlap_input "$negative_pool_overlap_input"
 write_negative_missing_role_input "$negative_missing_role_input"
+write_negative_overlay_core_reuses_wan_input "$negative_overlay_core_reuses_wan_input"
 
 expect_failure_any \
   "stable-link-ids-are-output-only" \
@@ -411,3 +503,8 @@ expect_failure_any \
   "$negative_missing_role_input" \
   "transit ordering references node without explicit role" \
   "missing required node role(s)"
+
+expect_failure_any \
+  "overlay-core-reuses-wan-name" \
+  "$negative_overlay_core_reuses_wan_input" \
+  "invariants(overlay-core-uplink-dedicated)"
