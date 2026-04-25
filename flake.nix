@@ -178,6 +178,7 @@
                 --argjson dirty "$gitDirty" \
                 '.meta = (.meta // {}) | .meta.networkForwardingModel = ((.meta.networkForwardingModel // {}) + { gitRev: $rev, gitDirty: $dirty })' \
                 | tee ./output-network-forwarding-model-signed.json \
+                | tee >(${pkgs.jq}/bin/jq -r '.meta.networkForwardingModel.warningMessages[]? | "WARNING: " + .' >&2) \
                 | ${pkgs.jq}/bin/jq -S
             '';
           };
