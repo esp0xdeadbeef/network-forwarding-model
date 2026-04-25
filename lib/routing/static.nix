@@ -262,28 +262,76 @@ let
             (loopbackOwnerNodeForDst topo dstEntry.family dstEntry.dst)
           ]
         );
-        nh = nextHopWithPreferredUplinks {
+        baseNh = nextHopWithPreferredUplinks {
           inherit topo;
           from = nodeName;
           to = hop;
           inherit preferredUplinks;
           inherit preferredAccessNodes;
         };
+        candidateLinks =
+          let
+            links = topo.links or { };
+            candidates = lib.sort (a: b: a < b) (
+              lib.filter (
+                lname:
+                let
+                  l = links.${lname};
+                  members = graph.membersOf l;
+                in
+                lib.elem nodeName members && lib.elem hop members
+              ) (builtins.attrNames links)
+            );
+            preferredCandidates =
+              if preferredUplinks == [ ] then
+                [ ]
+              else
+                lib.filter (
+                  lname:
+                  let
+                    uplinkName = laneUplinkNameFromLinkName lname;
+                  in
+                  uplinkName != null && builtins.elem uplinkName preferredUplinks
+                ) candidates;
+          in
+          if dstEntry.kind == "overlay" && preferredCandidates != [ ] then
+            preferredCandidates
+          else if baseNh.linkName == null then
+            [ ]
+          else
+            [ baseNh.linkName ];
+        nhs = builtins.map (
+          linkName:
+          let
+            linkObj = (topo.links or { }).${linkName};
+            epTo = graph.getEp linkName linkObj hop;
+          in
+          {
+            inherit linkName;
+            via4 = if epTo ? addr4 && epTo.addr4 != null then helpers.stripMask epTo.addr4 else null;
+            via6 = if epTo ? addr6 && epTo.addr6 != null then helpers.stripMask epTo.addr6 else null;
+          }
+        ) candidateLinks;
       in
-      if nh.linkName == null then
-        null
-      else if dstEntry.family == 4 && nh.via4 == null then
-        null
-      else if dstEntry.family == 6 && nh.via6 == null then
-        null
-      else
-        dstEntry
-        // {
-          hopNode = hop;
-          linkName = nh.linkName;
-          via4 = nh.via4;
-          via6 = nh.via6;
-        };
+      builtins.filter (entry: entry != null) (
+        builtins.map (
+          nh:
+          if nh.linkName == null then
+            null
+          else if dstEntry.family == 4 && nh.via4 == null then
+            null
+          else if dstEntry.family == 6 && nh.via6 == null then
+            null
+          else
+            dstEntry
+            // {
+              hopNode = hop;
+              linkName = nh.linkName;
+              via4 = nh.via4;
+              via6 = nh.via6;
+            }
+        ) nhs
+      );
 
   buildRoutesForGroup =
     topo: mode: es:
@@ -368,7 +416,7 @@ let
         ++ (remotePrefixesOfKind topo nodeName "overlay")
       );
 
-      resolved = lib.filter (x: x != null) (map (resolveRemotePrefix topo nodeName) remote);
+      resolved = builtins.concatLists (map (resolveRemotePrefix topo nodeName) remote);
 
       perNextHopKey =
         e:
