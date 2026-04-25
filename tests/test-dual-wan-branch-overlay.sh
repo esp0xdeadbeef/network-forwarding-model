@@ -28,8 +28,8 @@ run_one() {
       policyIfacesA = builtins.attrNames siteA.nodes."s-router-policy".interfaces;
       policyIfacesB = builtins.attrNames siteB.nodes."b-router-policy".interfaces;
     in
-      overlayA.terminateOn == [ "s-router-core-isp-b" ]
-      && overlayB.terminateOn == [ "b-router-core" ]
+      overlayA.terminateOn == [ "s-router-core-nebula" ]
+      && overlayB.terminateOn == [ "b-router-core-nebula" ]
       && builtins.any (dst: dst == "10.60.10.0/24") (map (r: r.dst) overlayA.routes4)
       && builtins.any (dst: dst == "10.20.10.0/24") (map (r: r.dst) overlayB.routes4)
       && builtins.any
