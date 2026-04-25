@@ -191,5 +191,6 @@ run_external_examples() {
 
 run_local_passing_fixtures
 run_external_examples
+bash "${repo_root}/tests/test-hostile-dns-east-west.sh"
 
 exit 0
