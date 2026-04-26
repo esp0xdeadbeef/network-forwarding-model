@@ -38,6 +38,7 @@ let
           name = toString t.name;
           ipv4 = t.ipv4 or null;
           ipv6 = t.ipv6 or null;
+          ra6Prefixes = t.ra6Prefixes or [ ];
         };
       }) (normalizeTenants site)
     );
@@ -120,7 +121,8 @@ let
 
       ipv6 = lib.unique (
         lib.filter (x: x != null) (
-          map (t: if (t.ipv6 or null) != null then toString t.ipv6 else null) tenants
+          (map (t: if (t.ipv6 or null) != null then toString t.ipv6 else null) tenants)
+          ++ (lib.concatMap (t: map toString (t.ra6Prefixes or [ ])) tenants)
         )
       );
     in
@@ -148,6 +150,11 @@ let
           cidr = toString t.ipv6;
           label = "domains.tenants.${toString t.name}.ipv6";
         })
+        (map (prefix: {
+          family = 6;
+          cidr = toString prefix;
+          label = "domains.tenants.${toString t.name}.ra6Prefixes";
+        }) (t.ra6Prefixes or [ ]))
       ]
     ) tenants;
 
