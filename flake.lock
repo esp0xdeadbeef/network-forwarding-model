@@ -43,15 +43,15 @@
       "locked": {
         "lastModified": 1777165494,
         "narHash": "sha256-tF2rzcAquuNkJ9RXK/rnnNw8jyyO9I8TO7kuHCVLnR4=",
-        "ref": "refs/heads/main",
+        "owner": "esp0xdeadbeef",
+        "repo": "network-labs",
         "rev": "c605a879e7c2e5497ca85cb2e713847b31a1fa1b",
-        "revCount": 67,
-        "type": "git",
-        "url": "ssh://git@github.com/esp0xdeadbeef/network-labs.git"
+        "type": "github"
       },
       "original": {
-        "type": "git",
-        "url": "ssh://git@github.com/esp0xdeadbeef/network-labs.git"
+        "owner": "esp0xdeadbeef",
+        "repo": "network-labs",
+        "type": "github"
       }
     },
     "nixpkgs": {
