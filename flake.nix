@@ -7,7 +7,7 @@
     network-compiler.url = "github:esp0xdeadbeef/network-compiler";
     network-compiler.inputs.nixpkgs.follows = "nixpkgs";
     network-labs = {
-      url = "git+ssh://git@github.com/esp0xdeadbeef/network-labs.git";
+      url = "github:esp0xdeadbeef/network-labs";
       flake = false;
     };
   };
