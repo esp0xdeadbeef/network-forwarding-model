@@ -32,6 +32,7 @@ let
     let
       subnet4 = if net ? ipv4 && net.ipv4 != null then canonicalCidr net.ipv4 else null;
       subnet6 = if net ? ipv6 && net.ipv6 != null then canonicalCidr net.ipv6 else null;
+      ra6 = map canonicalCidr (net.ra6Prefixes or [ ]);
       tenantName = if net ? name && net.name != null then toString net.name else toString netName;
     in
     {
@@ -74,7 +75,7 @@ let
         ipv6 = lib.optional (subnet6 != null) (mkConnectedRoute subnet6);
       };
 
-      ra6Prefixes = [ ];
+      ra6Prefixes = ra6;
       acceptRA = false;
       dhcp = false;
     };

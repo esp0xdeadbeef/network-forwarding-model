@@ -106,7 +106,8 @@ let
           name = prefix.name;
         }
         // lib.optionalAttrs (prefix ? ipv4) { ipv4 = prefix.ipv4; }
-        // lib.optionalAttrs (prefix ? ipv6) { ipv6 = prefix.ipv6; };
+        // lib.optionalAttrs (prefix ? ipv6) { ipv6 = prefix.ipv6; }
+        // lib.optionalAttrs (prefix ? ra6Prefixes) { ra6Prefixes = prefix.ra6Prefixes; };
     in
     builtins.map mkTenant (builtins.filter isTenantPrefix prefixes);
 

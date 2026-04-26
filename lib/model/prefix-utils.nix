@@ -76,6 +76,11 @@ let
           dst = canonicalCidr net.ipv6;
           netName = netName;
         })
+        (map (p: {
+          family = 6;
+          dst = canonicalCidr p;
+          netName = netName;
+        }) (net.ra6Prefixes or [ ]))
       ]
     ) netNames;
 
