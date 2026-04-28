@@ -622,6 +622,63 @@ let
         in
         if nh.linkName == null then node else helpers.addRoutesOnLink node nh.linkName add4 add6;
 
+  addDownstreamSelectorPolicyLaneDefaults =
+    topo: nodeName: node:
+    let
+      policyNodeName = topo.policyNodeName or null;
+      role = node.role or null;
+      links = topo.links or { };
+      laneLinks =
+        if role != "downstream-selector" || policyNodeName == null then
+          [ ]
+        else
+          lib.filter (
+            linkName:
+            let
+              linkObj = links.${linkName};
+              members = graph.membersOf linkObj;
+            in
+            lib.elem nodeName members
+            && lib.elem policyNodeName members
+            && laneAccessNodeNameFromLinkName linkName != null
+          ) (lib.sort (a: b: a < b) (builtins.attrNames links));
+
+      addLane =
+        acc: linkName:
+        let
+          linkObj = links.${linkName};
+          epTo = graph.getEp linkName linkObj policyNodeName;
+          via4 = if epTo ? addr4 && epTo.addr4 != null then helpers.stripMask epTo.addr4 else null;
+          via6 = if epTo ? addr6 && epTo.addr6 != null then helpers.stripMask epTo.addr6 else null;
+          add4 =
+            if via4 == null then
+              [ ]
+            else
+              [
+                (mkRoute4 {
+                  dst = helpers.default4;
+                  inherit via4;
+                  proto = "default";
+                  intentKind = "default-reachability";
+                })
+              ];
+          add6 =
+            if via6 == null then
+              [ ]
+            else
+              [
+                (mkRoute6 {
+                  dst = helpers.default6;
+                  inherit via6;
+                  proto = "default";
+                  intentKind = "default-reachability";
+                })
+              ];
+        in
+        helpers.addRoutesOnLink acc linkName add4 add6;
+    in
+    builtins.foldl' addLane node laneLinks;
+
   uplinkRouteEntriesFromNode =
     node:
     let
@@ -763,9 +820,10 @@ in
         let
           n1 = addInternalRoutes topo n node;
           n2 = addDefaultTowardNearestUplinkCore topo n n1;
-          n3 = addDirectWanDefaults topo n n2;
+          n3 = addDownstreamSelectorPolicyLaneDefaults topo n n2;
+          n4 = addDirectWanDefaults topo n n3;
         in
-        n3
+        n4
       ) nodes0;
 
       topo1 = topo // {

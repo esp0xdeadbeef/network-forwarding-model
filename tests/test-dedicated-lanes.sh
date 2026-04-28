@@ -26,8 +26,14 @@ write_input() {
     acme = {
       ams = {
         addressPools = {
-          local = { ipv4 = "10.0.0.0/24"; };
-          p2p = { ipv4 = "10.0.1.0/24"; };
+          local = {
+            ipv4 = "10.0.0.0/24";
+            ipv6 = "fd42:0:0:1::/64";
+          };
+          p2p = {
+            ipv4 = "10.0.1.0/24";
+            ipv6 = "fd42:0:0:1000::/64";
+          };
         };
 
         communicationContract = {
@@ -56,7 +62,12 @@ write_input() {
             { kind = "external"; name = "wan1"; }
           ];
           tenants = [
-            { kind = "tenant"; name = "tenant-a"; ipv4 = "10.10.0.0/24"; }
+            {
+              kind = "tenant";
+              name = "tenant-a";
+              ipv4 = "10.10.0.0/24";
+              ipv6 = "fd42:0:0:10::/64";
+            }
           ];
         };
 
@@ -77,7 +88,10 @@ write_input() {
                 name = "wan0";
                 addr4 = "198.51.100.2/31";
                 peerAddr4 = "198.51.100.3";
+                addr6 = "2001:db8:1::2/127";
+                peerAddr6 = "2001:db8:1::3";
                 ipv4 = [ "0.0.0.0/0" ];
+                ipv6 = [ "::/0" ];
               }
             ];
             coreB = [
@@ -85,7 +99,10 @@ write_input() {
                 name = "wan1";
                 addr4 = "203.0.113.2/31";
                 peerAddr4 = "203.0.113.3";
+                addr6 = "2001:db8:2::2/127";
+                peerAddr6 = "2001:db8:2::3";
                 ipv4 = [ "0.0.0.0/0" ];
+                ipv6 = [ "::/0" ];
               }
             ];
           };
@@ -116,18 +133,28 @@ let
   out = flake.libBySystem."${system}".build { inherit input; };
   site = out.enterprise.acme.site.ams;
   linkNames = builtins.attrNames (site.links or { });
+  downstream = site.nodes.downstream1;
 
   isLane = name: builtins.match "p2p-policy1-upstream1--access-access1--uplink-.*" name != null;
   policyUpstreamLaneLinks = builtins.filter isLane linkNames;
 
   isDsLane = name: builtins.match "p2p-downstream1-policy1--access-access1" name != null;
   dsPolicyLaneLinks = builtins.filter isDsLane linkNames;
+
+  dsPolicyLane = builtins.head dsPolicyLaneLinks;
+  dsPolicyLaneRoutes = downstream.interfaces.\${dsPolicyLane}.routes or { };
+  hasRoute = routes: dst: via:
+    builtins.any (route: (route.dst or null) == dst && (route.via4 or route.via6 or null) == via) routes;
+  hasDefault6 = routes:
+    builtins.any (route: (route.dst or null) == "0000:0000:0000:0000:0000:0000:0000:0000/0" && (route.via6 or null) != null) routes;
 in
   if
     builtins.length policyUpstreamLaneLinks == 2
     && !(builtins.elem "p2p-policy1-upstream1" linkNames)
     && builtins.length dsPolicyLaneLinks == 1
     && !(builtins.elem "p2p-downstream1-policy1" linkNames)
+    && hasRoute (dsPolicyLaneRoutes.ipv4 or [ ]) "0.0.0.0/0" "10.0.1.7"
+    && hasDefault6 (dsPolicyLaneRoutes.ipv6 or [ ])
   then
     "ok"
   else
