@@ -151,10 +151,10 @@ let
             else
               [ ];
         in
-        if fromSite != [ ] then
-          fromSite
-        else if fromWan != [ ] then
+        if fromWan != [ ] then
           fromWan
+        else if fromSite != [ ] then
+          fromSite
         else
           siteExternalDomains;
 

@@ -672,10 +672,10 @@ in
         in
         lib.sort (a: b: a < b) (
           lib.unique (
-            if routedNames != [ ] then
-              routedNames
-            else if wanNames != [ ] then
+            if wanNames != [ ] then
               wanNames
+            else if routedNames != [ ] then
+              routedNames
             else
               egressNames
           )
