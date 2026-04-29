@@ -52,6 +52,14 @@ write_input() {
           trafficTypes = [ ];
         };
 
+        # Some upstream layers materialize overlay names as external domains.
+        # WAN-discovered uplinks must still be the only default-reachability
+        # uplink set; overlays get specific reachability, not defaults.
+        uplinkNames = [ "east-west" "wan0" "wan1" ];
+        transport.overlays = [
+          { name = "east-west"; }
+        ];
+
         attachments = [
           { unit = "access1"; kind = "tenant"; name = "tenant-a"; }
         ];
@@ -134,6 +142,7 @@ let
   site = out.enterprise.acme.site.ams;
   linkNames = builtins.attrNames (site.links or { });
   downstream = site.nodes.downstream1;
+  uplinkNames = site.uplinkNames or [ ];
 
   isLane = name: builtins.match "p2p-policy1-upstream1--access-access1--uplink-.*" name != null;
   policyUpstreamLaneLinks = builtins.filter isLane linkNames;
@@ -150,6 +159,10 @@ let
 in
   if
     builtins.length policyUpstreamLaneLinks == 2
+    && builtins.length uplinkNames == 2
+    && builtins.elem "wan0" uplinkNames
+    && builtins.elem "wan1" uplinkNames
+    && !(builtins.elem "east-west" uplinkNames)
     && !(builtins.elem "p2p-policy1-upstream1" linkNames)
     && builtins.length dsPolicyLaneLinks == 1
     && !(builtins.elem "p2p-downstream1-policy1" linkNames)
