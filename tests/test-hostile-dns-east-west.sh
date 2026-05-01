@@ -41,8 +41,8 @@ OUTPUT_JSON="${output_json}" nix eval --impure --expr '
   in
     hasDst hostileEw "10.20.10.0/24"
     && hasDst hostileEw "fd42:dead:beef:0010:0000:0000:0000:0000/64"
-    && (siteB.tenantPrefixOwners."6|2a01:04f8:1c17:b337:0000:0000:0000:0000/64".owner or null) == "b-router-access-hostile"
-    && hasDst siteB.nodes."b-router-core-nebula".interfaces."p2p-b-router-core-nebula-b-router-upstream-selector".routes "2a01:04f8:1c17:b337:0000:0000:0000:0000/64"
+    && (siteB.tenantPrefixOwners."6|fd42:dead:feed:0070:0000:0000:0000:0000/64".owner or null) == "b-router-access-hostile"
+    && hasDst siteB.nodes."b-router-core-nebula".interfaces."p2p-b-router-core-nebula-b-router-upstream-selector".routes "fd42:dead:feed:0070:0000:0000:0000:0000/64"
 ' | grep -qx true
 
 echo "PASS hostile-dns-east-west"
