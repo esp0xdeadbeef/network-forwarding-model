@@ -319,16 +319,37 @@ in
         in
         if builtins.length uplinkNames == 1 then "uplink::${builtins.head uplinkNames}" else null;
 
+      coreUplinksForNodePair =
+        pair:
+        let
+          other =
+            if pair == null || upstreamSelectorUnit == null then
+              null
+            else if pair.a == upstreamSelectorUnit then
+              pair.b
+            else if pair.b == upstreamSelectorUnit then
+              pair.a
+            else
+              null;
+        in
+        if other == null then [ ] else uplinkNamesForCore other;
+
       annotateMergedLinkLane =
         _: link:
         let
           existingLane = link.lane or null;
-          lane = coreUplinkLaneForNodePair (nodePairForLink link);
+          pair = nodePairForLink link;
+          lane = coreUplinkLaneForNodePair pair;
+          uplinks = coreUplinksForNodePair pair;
         in
-        if (link.kind or null) != "p2p" || lane == null || (existingLane != null && existingLane != "default") then
+        if (link.kind or null) != "p2p" || uplinks == [ ] then
           link
         else
-          link // { inherit lane; };
+          link
+          // { inherit uplinks; }
+          // lib.optionalAttrs (lane != null && (existingLane == null || existingLane == "default")) {
+            inherit lane;
+          };
 
       basePairsWithoutSelectorBuses =
         if policyUnit == null then
