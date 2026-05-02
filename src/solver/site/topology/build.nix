@@ -253,6 +253,8 @@ in
           nodeUplinkNames =
             if builtins.isAttrs (site.nodes.${coreName}.uplinks or null) then
               builtins.attrNames site.nodes.${coreName}.uplinks
+            else if builtins.isAttrs (site.topology.nodes.${coreName}.uplinks or null) then
+              builtins.attrNames site.topology.nodes.${coreName}.uplinks
             else
               [ ];
         in
