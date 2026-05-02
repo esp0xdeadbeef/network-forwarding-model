@@ -140,7 +140,7 @@
             text = ''
               set -euo pipefail
 
-              [ $# -ge 1 ] || { echo "usage: nix run ${self}#debug -- <ir.json>" >&2; exit 1; }
+              [ $# -ge 1 ] || { echo "usage: nix run ${self.outPath}#debug -- <ir.json>" >&2; exit 1; }
 
               IR="$1"
 
@@ -194,16 +194,16 @@
             text = ''
               set -euo pipefail
 
-              [ $# -ge 1 ] || { echo "usage: nix run ${self}#compile-and-build-forwarding-model -- <compiler-inputs.nix>" >&2; exit 1; }
+              [ $# -ge 1 ] || { echo "usage: nix run ${self.outPath}#compile-and-build-forwarding-model -- <compiler-inputs.nix>" >&2; exit 1; }
 
               INPUTS_NIX="$1"
 
               IR_JSON="$(mktemp)"
               trap 'rm -f "$IR_JSON"' EXIT
 
-              nix run --no-warn-dirty ${network-compiler}#compile -- "$INPUTS_NIX" > "$IR_JSON"
+              nix run --no-warn-dirty ${network-compiler.outPath}#compile -- "$INPUTS_NIX" > "$IR_JSON"
 
-              nix run ${self}#debug -- "$IR_JSON"
+              nix run ${self.outPath}#debug -- "$IR_JSON"
             '';
           };
 
