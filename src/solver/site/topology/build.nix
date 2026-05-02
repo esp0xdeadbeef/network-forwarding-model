@@ -207,38 +207,89 @@ in
         in
         builtins.listToAttrs (map mkForUnit accessUnitNames);
 
-      baseP2pPairs = lib.filter (p: builtins.isList p && builtins.length p == 2) topologyPairs;
-
-      isPair =
-        a: b: pair:
-        let
-          x = toString (builtins.elemAt pair 0);
-          y = toString (builtins.elemAt pair 1);
-        in
-        (x == a && y == b) || (x == b && y == a);
-
-      p2pNameWithSuffix =
-        a: b: suffix:
+      p2pName =
+        a: b:
         let
           a0 = toString a;
           b0 = toString b;
           left = if a0 < b0 then a0 else b0;
           right = if a0 < b0 then b0 else a0;
         in
-        "p2p-${left}-${right}--${toString suffix}";
+        "p2p-${left}-${right}";
+
+      p2pNameWithSuffix = a: b: suffix: "${p2pName a b}--${toString suffix}";
+
+      baseP2pPairs = lib.filter (p: builtins.isList p && builtins.length p == 2) topologyPairs;
+
+      linkSpecEndpointA =
+        pair:
+        if builtins.isList pair then
+          toString (builtins.elemAt pair 0)
+        else
+          toString pair.a;
+
+      linkSpecEndpointB =
+        pair:
+        if builtins.isList pair then
+          toString (builtins.elemAt pair 1)
+        else
+          toString pair.b;
+
+      isPair =
+        a: b: pair:
+        let
+          x = linkSpecEndpointA pair;
+          y = linkSpecEndpointB pair;
+        in
+        (x == a && y == b) || (x == b && y == a);
+
+      uplinkNamesForCore =
+        coreName:
+        lib.sort builtins.lessThan (
+          lib.filter (
+            uplinkName: toString (wanResult.uplinkCoreByName.${uplinkName} or "") == coreName
+          ) (builtins.attrNames (wanResult.uplinkCoreByName or { }))
+        );
+
+      annotateCoreUplinkLane =
+        pair:
+        let
+          a = linkSpecEndpointA pair;
+          b = linkSpecEndpointB pair;
+          other =
+            if upstreamSelectorUnit == null then
+              null
+            else if a == upstreamSelectorUnit then
+              b
+            else if b == upstreamSelectorUnit then
+              a
+            else
+              null;
+          uplinkNames = if other == null then [ ] else uplinkNamesForCore other;
+        in
+        if builtins.length uplinkNames == 1 then
+          {
+            inherit a b;
+            name = p2pName a b;
+            lane = "uplink::${builtins.head uplinkNames}";
+          }
+        else
+          pair;
 
       basePairsWithoutSelectorBuses =
         if policyUnit == null then
-          baseP2pPairs
+          map annotateCoreUplinkLane baseP2pPairs
         else
-          lib.filter (
-            pair:
-            let
-              dropDsPolicy = downstreamSelectorUnit != null && isPair policyUnit downstreamSelectorUnit pair;
-              dropPolicyUp = upstreamSelectorUnit != null && isPair policyUnit upstreamSelectorUnit pair;
-            in
-            !(dropDsPolicy || dropPolicyUp)
-          ) baseP2pPairs;
+          map annotateCoreUplinkLane (
+            lib.filter (
+              pair:
+              let
+                dropDsPolicy = downstreamSelectorUnit != null && isPair policyUnit downstreamSelectorUnit pair;
+                dropPolicyUp = upstreamSelectorUnit != null && isPair policyUnit upstreamSelectorUnit pair;
+              in
+              !(dropDsPolicy || dropPolicyUp)
+            ) baseP2pPairs
+          );
 
       # Derived links:
       # - downstream-selector <-> policy: one lane per access unit (policy enforces per ingress lane)

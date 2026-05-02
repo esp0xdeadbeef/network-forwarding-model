@@ -194,6 +194,7 @@ The forwarding-model is the canonical place where compiler semantics become forw
 Downstream stages should treat the following as normative forwarding artifacts:
 
 * stable lane link identities
+* dedicated lane metadata for selector and transit links
 * overlay reachability ownership and termination
 * logical interface identities created for forwarding purposes
 * route intent classes derived from the staged architecture
@@ -210,6 +211,18 @@ It is not allowed to decide:
 * bridge names
 * VLAN attachment choices
 * container placement
+
+## Renderer Input Boundary
+
+Renderers do not consume `intent.nix` or inventory files as semantic authority.
+Those files are upstream inputs. The forwarding model emits forwarding truth,
+CPM joins that truth with realization data, and renderer behavior is driven by
+the resulting CPM output.
+
+If a downstream renderer needs to preserve lane selection, route ownership,
+overlay semantics, or forwarding authority, the forwarding model and CPM must
+carry that as explicit model data. A renderer must not recover it by parsing
+link names, provider names, role names, or example files.
 
 ---
 
