@@ -247,6 +247,7 @@ in
               name = linkName;
               value = {
                 kind = "p2p";
+                lane = p.lane;
                 endpoints = {
                   "${p.a}" = {
                     addr4 = addr4A;
