@@ -276,6 +276,51 @@ in
         else
           pair;
 
+      nodePairForLink =
+        link:
+        if builtins.isList (link.members or null) && builtins.length link.members == 2 then
+          {
+            a = toString (builtins.elemAt link.members 0);
+            b = toString (builtins.elemAt link.members 1);
+          }
+        else if builtins.isAttrs (link.endpoints or null) && builtins.length (builtins.attrNames link.endpoints) == 2 then
+          let
+            names = builtins.attrNames link.endpoints;
+          in
+          {
+            a = toString (builtins.elemAt names 0);
+            b = toString (builtins.elemAt names 1);
+          }
+        else
+          null;
+
+      coreUplinkLaneForNodePair =
+        pair:
+        let
+          other =
+            if pair == null || upstreamSelectorUnit == null then
+              null
+            else if pair.a == upstreamSelectorUnit then
+              pair.b
+            else if pair.b == upstreamSelectorUnit then
+              pair.a
+            else
+              null;
+          uplinkNames = if other == null then [ ] else uplinkNamesForCore other;
+        in
+        if builtins.length uplinkNames == 1 then "uplink::${builtins.head uplinkNames}" else null;
+
+      annotateMergedLinkLane =
+        _: link:
+        let
+          existingLane = link.lane or null;
+          lane = coreUplinkLaneForNodePair (nodePairForLink link);
+        in
+        if (link.kind or null) != "p2p" || lane == null || (existingLane != null && existingLane != "default") then
+          link
+        else
+          link // { inherit lane; };
+
       basePairsWithoutSelectorBuses =
         if policyUnit == null then
           map annotateCoreUplinkLane baseP2pPairs
@@ -550,7 +595,9 @@ in
           uplinkNames = wanResult.uplinkNames or [ ];
           p2p-pool = p2pPool;
           inherit nodes;
-          links = p2pLinks // (wanResult.wanLinks or { }) // (site.links or { });
+          links = builtins.mapAttrs annotateMergedLinkLane (
+            p2pLinks // (wanResult.wanLinks or { }) // (site.links or { })
+          );
         }
       );
 
