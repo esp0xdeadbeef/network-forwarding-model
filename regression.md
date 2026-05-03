@@ -16,13 +16,11 @@ and must be split before tests can pass.
 350 src/solver/site/wan.nix | state=watch | reason=WAN realization normalization still includes validation helpers
 350 lib/topology-resolve.nix | state=watch | reason=topology resolution owns endpoint normalization
 344 src/solver/site/topology/transit.nix | state=watch | reason=transit derivation remains one focused pass
-332 src/solver/site/topology/semantics.nix | state=watch | reason=semantic annotation still handles several emitted model sections
 329 src/solver/site/topology/lane-links.nix | state=watch | reason=lane link derivation owns deterministic lane naming
 323 lib/routing/internal-routes.nix | state=watch | reason=internal route aggregation owns site-prefix propagation
-322 lib/fabric/invariants/final-topology-integrity.nix | state=watch | reason=integrity checks are grouped but should be split by invariant family when touched
 285 lib/routing/resolve-loopbacks.nix | state=watch | reason=loopback route resolution remains one focused but oversized pass
 275 lib/p2p/alloc.nix | state=watch | reason=P2P allocation helpers are still centralized for deterministic ordering
-266 src/solver/site/topology/pools.nix | state=watch | reason=pool validation and prefix extraction should split when next edited
+271 src/solver/site/topology/semantics.nix | state=watch | reason=semantic annotation owns final site annotation after role capability tables were split out
 261 src/solver/site/topology/emitted-site.nix | state=watch | reason=emitted topology metadata owns final output shaping
 261 src/main.nix | state=watch | reason=top-level solver orchestration remains centralized
 257 lib/fabric/invariants/transit-ordering-valid.nix | state=watch | reason=transit ordering invariant is long and should split into smaller checks
@@ -32,4 +30,5 @@ and must be split before tests can pass.
 228 flake.nix | state=watch | reason=flake app/test wiring is above soft limit and should not grow further
 213 lib/routing/static-helpers.nix | state=watch | reason=shared route helpers remain above the soft limit after CIDR summarization was split out
 210 src/solver/site/roles.nix | state=watch | reason=role inference and validation remain together just above soft limit
+204 lib/fabric/invariants/final-topology-links.nix | state=watch | reason=final link integrity owns node-interface reverse membership checks
 <!-- nix-file-loc:end -->

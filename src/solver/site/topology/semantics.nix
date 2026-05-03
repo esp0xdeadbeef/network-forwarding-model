@@ -1,6 +1,8 @@
 { lib }:
 
 let
+  roleCapabilities = import ./role-capabilities.nix { };
+
   sortedUnique =
     xs:
     lib.sort (a: b: toString a < toString b) (lib.unique (map toString (lib.filter (x: x != null) xs)));
@@ -194,77 +196,14 @@ let
 
           externalDomains = if eligible then siteExternalDomains else [ ];
 
-          forwardingFunctions =
-            if role == "access" then
-              [
-                "access-gateway"
-                "connected-prefix-origin"
-                "router-identity"
-                "tenant-edge"
-                "traversal-entry"
-              ]
-            else if role == "downstream-selector" then
-              [
-                "downstream-selector"
-                "router-identity"
-                "transit-forwarder"
-              ]
-            else if role == "policy" then
-              [
-                "policy-enforcer"
-                "router-identity"
-                "transit-forwarder"
-              ]
-            else if upstreamSelection then
-              [
-                "egress-selector"
-                "router-identity"
-                "transit-forwarder"
-                "upstream-selector"
-              ]
-            else if exitNode then
-              [
-                "external-egress"
-                "router-identity"
-                "transit-forwarder"
-                "uplink-anchor"
-              ]
-            else
-              [
-                "router-identity"
-                "transit-forwarder"
-              ];
-
-          forwardingResponsibility = {
-            anchorsExternalUplinks = exitNode;
-            carriesTransit = true;
-            enforcesPolicy = role == "policy";
-            explicit = true;
-            participatesInUpstreamSelection = exitNode || upstreamSelection;
-            terminatesOverlays = false;
-            terminatesTenants = role == "access";
+          capabilityArgs = {
+            inherit exitNode role upstreamSelection;
           };
 
-          routingAuthority = {
-            connectedReachability = true;
-            defaultReachability = false;
-            exitsSite = exitNode;
-            explicit = true;
-            internalReachability = true;
-            overlayReachability = false;
-            selectsUpstream = upstreamSelection;
-            uplinkLearnedReachability = false;
-          };
-
-          traversalParticipation = {
-            enforcement = role == "policy";
-            exit = exitNode;
-            explicit = true;
-            ingress = role == "access";
-            participates = true;
-            transit = true;
-            upstreamSelection = upstreamSelection;
-          };
+          forwardingFunctions = roleCapabilities.forwardingFunctionsFor capabilityArgs;
+          forwardingResponsibility = roleCapabilities.forwardingResponsibilityFor capabilityArgs;
+          routingAuthority = roleCapabilities.routingAuthorityFor capabilityArgs;
+          traversalParticipation = roleCapabilities.traversalParticipationFor capabilityArgs;
 
           egressIntent = {
             eligible = eligible;
