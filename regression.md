@@ -19,7 +19,6 @@ and must be split before tests can pass.
 329 src/solver/site/topology/lane-links.nix | state=watch | reason=lane link derivation owns deterministic lane naming
 323 lib/routing/internal-routes.nix | state=watch | reason=internal route aggregation owns site-prefix propagation
 285 lib/routing/resolve-loopbacks.nix | state=watch | reason=loopback route resolution remains one focused but oversized pass
-275 lib/p2p/alloc.nix | state=watch | reason=P2P allocation helpers are still centralized for deterministic ordering
 271 src/solver/site/topology/semantics.nix | state=watch | reason=semantic annotation owns final site annotation after role capability tables were split out
 261 src/solver/site/topology/emitted-site.nix | state=watch | reason=emitted topology metadata owns final output shaping
 261 src/main.nix | state=watch | reason=top-level solver orchestration remains centralized

@@ -60,60 +60,60 @@ let
       pair,
     }:
     let
-      a0 = toString (builtins.elemAt pair 0);
-      b0 = toString (builtins.elemAt pair 1);
+      firstEndpoint = toString (builtins.elemAt pair 0);
+      secondEndpoint = toString (builtins.elemAt pair 1);
 
-      roleA = roles.${a0};
-      roleB = roles.${b0};
+      firstEndpointRole = roles.${firstEndpoint};
+      secondEndpointRole = roles.${secondEndpoint};
 
-      rankA = roleStages.transitRank roleA;
-      rankB = roleStages.transitRank roleB;
+      firstEndpointRank = roleStages.transitRank firstEndpointRole;
+      secondEndpointRank = roleStages.transitRank secondEndpointRole;
 
       oriented =
-        if rankA < rankB then
+        if firstEndpointRank < secondEndpointRank then
           [
-            a0
-            b0
+            firstEndpoint
+            secondEndpoint
           ]
-        else if rankB < rankA then
+        else if secondEndpointRank < firstEndpointRank then
           [
-            b0
-            a0
+            secondEndpoint
+            firstEndpoint
           ]
         else
           throw ''
             network-forwarding-model: transit ordering cannot connect nodes in the same canonical stage
 
             site: ${siteName}
-            left:  ${a0} (${roleA})
-            right: ${b0} (${roleB})
+            left:  ${firstEndpoint} (${firstEndpointRole})
+            right: ${secondEndpoint} (${secondEndpointRole})
           '';
 
-      src = builtins.elemAt oriented 0;
-      dst = builtins.elemAt oriented 1;
+      sourceNode = builtins.elemAt oriented 0;
+      destinationNode = builtins.elemAt oriented 1;
 
-      srcRole = roles.${src};
-      dstRole = roles.${dst};
-      expectedDstRole = nextRoleOf roles srcRole;
+      sourceRole = roles.${sourceNode};
+      destinationRole = roles.${destinationNode};
+      expectedDestinationRole = nextRoleOf roles sourceRole;
     in
-    if expectedDstRole == null then
+    if expectedDestinationRole == null then
       throw ''
         network-forwarding-model: canonical transit ordering cannot originate from terminal stage
 
         site: ${siteName}
-        node: ${src}
-        role: ${srcRole}
+        node: ${sourceNode}
+        role: ${sourceRole}
       ''
-    else if dstRole != expectedDstRole then
+    else if destinationRole != expectedDestinationRole then
       throw ''
         network-forwarding-model: transit ordering violates canonical stage adjacency
 
         site: ${siteName}
-        pair: ${src} -> ${dst}
+        pair: ${sourceNode} -> ${destinationNode}
 
-        sourceRole: ${srcRole}
-        destinationRole: ${dstRole}
-        expectedDestinationRole: ${expectedDstRole}
+        sourceRole: ${sourceRole}
+        destinationRole: ${destinationRole}
+        expectedDestinationRole: ${expectedDestinationRole}
       ''
     else
       oriented;
@@ -121,10 +121,10 @@ let
   pairSortKey =
     roles: pair:
     let
-      src = toString (builtins.elemAt pair 0);
-      dst = toString (builtins.elemAt pair 1);
+      sourceNode = toString (builtins.elemAt pair 0);
+      destinationNode = toString (builtins.elemAt pair 1);
     in
-    "${toString (roleStages.transitRank roles.${src})}|${src}|${dst}";
+    "${toString (roleStages.transitRank roles.${sourceNode})}|${sourceNode}|${destinationNode}";
 in
 {
   canonicalize =
