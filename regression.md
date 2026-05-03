@@ -11,7 +11,6 @@ and must be split before tests can pass.
 
 <!-- nix-file-loc:start -->
 364 lib/routing/static.nix | state=watch | reason=static route assembly owns the ordered attachment pipeline
-360 src/normalize-sites.nix | state=watch | reason=site normalization owns shape compatibility defaults
 360 lib/routing/cidr-summary.nix | state=watch | reason=CIDR summarization owns shared interval ordering
 350 src/solver/site/wan.nix | state=watch | reason=WAN realization normalization still includes validation helpers
 350 lib/topology-resolve.nix | state=watch | reason=topology resolution owns endpoint normalization
@@ -31,3 +30,8 @@ and must be split before tests can pass.
 210 src/solver/site/roles.nix | state=watch | reason=role inference and validation remain together just above soft limit
 204 lib/fabric/invariants/final-topology-links.nix | state=watch | reason=final link integrity owns node-interface reverse membership checks
 <!-- nix-file-loc:end -->
+
+## Architecture Shape
+
+- state=required | target=s88-style Enterprise/Site/Unit/EquipmentModule/ControlModule layout | reason=forwarding-model code must be organized by model responsibility, with top-level files limited to flakes, tests, entrypoints, and thin imports into s88-style responsibility folders; solver policy must not be added as root-level blobs.
+- state=required | target=no oversized implementation files | reason=Nix implementation files over 200 LOC must be split by concrete responsibility unless they are flake/test wiring or explicitly documented as a temporary regression with a split target.

@@ -39,6 +39,7 @@ let
           ipv4 = t.ipv4 or null;
           ipv6 = t.ipv6 or null;
           ra6Prefixes = t.ra6Prefixes or [ ];
+          routedPrefixes = t.routedPrefixes or [ ];
         };
       }) (normalizeTenants site)
     );
@@ -123,6 +124,12 @@ let
         lib.filter (x: x != null) (
           (map (t: if (t.ipv6 or null) != null then toString t.ipv6 else null) tenants)
           ++ (lib.concatMap (t: map toString (t.ra6Prefixes or [ ])) tenants)
+          ++ (lib.concatMap (
+            t:
+            map (prefix: toString prefix.ipv6) (
+              lib.filter (prefix: builtins.isAttrs prefix && (prefix.ipv6 or null) != null) (t.routedPrefixes or [ ])
+            )
+          ) tenants)
         )
       );
     in
