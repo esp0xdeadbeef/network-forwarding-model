@@ -1,7 +1,6 @@
 { lib }:
 
 let
-  p2pAlloc = import ../../../../lib/p2p/alloc.nix { inherit lib; };
   topoResolve = import ../../../../lib/topology-resolve.nix { inherit lib; };
   addr = import ../../../../lib/model/addressing.nix { inherit lib; };
 
@@ -10,8 +9,10 @@ let
   tenants = import ./tenants.nix { inherit lib; };
   overlays = import ./overlays.nix { inherit lib; };
   pools = import ./pools.nix { inherit lib; };
-  transit = import ./transit.nix { inherit lib; };
   semantics = import ./semantics.nix { inherit lib; };
+  laneLinks = import ./lane-links.nix { inherit lib; };
+  allocatedP2pLinks = import ./allocated-p2p-links.nix { inherit lib; };
+  emittedSite = import ./emitted-site.nix { inherit lib; };
 
 in
 {
@@ -88,324 +89,18 @@ in
         )
       );
 
-      # ---- Lane derivation helpers ----
+      laneLinkResult = laneLinks.derive {
+        inherit
+          rolesResult
+          site
+          topologyPairs
+          unitNames
+          wanResult
+          ;
+      };
 
-      firstUnitByRole =
-        role:
-        let
-          names = lib.sort (a: b: a < b) unitNames;
-          hits = lib.filter (n: rolesResult.roleFromInput (toString n) == role) names;
-        in
-        if hits == [ ] then null else toString (builtins.head hits);
-
-      downstreamSelectorUnit = firstUnitByRole "downstream-selector";
-      upstreamSelectorUnit = firstUnitByRole "upstream-selector";
-      policyUnit = if rolesResult.policyUnit == null then null else toString rolesResult.policyUnit;
-      accessUnitNames =
-        let
-          names = lib.sort (a: b: a < b) unitNames;
-        in
-        map toString (lib.filter (n: rolesResult.roleFromInput (toString n) == "access") names);
-
-      # Map unit -> attached tenant names.
-      tenantsByAccessUnit =
-        let
-          attachments = site.attachments or [ ];
-          step =
-            acc: a:
-            if !(builtins.isAttrs a) then
-              acc
-            else
-              let
-                unit = toString (a.unit or "");
-                kind = toString (a.kind or "");
-                name = toString (a.name or "");
-              in
-              if unit == "" || kind != "tenant" || name == "" then
-                acc
-              else
-                acc
-                // {
-                  "${unit}" = (acc.${unit} or [ ]) ++ [ name ];
-                };
-        in
-        builtins.foldl' step { } attachments;
-
-      relationToUplinkNames =
-        rel:
-        let
-          to = rel.to or { };
-          kind = to.kind or null;
-          uplinks = to.uplinks or null;
-          name = to.name or null;
-        in
-        if kind != "external" then
-          [ ]
-        else if builtins.isList uplinks then
-          map toString uplinks
-        else if name != null && toString name != "" then
-          [ (toString name) ]
-        else
-          [ ];
-
-      relationAppliesToAccessUnit =
-        unit: rel:
-        let
-          from = rel.from or { };
-          unitTenants = tenantsByAccessUnit.${unit} or [ ];
-          kind = from.kind or null;
-        in
-        if kind == "tenant" then
-          builtins.elem (toString (from.name or "")) unitTenants
-        else if kind == "tenant-set" then
-          let
-            members = if builtins.isList (from.members or null) then map toString from.members else [ ];
-          in
-          lib.any (t: builtins.elem t members) unitTenants
-        else
-          false;
-
-      # Per-access uplinks are a conservative superset: any "allow" relation to external uplinks.
-      # Precise deny/priority semantics should stay in the upstream policy contract.
-      allowedUplinksByAccessUnit =
-        let
-          relations = (site.communicationContract.allowedRelations or [ ]);
-          hasAnyAllowRelation = lib.any (rel: (rel.action or null) == "allow") relations;
-
-          # When the forwarding-model is used directly (without the compiler), sites may omit
-          # explicit allow-relations. In that case, assume "no contract == no restriction" and
-          # allow all uplinks that exist in the site definition.
-          allUplinkNames =
-            let
-              cores = (site.upstreams.cores or { });
-              coreNames = builtins.attrNames cores;
-              names = lib.concatMap (
-                coreName: map (u: toString (u.name or "")) (cores.${coreName} or [ ])
-              ) coreNames;
-            in
-            lib.sort (a: b: a < b) (lib.unique (lib.filter (s: s != "") names));
-
-          mkForUnit =
-            unit:
-            let
-              uplinks =
-                if !hasAnyAllowRelation then
-                  allUplinkNames
-                else
-                  lib.concatMap (
-                    rel:
-                    if (rel.action or null) == "allow" && relationAppliesToAccessUnit unit rel then
-                      relationToUplinkNames rel
-                    else
-                      [ ]
-                  ) relations;
-            in
-            {
-              name = unit;
-              value = lib.sort (a: b: a < b) (lib.unique (lib.filter (s: s != "") (map toString uplinks)));
-            };
-        in
-        builtins.listToAttrs (map mkForUnit accessUnitNames);
-
-      p2pName =
-        a: b:
-        let
-          a0 = toString a;
-          b0 = toString b;
-          left = if a0 < b0 then a0 else b0;
-          right = if a0 < b0 then b0 else a0;
-        in
-        "p2p-${left}-${right}";
-
-      p2pNameWithSuffix = a: b: suffix: "${p2pName a b}--${toString suffix}";
-
-      baseP2pPairs = lib.filter (p: builtins.isList p && builtins.length p == 2) topologyPairs;
-
-      linkSpecEndpointA =
-        pair:
-        if builtins.isList pair then
-          toString (builtins.elemAt pair 0)
-        else
-          toString pair.a;
-
-      linkSpecEndpointB =
-        pair:
-        if builtins.isList pair then
-          toString (builtins.elemAt pair 1)
-        else
-          toString pair.b;
-
-      isPair =
-        a: b: pair:
-        let
-          x = linkSpecEndpointA pair;
-          y = linkSpecEndpointB pair;
-        in
-        (x == a && y == b) || (x == b && y == a);
-
-      uplinkNamesForCore =
-        coreName:
-        let
-          wanResultNames =
-            lib.filter (
-              uplinkName: toString (wanResult.uplinkCoreByName.${uplinkName} or "") == coreName
-            ) (builtins.attrNames (wanResult.uplinkCoreByName or { }));
-          nodeUplinkNames =
-            if builtins.isAttrs (site.nodes.${coreName}.uplinks or null) then
-              builtins.attrNames site.nodes.${coreName}.uplinks
-            else if builtins.isAttrs (site.topology.nodes.${coreName}.uplinks or null) then
-              builtins.attrNames site.topology.nodes.${coreName}.uplinks
-            else
-              [ ];
-        in
-        lib.sort builtins.lessThan (lib.unique (wanResultNames ++ nodeUplinkNames));
-
-      annotateCoreUplinkLane =
-        pair:
-        let
-          a = linkSpecEndpointA pair;
-          b = linkSpecEndpointB pair;
-          other =
-            if upstreamSelectorUnit == null then
-              null
-            else if a == upstreamSelectorUnit then
-              b
-            else if b == upstreamSelectorUnit then
-              a
-            else
-              null;
-          uplinkNames = if other == null then [ ] else uplinkNamesForCore other;
-        in
-        if builtins.length uplinkNames == 1 then
-          {
-            inherit a b;
-            name = p2pName a b;
-            lane = "uplink::${builtins.head uplinkNames}";
-          }
-        else
-          pair;
-
-      nodePairForLink =
-        link:
-        if builtins.isList (link.members or null) && builtins.length link.members == 2 then
-          {
-            a = toString (builtins.elemAt link.members 0);
-            b = toString (builtins.elemAt link.members 1);
-          }
-        else if builtins.isAttrs (link.endpoints or null) && builtins.length (builtins.attrNames link.endpoints) == 2 then
-          let
-            names = builtins.attrNames link.endpoints;
-          in
-          {
-            a = toString (builtins.elemAt names 0);
-            b = toString (builtins.elemAt names 1);
-          }
-        else
-          null;
-
-      coreUplinkLaneForNodePair =
-        pair:
-        let
-          other =
-            if pair == null || upstreamSelectorUnit == null then
-              null
-            else if pair.a == upstreamSelectorUnit then
-              pair.b
-            else if pair.b == upstreamSelectorUnit then
-              pair.a
-            else
-              null;
-          uplinkNames = if other == null then [ ] else uplinkNamesForCore other;
-        in
-        if builtins.length uplinkNames == 1 then "uplink::${builtins.head uplinkNames}" else null;
-
-      coreUplinksForNodePair =
-        pair:
-        let
-          other =
-            if pair == null || upstreamSelectorUnit == null then
-              null
-            else if pair.a == upstreamSelectorUnit then
-              pair.b
-            else if pair.b == upstreamSelectorUnit then
-              pair.a
-            else
-              null;
-        in
-        if other == null then [ ] else uplinkNamesForCore other;
-
-      annotateMergedLinkLane =
-        _: link:
-        let
-          existingLane = link.lane or null;
-          pair = nodePairForLink link;
-          lane = coreUplinkLaneForNodePair pair;
-          uplinks = coreUplinksForNodePair pair;
-        in
-        if (link.kind or null) != "p2p" || uplinks == [ ] then
-          link
-        else
-          link
-          // { inherit uplinks; }
-          // lib.optionalAttrs (lane != null && (existingLane == null || existingLane == "default")) {
-            inherit lane;
-          };
-
-      basePairsWithoutSelectorBuses =
-        if policyUnit == null then
-          map annotateCoreUplinkLane baseP2pPairs
-        else
-          map annotateCoreUplinkLane (
-            lib.filter (
-              pair:
-              let
-                dropDsPolicy = downstreamSelectorUnit != null && isPair policyUnit downstreamSelectorUnit pair;
-                dropPolicyUp = upstreamSelectorUnit != null && isPair policyUnit upstreamSelectorUnit pair;
-              in
-              !(dropDsPolicy || dropPolicyUp)
-            ) baseP2pPairs
-          );
-
-      # Derived links:
-      # - downstream-selector <-> policy: one lane per access unit (policy enforces per ingress lane)
-      # - policy <-> upstream-selector: one lane per (access unit, allowed uplink)
-      derivedLaneSpecs =
-        if policyUnit == null then
-          [ ]
-        else
-          (lib.concatMap (
-            accessUnit:
-            if downstreamSelectorUnit == null then
-              [ ]
-            else
-              [
-                {
-                  a = policyUnit;
-                  b = downstreamSelectorUnit;
-                  lane = "access::${toString accessUnit}";
-                  name = p2pNameWithSuffix policyUnit downstreamSelectorUnit "access-${toString accessUnit}";
-                }
-              ]
-          ) accessUnitNames)
-          ++ (lib.concatMap (
-            accessUnit:
-            let
-              uplinks = allowedUplinksByAccessUnit.${toString accessUnit} or [ ];
-            in
-            if upstreamSelectorUnit == null then
-              [ ]
-            else
-              map (uplinkName: {
-                a = policyUnit;
-                b = upstreamSelectorUnit;
-                lane = "access::${toString accessUnit}::uplink::${toString uplinkName}";
-                name =
-                  p2pNameWithSuffix policyUnit upstreamSelectorUnit
-                    "access-${toString accessUnit}--uplink-${toString uplinkName}";
-              }) uplinks
-          ) accessUnitNames);
-
-      p2pLinkSpecs = (map (p: p) basePairsWithoutSelectorBuses) ++ derivedLaneSpecs;
+      p2pLinkSpecs = laneLinkResult.p2pLinkSpecs;
+      annotateMergedLinkLane = laneLinkResult.annotateMergedLinkLane;
 
       loopbackHostBase = 0;
 
@@ -478,121 +173,20 @@ in
       userPrefixes =
         (pools.userPrefixEntriesFromNodes nodes) ++ (tenants.tenantPrefixEntriesFromDomains siteDomains);
 
-      _validateP2pPool4 = pools.validatePool {
-        label = "sites.${enterprise}.${siteId}.addressPools.p2p.ipv4";
-        family = 4;
-        cidrStr = p2pPool.ipv4 or null;
-        requiredHosts = 2 * (builtins.length p2pLinkSpecs);
-        required = true;
+      p2pLinks = allocatedP2pLinks.allocate {
+        inherit
+          enterprise
+          explicitLoopbackEntries
+          localPool
+          nodes
+          p2pLinkSpecs
+          p2pPool
+          siteDomains
+          siteId
+          siteName
+          userPrefixes
+          ;
       };
-
-      _validateP2pPool6 = pools.validatePool {
-        label = "sites.${enterprise}.${siteId}.addressPools.p2p.ipv6";
-        family = 6;
-        cidrStr = p2pPool.ipv6 or null;
-        requiredHosts = if (p2pPool.ipv6 or null) == null then 0 else 2 * (builtins.length p2pLinkSpecs);
-        required = false;
-      };
-
-      _validateLocalPool4 = pools.validatePool {
-        label = "sites.${enterprise}.${siteId}.addressPools.local.ipv4";
-        family = 4;
-        cidrStr = if localPool == null then null else localPool.ipv4 or null;
-        requiredHosts =
-          if localPool == null || (localPool.ipv4 or null) == null then 0 else builtins.length unitNames;
-        required = true;
-      };
-
-      _validateLocalPool6 = pools.validatePool {
-        label = "sites.${enterprise}.${siteId}.addressPools.local.ipv6";
-        family = 6;
-        cidrStr = if localPool == null then null else localPool.ipv6 or null;
-        requiredHosts =
-          if localPool == null || (localPool.ipv6 or null) == null then 0 else builtins.length unitNames;
-        required = false;
-      };
-
-      _disjointPools4 = pools.assertNoOverlap {
-        leftLabel = "sites.${enterprise}.${siteId}.addressPools.p2p.ipv4";
-        leftCidr = p2pPool.ipv4 or null;
-        rightLabel = "sites.${enterprise}.${siteId}.addressPools.local.ipv4";
-        rightCidr = if localPool == null then null else localPool.ipv4 or null;
-      };
-
-      _disjointPools6 = pools.assertNoOverlap {
-        leftLabel = "sites.${enterprise}.${siteId}.addressPools.p2p.ipv6";
-        leftCidr = p2pPool.ipv6 or null;
-        rightLabel = "sites.${enterprise}.${siteId}.addressPools.local.ipv6";
-        rightCidr = if localPool == null then null else localPool.ipv6 or null;
-      };
-
-      _poolsVsUserPrefixes = lib.forEach userPrefixes (
-        entry:
-        builtins.seq
-          (pools.assertNoOverlap {
-            leftLabel = "sites.${enterprise}.${siteId}.addressPools.p2p";
-            leftCidr = if entry.family == 4 then p2pPool.ipv4 or null else p2pPool.ipv6 or null;
-            rightLabel = entry.label;
-            rightCidr = entry.cidr;
-          })
-          (
-            pools.assertNoOverlap {
-              leftLabel = "sites.${enterprise}.${siteId}.addressPools.local";
-              leftCidr =
-                if localPool == null then
-                  null
-                else if entry.family == 4 then
-                  localPool.ipv4 or null
-                else
-                  localPool.ipv6 or null;
-              rightLabel = entry.label;
-              rightCidr = entry.cidr;
-            }
-          )
-      );
-
-      _explicitLoopbacksInLocalPool = lib.forEach explicitLoopbackEntries (
-        entry:
-        pools.assertHostInPool {
-          poolLabel = "sites.${enterprise}.${siteId}.addressPools.local";
-          poolCidr =
-            if localPool == null then
-              null
-            else if entry.family == 4 then
-              localPool.ipv4 or null
-            else
-              localPool.ipv6 or null;
-          entryLabel = entry.label;
-          family = entry.family;
-          addr0 = entry.addr;
-        }
-      );
-
-      p2pLinks = builtins.seq _validateP2pPool4 (
-        builtins.seq _validateP2pPool6 (
-          builtins.seq _validateLocalPool4 (
-            builtins.seq _validateLocalPool6 (
-              builtins.seq _disjointPools4 (
-                builtins.seq _disjointPools6 (
-                  builtins.deepSeq _poolsVsUserPrefixes (
-                    builtins.deepSeq _explicitLoopbacksInLocalPool (
-                      p2pAlloc.alloc {
-                        site = {
-                          siteName = siteName;
-                          p2p-pool = p2pPool;
-                          links = p2pLinkSpecs;
-                          inherit nodes;
-                          domains = siteDomains;
-                        };
-                      }
-                    )
-                  )
-                )
-              )
-            )
-          )
-        )
-      );
 
       coreNodeNames = lib.sort (a: b: a < b) (
         map toString (lib.filter (u: rolesResult.roleFromInput u == "core") unitNames)
@@ -608,7 +202,7 @@ in
         in
         if selectorNames == [ ] then null else builtins.head selectorNames;
 
-      routed0 = topoResolve (
+      resolvedSite = topoResolve (
         siteForTopology
         // enforcementResult
         // {
@@ -631,251 +225,21 @@ in
         }
       );
 
-      routed1 = routed0 // {
-        nodes = lib.mapAttrs (
-          _: node:
-          node
-          // {
-            interfaces = lib.mapAttrs (_: common.normalizeRoutes) (node.interfaces or { });
-          }
-        ) (routed0.nodes or { });
-      };
-
-      finalPolicyNodeName =
-        if routed1 ? policyNodeName && routed1.policyNodeName != null then
-          routed1.policyNodeName
-        else if policyNodeName != null then
+      routed = emittedSite.materialize {
+        inherit
+          coreNodeNames
+          enterprise
+          overlayReachability
           policyNodeName
-        else
-          common.firstNodeNameByRole (routed1.nodes or { }) "policy";
-
-      finalCoreNodeNames =
-        if routed1 ? coreNodeNames && routed1.coreNodeNames != [ ] then
-          routed1.coreNodeNames
-        else
-          coreNodeNames;
-
-      emittedUpstreamSelectorNodeName =
-        let
-          nodes1 = routed1.nodes or { };
-
-          candidate =
-            if routed1 ? upstreamSelectorNodeName && routed1.upstreamSelectorNodeName != null then
-              routed1.upstreamSelectorNodeName
-            else if upstreamSelectorNodeName != null then
-              upstreamSelectorNodeName
-            else
-              common.firstNodeNameByRole nodes1 "upstream-selector";
-        in
-        if
-          candidate != null
-          && nodes1 ? "${candidate}"
-          && (nodes1.${candidate}.role or null) == "upstream-selector"
-        then
-          candidate
-        else
-          null;
-
-      _assertUpstreamSelectorNodeName =
-        if emittedUpstreamSelectorNodeName == null then
-          true
-        else if
-          (routed1.nodes or { } ? "${emittedUpstreamSelectorNodeName}")
-          && ((routed1.nodes.${emittedUpstreamSelectorNodeName}.role or null) == "upstream-selector")
-        then
-          true
-        else
-          throw ''
-            network-forwarding-model: invalid emitted upstreamSelectorNodeName
-
-            site: ${enterprise}.${siteId}
-            candidate: ${toString emittedUpstreamSelectorNodeName}
-            nodes: ${builtins.toJSON (builtins.attrNames (routed1.nodes or { }))}
-          '';
-
-      realizedTransitAdjacencies = transit.transitAdjacenciesFromLinks (routed1.links or { });
-
-      transitOrdering =
-        let
-          stageRank =
-            role:
-            if role == "access" then
-              0
-            else if role == "downstream-selector" then
-              1
-            else if role == "policy" then
-              2
-            else if role == "upstream-selector" then
-              3
-            else if role == "core" then
-              4
-            else
-              9;
-
-          linkOrderKey =
-            adj:
-            let
-              ms = adj.members or [ ];
-              a = toString (builtins.elemAt ms 0);
-              b = toString (builtins.elemAt ms 1);
-              ra = rolesResult.roleFromInput a;
-              rb = rolesResult.roleFromInput b;
-              rka = stageRank ra;
-              rkb = stageRank rb;
-              oriented =
-                if rka < rkb then
-                  {
-                    src = a;
-                    dst = b;
-                    rank = rka;
-                  }
-                else
-                  {
-                    src = b;
-                    dst = a;
-                    rank = rkb;
-                  };
-            in
-            "${toString oriented.rank}|${oriented.src}|${oriented.dst}|${toString (adj.name or "")}";
-
-          p2pAdj = lib.filter (a: (a.kind or null) == "p2p") realizedTransitAdjacencies;
-          ids = map (adj: toString adj.id) (lib.sort (x: y: (linkOrderKey x) < (linkOrderKey y)) p2pAdj);
-
-          expected = lib.sort (a: b: a < b) (map (adj: toString adj.id) realizedTransitAdjacencies);
-
-          actual = lib.sort (a: b: a < b) ids;
-
-          _unique =
-            if (builtins.length ids) == (builtins.length (lib.unique ids)) then
-              true
-            else
-              throw ''
-                network-forwarding-model: transit.ordering contains duplicate link identities
-
-                site: ${enterprise}.${siteId}
-                ordering: ${builtins.toJSON ids}
-              '';
-
-          _complete =
-            if actual == expected then
-              true
-            else
-              throw ''
-                network-forwarding-model: transit.ordering is incomplete or inconsistent with realized topology
-
-                site: ${enterprise}.${siteId}
-                expected: ${builtins.toJSON expected}
-                actual: ${builtins.toJSON actual}
-              '';
-        in
-        builtins.seq _unique (builtins.seq _complete ids);
-
-      existingTopology =
-        if routed1 ? topology && builtins.isAttrs routed1.topology then routed1.topology else { };
-
-      existingTransit =
-        if routed1 ? transit && builtins.isAttrs routed1.transit then routed1.transit else { };
-
-      emittedUplinkCoreNames =
-        let
-          routedNames =
-            if routed1 ? uplinkCoreNames && builtins.isList routed1.uplinkCoreNames then
-              routed1.uplinkCoreNames
-            else
-              [ ];
-
-          wanNames =
-            if wanResult ? declaredUplinkCores && builtins.isList wanResult.declaredUplinkCores then
-              wanResult.declaredUplinkCores
-            else if wanResult ? uplinkCores && builtins.isList wanResult.uplinkCores then
-              wanResult.uplinkCores
-            else
-              [ ];
-
-          egressNames =
-            if routed1 ? egressIntent && builtins.isAttrs routed1.egressIntent then
-              routed1.egressIntent.uplinkCoreNodeNames or [ ]
-            else
-              [ ];
-        in
-        lib.sort (a: b: a < b) (
-          lib.unique (
-            if wanNames != [ ] then
-              wanNames
-            else if routedNames != [ ] then
-              routedNames
-            else
-              egressNames
-          )
-        );
-
-      emittedUplinkNames =
-        let
-          routedNames =
-            if routed1 ? uplinkNames && builtins.isList routed1.uplinkNames then routed1.uplinkNames else [ ];
-
-          wanNames =
-            if wanResult ? declaredUplinkNames && builtins.isList wanResult.declaredUplinkNames then
-              wanResult.declaredUplinkNames
-            else if wanResult ? uplinkNames && builtins.isList wanResult.uplinkNames then
-              wanResult.uplinkNames
-            else
-              [ ];
-
-          egressNames =
-            if routed1 ? egressIntent && builtins.isAttrs routed1.egressIntent then
-              routed1.egressIntent.externalDomains or [ ]
-            else
-              [ ];
-        in
-        lib.sort (a: b: a < b) (
-          lib.unique (
-            if routedNames != [ ] then
-              routedNames
-            else if wanNames != [ ] then
-              wanNames
-            else
-              egressNames
-          )
-        );
-
-      routed =
-        builtins.removeAttrs routed1 [
-          "_enforcement"
-          "_nat"
-          "_loopbackResolution"
-          "compilerIR"
-          "p2p-pool"
-          "pools"
-          "tenantV4Base"
-          "ulaPrefix"
-          "routerLoopbacks"
-          "transport"
-        ]
-        // {
-          inherit enterprise siteId overlayReachability;
-          siteName = routed1.siteName or siteName;
-          coreNodeNames = finalCoreNodeNames;
-          policyNodeName = finalPolicyNodeName;
-          upstreamSelectorNodeName = builtins.seq _assertUpstreamSelectorNodeName emittedUpstreamSelectorNodeName;
-          uplinkCoreNames = emittedUplinkCoreNames;
-          uplinkNames = emittedUplinkNames;
-          topology =
-            (builtins.removeAttrs existingTopology [
-              "nodes"
-              "links"
-            ])
-            // {
-              links = topologyPairs;
-            };
-          transit = existingTransit // {
-            # Dedicated transit lanes are always enabled. The inventory decides how
-            # each lane is realized (dedicated L2 link, VLAN trunk, subifs, etc).
-            dedicatedLanes = true;
-            ordering = transitOrdering;
-            adjacencies = realizedTransitAdjacencies;
-          };
-        };
+          rolesResult
+          siteId
+          siteName
+          topologyPairs
+          upstreamSelectorNodeName
+          wanResult
+          ;
+        routedSite = resolvedSite;
+      };
 
       annotated = semantics.annotateSite {
         inherit rolesResult wanResult;

@@ -2,6 +2,7 @@
 
 let
   common = import ./common.nix { inherit lib; };
+  roleStages = import ../transit-role-stages.nix { };
 
   sorted = xs: lib.sort (a: b: a < b) xs;
 
@@ -76,87 +77,25 @@ in
         site: ${siteName}
       '';
 
-      _coresToUpstreamBoundary =
-        if selectorNode != null then
-          builtins.deepSeq (lib.forEach coreNodes (
-            coreNode:
-            common.assert_ (hasP2pLinkBetween links coreNode selectorNode) ''
-              invariants(transit-ordering-valid):
+      expectedAdjacencies = roleStages.expectedTransitAdjacencies {
+        inherit accessNodes coreNodes downstreamNode policyNode;
+        upstreamSelectorNode = selectorNode;
+      };
 
-              missing core -> upstream-selector p2p adjacency
-
-              site: ${siteName}
-              core: ${coreNode}
-              upstream-selector: ${selectorNode}
-            ''
-          )) true
-        else if policyNode == null then
-          true
-        else
-          builtins.deepSeq (lib.forEach coreNodes (
-            coreNode:
-            common.assert_ (hasP2pLinkBetween links coreNode policyNode) ''
-              invariants(transit-ordering-valid):
-
-              missing core -> policy p2p adjacency
-
-              site: ${siteName}
-              core: ${coreNode}
-              policy: ${policyNode}
-            ''
-          )) true;
-
-      _selectorToPolicy =
-        if selectorNode == null || policyNode == null then
-          true
-        else
-          common.assert_ (hasP2pLinkBetween links selectorNode policyNode) ''
+      _expectedAdjacenciesPresent = builtins.deepSeq (
+        lib.forEach expectedAdjacencies (
+          adjacency:
+          common.assert_ (hasP2pLinkBetween links adjacency.source adjacency.target) ''
             invariants(transit-ordering-valid):
 
-            missing upstream-selector -> policy p2p adjacency
+            missing ${adjacency.sourceRole} -> ${adjacency.targetRole} p2p adjacency
 
             site: ${siteName}
-            upstream-selector: ${selectorNode}
-            policy: ${policyNode}
-          '';
-
-      _policyToDownstream =
-        if downstreamNode == null || policyNode == null then
-          true
-        else
-          common.assert_ (hasP2pLinkBetween links policyNode downstreamNode) ''
-            invariants(transit-ordering-valid):
-
-            missing policy -> downstream-selector p2p adjacency
-
-            site: ${siteName}
-            policy: ${policyNode}
-            downstream-selector: ${downstreamNode}
-          '';
-
-      _downstreamBoundaryToAccess = builtins.deepSeq (lib.forEach accessNodes (
-        accessNode:
-        if downstreamNode != null then
-          common.assert_ (hasP2pLinkBetween links downstreamNode accessNode) ''
-            invariants(transit-ordering-valid):
-
-            missing downstream-selector -> access p2p adjacency
-
-            site: ${siteName}
-            downstream-selector: ${downstreamNode}
-            access: ${accessNode}
+            source: ${adjacency.source}
+            target: ${adjacency.target}
           ''
-        else
-          common.assert_ (hasP2pLinkBetween links policyNode accessNode) ''
-            invariants(transit-ordering-valid):
-
-            missing policy -> access p2p adjacency
-
-            site: ${siteName}
-            policy: ${policyNode}
-            access: ${accessNode}
-          ''
-      )) true;
+        )
+      ) true;
 
       transitLinks = sorted (p2pLinkNames links);
 
@@ -237,16 +176,10 @@ in
       builtins.seq _downstreamCount (
         builtins.seq _selectorCount (
           builtins.seq _coreCount (
-            builtins.seq _coresToUpstreamBoundary (
-              builtins.seq _selectorToPolicy (
-                builtins.seq _policyToDownstream (
-                  builtins.seq _downstreamBoundaryToAccess (
-                    builtins.seq _orderingPresent (
-                      builtins.deepSeq _p2pIdsPresent (
-                        builtins.deepSeq _orderingKnown (builtins.seq _orderingUnique (builtins.seq _orderingComplete true))
-                      )
-                    )
-                  )
+            builtins.seq _expectedAdjacenciesPresent (
+              builtins.seq _orderingPresent (
+                builtins.deepSeq _p2pIdsPresent (
+                  builtins.deepSeq _orderingKnown (builtins.seq _orderingUnique (builtins.seq _orderingComplete true))
                 )
               )
             )

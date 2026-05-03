@@ -1,20 +1,7 @@
 { lib }:
 
 let
-  stageRank =
-    role:
-    if role == "access" then
-      0
-    else if role == "downstream-selector" then
-      1
-    else if role == "policy" then
-      2
-    else if role == "upstream-selector" then
-      3
-    else if role == "core" then
-      4
-    else
-      throw "network-forwarding-model: unsupported role in transit ordering: ${toString role}";
+  roleStages = import ../../../lib/fabric/transit-role-stages.nix { };
 
   uniqueNodeNames =
     pairs:
@@ -60,16 +47,11 @@ let
 
   nextRoleOf =
     roles: role:
-    if role == "access" then
-      if hasRole roles "downstream-selector" then "downstream-selector" else "policy"
-    else if role == "downstream-selector" then
-      "policy"
-    else if role == "policy" then
-      if hasRole roles "upstream-selector" then "upstream-selector" else "core"
-    else if role == "upstream-selector" then
-      "core"
-    else
-      null;
+    roleStages.nextTransitRole {
+      inherit role;
+      hasDownstreamSelector = hasRole roles "downstream-selector";
+      hasUpstreamSelector = hasRole roles "upstream-selector";
+    };
 
   canonicalizeOne =
     {
@@ -84,8 +66,8 @@ let
       roleA = roles.${a0};
       roleB = roles.${b0};
 
-      rankA = stageRank roleA;
-      rankB = stageRank roleB;
+      rankA = roleStages.transitRank roleA;
+      rankB = roleStages.transitRank roleB;
 
       oriented =
         if rankA < rankB then
@@ -142,7 +124,7 @@ let
       src = toString (builtins.elemAt pair 0);
       dst = toString (builtins.elemAt pair 1);
     in
-    "${toString (stageRank roles.${src})}|${src}|${dst}";
+    "${toString (roleStages.transitRank roles.${src})}|${src}|${dst}";
 in
 {
   canonicalize =
