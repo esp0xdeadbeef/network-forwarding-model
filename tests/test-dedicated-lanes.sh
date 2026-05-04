@@ -142,6 +142,8 @@ let
   site = out.enterprise.acme.site.ams;
   linkNames = builtins.attrNames (site.links or { });
   downstream = site.nodes.downstream1;
+  coreAIntent = site.nodes.coreA.egressIntent;
+  coreBIntent = site.nodes.coreB.egressIntent;
   uplinkNames = site.uplinkNames or [ ];
   coreALane = site.links.p2p-coreA-upstream1.lane or null;
   coreBLane = site.links.p2p-coreB-upstream1.lane or null;
@@ -169,6 +171,10 @@ in
     && builtins.length uplinkNames == 2
     && builtins.elem "wan0" uplinkNames
     && builtins.elem "wan1" uplinkNames
+    && coreAIntent.uplinks == [ "wan0" ]
+    && coreAIntent.wanInterfaces == [ "wan-coreA-wan0" ]
+    && coreBIntent.uplinks == [ "wan1" ]
+    && coreBIntent.wanInterfaces == [ "wan-coreB-wan1" ]
     && coreALane == "uplink::wan0"
     && coreBLane == "uplink::wan1"
     && !(builtins.elem "east-west" uplinkNames)

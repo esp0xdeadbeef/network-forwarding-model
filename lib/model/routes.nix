@@ -78,7 +78,7 @@ let
 
   routeForwardingKey =
     r:
-    "${toString (r.dst or "")}|${toString (r.via4 or "")}|${toString (r.via6 or "")}|${toString (r.proto or "")}|${routeIntentKey r}|${toString (r.overlay or "")}|${toString (r.peerSite or "")}";
+    "${toString (r.dst or "")}|${toString (r.via4 or "")}|${toString (r.via6 or "")}|${toString (r.proto or "")}|${routeIntentKey r}|${toString (r.overlay or "")}|${toString (r.peerSite or "")}|${builtins.toJSON (r.lane or null)}|${toString (r.reason or "")}";
 
   canonicalizeRoute =
     prev0: next0:
@@ -111,12 +111,18 @@ let
 
       mergedPeerSite =
         if (chosen.peerSite or null) != null then chosen.peerSite else other.peerSite or null;
+
+      mergedLane = if (chosen.lane or null) != null then chosen.lane else other.lane or null;
+
+      mergedReason = if (chosen.reason or null) != null then chosen.reason else other.reason or null;
     in
     chosen
     // lib.optionalAttrs (mergedProto != null) { proto = mergedProto; }
     // lib.optionalAttrs (mergedIntent != null) { intent = mergedIntent; }
     // lib.optionalAttrs (mergedOverlay != null) { overlay = mergedOverlay; }
-    // lib.optionalAttrs (mergedPeerSite != null) { peerSite = mergedPeerSite; };
+    // lib.optionalAttrs (mergedPeerSite != null) { peerSite = mergedPeerSite; }
+    // lib.optionalAttrs (mergedLane != null) { lane = mergedLane; }
+    // lib.optionalAttrs (mergedReason != null) { reason = mergedReason; };
 
   dedupeRoutes =
     routes0:

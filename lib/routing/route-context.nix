@@ -133,6 +133,8 @@ in
       proto,
       intentKind,
       metric ? null,
+      lane ? null,
+      reason ? null,
       preserveDst ? false,
     }:
     {
@@ -141,6 +143,8 @@ in
     }
     // lib.optionalAttrs (via4 != null) { inherit via4; }
     // lib.optionalAttrs (metric != null) { inherit metric; }
+    // lib.optionalAttrs (lane != null) { inherit lane; }
+    // lib.optionalAttrs (reason != null) { inherit reason; }
     // intentAttr intentKind
     // lib.optionalAttrs preserveDst { inherit preserveDst; };
 
@@ -151,6 +155,8 @@ in
       proto,
       intentKind,
       metric ? null,
+      lane ? null,
+      reason ? null,
       preserveDst ? false,
     }:
     {
@@ -159,6 +165,8 @@ in
     }
     // lib.optionalAttrs (via6 != null) { inherit via6; }
     // lib.optionalAttrs (metric != null) { inherit metric; }
+    // lib.optionalAttrs (lane != null) { inherit lane; }
+    // lib.optionalAttrs (reason != null) { inherit reason; }
     // intentAttr intentKind
     // lib.optionalAttrs (preserveDst || dst == helpers.default6) { preserveDst = true; };
 }

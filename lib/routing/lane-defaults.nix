@@ -2,92 +2,15 @@
 
 let
   graph = import ./graph.nix { inherit lib; };
-  helpers = import ./static-helpers.nix { inherit lib; };
-
-  hasUplinkLaneSuffix = linkName: builtins.match ".*--uplink-.+" (toString linkName) != null;
-
-  laneUplinkNameFromLinkName =
-    linkName:
-    let
-      parts = lib.splitString "--uplink-" (toString linkName);
-    in
-    if builtins.length parts < 2 then null else builtins.elemAt parts ((builtins.length parts) - 1);
-
-  overlayUplinkNameSet =
-    topo:
-    lib.listToAttrs (
-      map (name: {
-        inherit name;
-        value = true;
-      }) (builtins.attrNames (topo.overlayReachability or { }))
-    );
-
-  defaultMetricForLane =
-    topo: linkName:
-    let
-      uplinkName = laneUplinkNameFromLinkName linkName;
-      overlayNames = overlayUplinkNameSet topo;
-    in
-    if uplinkName == null then null else if builtins.hasAttr uplinkName overlayNames then 2000 else 1000;
-
-  mkDefaultRoutes =
-    {
-      epTo,
-      mkRoute4,
-      mkRoute6,
-      metric ? null,
-    }:
-    let
-      via4 = if epTo ? addr4 && epTo.addr4 != null then helpers.stripMask epTo.addr4 else null;
-      via6 = if epTo ? addr6 && epTo.addr6 != null then helpers.stripMask epTo.addr6 else null;
-    in
-    {
-      routes4 =
-        if via4 == null then
-          [ ]
-        else
-          [
-            (mkRoute4 {
-              dst = helpers.default4;
-              inherit via4;
-              proto = "default";
-              intentKind = "default-reachability";
-              inherit metric;
-            })
-          ];
-      routes6 =
-        if via6 == null then
-          [ ]
-        else
-          [
-            (mkRoute6 {
-              dst = helpers.default6;
-              inherit via6;
-              proto = "default";
-              intentKind = "default-reachability";
-              inherit metric;
-            })
-          ];
-    };
-
-  addDefaultsTowardPeer =
-    {
-      links,
-      node,
-      linkName,
-      peerNodeName,
-      mkRoute4,
-      mkRoute6,
-      metric ? null,
-    }:
-    let
-      linkObj = links.${linkName};
-      routes = mkDefaultRoutes {
-        inherit mkRoute4 mkRoute6 metric;
-        epTo = graph.getEp linkName linkObj peerNodeName;
-      };
-    in
-    helpers.addRoutesOnLink node linkName routes.routes4 routes.routes6;
+  routeBuilder = import ./lane-default-route-builder.nix { inherit lib; };
+  laneMetadata = import ./lane-metadata.nix { inherit lib; };
+  inherit (routeBuilder) addDefaultsTowardPeer;
+  inherit (laneMetadata)
+    defaultMetricForLane
+    hasUplinkLaneSuffix
+    laneAccessNodeNameFromLinkName
+    laneUplinkNameFromLinkName
+    ;
 
 in
 {
@@ -104,6 +27,25 @@ in
       policyNodeName = topo.policyNodeName or null;
       links = topo.links or { };
       role = node.role or null;
+      uplinksForAccess =
+        accessName:
+        lib.unique (
+          lib.filter (uplinkName: uplinkName != null) (
+            map laneUplinkNameFromLinkName (
+              lib.filter (
+                linkName:
+                let
+                  linkObj = links.${linkName};
+                  members = graph.membersOf linkObj;
+                in
+                lib.elem policyNodeName members
+                && lib.elem (topo.upstreamSelectorNodeName or null) members
+                && laneAccessNodeNameFromLinkName linkName == accessName
+                && hasUplinkLaneSuffix linkName
+              ) (builtins.attrNames links)
+            )
+          )
+        );
       laneLinks =
         if role != "downstream-selector" || policyNodeName == null then
           [ ]
@@ -121,6 +63,11 @@ in
     in
     builtins.foldl' (
       acc: linkName:
+      let
+        accessName = laneAccessNodeNameFromLinkName linkName;
+        uplinks = uplinksForAccess accessName;
+        uplinkName = if uplinks == [ ] then null else builtins.head (lib.sort (a: b: a < b) uplinks);
+      in
       addDefaultsTowardPeer {
         inherit
           links
@@ -128,8 +75,13 @@ in
           mkRoute4
           mkRoute6
           ;
+        lane = {
+          access = accessName;
+          uplink = uplinkName;
+        };
         node = acc;
         peerNodeName = policyNodeName;
+        reason = "policy-derived-default";
       }
     ) node laneLinks;
 
@@ -172,9 +124,14 @@ in
           mkRoute4
           mkRoute6
           ;
+        lane = {
+          access = laneAccessNodeNameFromLinkName linkName;
+          uplink = laneUplinkNameFromLinkName linkName;
+        };
         metric = defaultMetricForLane topo linkName;
         node = acc;
         peerNodeName = selectorNodeName;
+        reason = "policy-derived-default";
       }
     ) node laneLinks;
 }
