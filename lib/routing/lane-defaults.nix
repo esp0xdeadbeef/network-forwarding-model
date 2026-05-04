@@ -6,11 +6,36 @@ let
 
   hasUplinkLaneSuffix = linkName: builtins.match ".*--uplink-.+" (toString linkName) != null;
 
+  laneUplinkNameFromLinkName =
+    linkName:
+    let
+      parts = lib.splitString "--uplink-" (toString linkName);
+    in
+    if builtins.length parts < 2 then null else builtins.elemAt parts ((builtins.length parts) - 1);
+
+  overlayUplinkNameSet =
+    topo:
+    lib.listToAttrs (
+      map (name: {
+        inherit name;
+        value = true;
+      }) (builtins.attrNames (topo.overlayReachability or { }))
+    );
+
+  defaultMetricForLane =
+    topo: linkName:
+    let
+      uplinkName = laneUplinkNameFromLinkName linkName;
+      overlayNames = overlayUplinkNameSet topo;
+    in
+    if uplinkName == null then null else if builtins.hasAttr uplinkName overlayNames then 2000 else 1000;
+
   mkDefaultRoutes =
     {
       epTo,
       mkRoute4,
       mkRoute6,
+      metric ? null,
     }:
     let
       via4 = if epTo ? addr4 && epTo.addr4 != null then helpers.stripMask epTo.addr4 else null;
@@ -27,6 +52,7 @@ let
               inherit via4;
               proto = "default";
               intentKind = "default-reachability";
+              inherit metric;
             })
           ];
       routes6 =
@@ -39,6 +65,7 @@ let
               inherit via6;
               proto = "default";
               intentKind = "default-reachability";
+              inherit metric;
             })
           ];
     };
@@ -51,11 +78,12 @@ let
       peerNodeName,
       mkRoute4,
       mkRoute6,
+      metric ? null,
     }:
     let
       linkObj = links.${linkName};
       routes = mkDefaultRoutes {
-        inherit mkRoute4 mkRoute6;
+        inherit mkRoute4 mkRoute6 metric;
         epTo = graph.getEp linkName linkObj peerNodeName;
       };
     in
@@ -144,6 +172,7 @@ in
           mkRoute4
           mkRoute6
           ;
+        metric = defaultMetricForLane topo linkName;
         node = acc;
         peerNodeName = selectorNodeName;
       }

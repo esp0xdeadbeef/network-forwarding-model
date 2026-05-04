@@ -35,9 +35,19 @@ OUTPUT_JSON="${output_json}" nix eval --impure --expr '
     siteB = data.enterprise.espbranch.site."site-b";
     policyIfaces = data.enterprise.espbranch.site."site-b".nodes."b-router-policy".interfaces;
     hostileEw = policyIfaces."p2p-b-router-policy-b-router-upstream-selector--access-b-router-access-hostile--uplink-east-west".routes;
+    siteCPolicyIfaces = data.enterprise.esp0xdeadbeef.site."site-c".nodes."c-router-policy".interfaces;
+    siteCDmzEastWest =
+      siteCPolicyIfaces."p2p-c-router-policy-c-router-upstream-selector--access-c-router-access-dmz--uplink-east-west".routes;
+    siteCDmzWan =
+      siteCPolicyIfaces."p2p-c-router-policy-c-router-upstream-selector--access-c-router-access-dmz--uplink-wan".routes;
     hasDst = routes: destination:
       builtins.any (route: (route.dst or null) == destination) (routes.ipv4 or [ ])
       || builtins.any (route: (route.dst or null) == destination) (routes.ipv6 or [ ]);
+    defaultMetric4 = routes:
+      let
+        matches = builtins.filter (route: (route.dst or null) == "0.0.0.0/0") (routes.ipv4 or [ ]);
+      in
+      if matches == [ ] then null else (builtins.head matches).metric or null;
     hasDefault6 = routes:
       hasDst routes "::/0" || hasDst routes "0000:0000:0000:0000:0000:0000:0000:0000/0";
   in
@@ -45,6 +55,7 @@ OUTPUT_JSON="${output_json}" nix eval --impure --expr '
     && hasDst hostileEw "fd42:dead:beef:0010:0000:0000:0000:0000/64"
     && hasDst hostileEw "0.0.0.0/0"
     && hasDefault6 hostileEw
+    && defaultMetric4 siteCDmzWan < defaultMetric4 siteCDmzEastWest
     && (siteB.tenantPrefixOwners."6|fd42:dead:feed:0070:0000:0000:0000:0000/64".owner or null) == "b-router-access-hostile"
     && hasDst siteB.nodes."b-router-core-nebula".interfaces."p2p-b-router-core-nebula-b-router-upstream-selector".routes "fd42:dead:feed:0070:0000:0000:0000:0000/64"
 ' | {
