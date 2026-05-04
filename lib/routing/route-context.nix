@@ -132,6 +132,7 @@ in
       via4 ? null,
       proto,
       intentKind,
+      metric ? null,
       preserveDst ? false,
     }:
     {
@@ -139,6 +140,7 @@ in
       inherit proto;
     }
     // lib.optionalAttrs (via4 != null) { inherit via4; }
+    // lib.optionalAttrs (metric != null) { inherit metric; }
     // intentAttr intentKind
     // lib.optionalAttrs preserveDst { inherit preserveDst; };
 
@@ -148,6 +150,7 @@ in
       via6 ? null,
       proto,
       intentKind,
+      metric ? null,
       preserveDst ? false,
     }:
     {
@@ -155,6 +158,7 @@ in
       inherit proto;
     }
     // lib.optionalAttrs (via6 != null) { inherit via6; }
+    // lib.optionalAttrs (metric != null) { inherit metric; }
     // intentAttr intentKind
     // lib.optionalAttrs (preserveDst || dst == helpers.default6) { preserveDst = true; };
 }
