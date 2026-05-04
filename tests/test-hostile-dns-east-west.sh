@@ -41,8 +41,15 @@ OUTPUT_JSON="${output_json}" nix eval --impure --expr '
   in
     hasDst hostileEw "10.20.10.0/24"
     && hasDst hostileEw "fd42:dead:beef:0010:0000:0000:0000:0000/64"
+    && hasDst hostileEw "0.0.0.0/0"
+    && hasDst hostileEw "0000:0000:0000:0000:0000:0000:0000:0000/0"
     && (siteB.tenantPrefixOwners."6|fd42:dead:feed:0070:0000:0000:0000:0000/64".owner or null) == "b-router-access-hostile"
     && hasDst siteB.nodes."b-router-core-nebula".interfaces."p2p-b-router-core-nebula-b-router-upstream-selector".routes "fd42:dead:feed:0070:0000:0000:0000:0000/64"
-' | grep -qx true
+' | {
+  if ! grep -qx true; then
+    echo "FAIL hostile-dns-east-west: hostile east-west policy lane must carry IPv4/IPv6 defaults toward the overlay core" >&2
+    exit 1
+  fi
+}
 
 echo "PASS hostile-dns-east-west"
