@@ -158,8 +158,9 @@ let
   dsPolicyLaneRoutes = downstream.interfaces.\${dsPolicyLane}.routes or { };
   hasRoute = routes: dst: via:
     builtins.any (route: (route.dst or null) == dst && (route.via4 or route.via6 or null) == via) routes;
+  isDefault6 = dst: dst == "::/0" || dst == "0000:0000:0000:0000:0000:0000:0000:0000/0";
   hasDefault6 = routes:
-    builtins.any (route: (route.dst or null) == "0000:0000:0000:0000:0000:0000:0000:0000/0" && (route.via6 or null) != null) routes;
+    builtins.any (route: isDefault6 (route.dst or null) && (route.via6 or null) != null) routes;
 in
   if
     builtins.length policyUpstreamLaneLinks == 2
