@@ -84,6 +84,34 @@ let
     else
       "${enterprise}.${s}";
 
+  normalizedPrefixRoutes =
+    {
+      overlayName,
+      peerSiteRef,
+      family,
+      prefixes,
+    }:
+    map (dst: {
+      inherit dst family;
+      proto = "overlay";
+      overlay = overlayName;
+      peerSite = peerSiteRef;
+      intent = {
+        kind = "overlay-reachability";
+      };
+    }) (map toString prefixes);
+
+  explicitPrefixesOf =
+    overlay:
+    let
+      prefixes = overlay.prefixes or { };
+      ipv4 = if builtins.isList (prefixes.ipv4 or null) then prefixes.ipv4 else [ ];
+      ipv6 = if builtins.isList (prefixes.ipv6 or null) then prefixes.ipv6 else [ ];
+    in
+    {
+      inherit ipv4 ipv6;
+    };
+
   siteByRef =
     allSites: ref:
     let
@@ -128,26 +156,19 @@ let
             else
               tenants.tenantPrefixesOfSite peerSite;
           terminateOn = lib.unique (overlayTargetNamesFrom overlay);
+          explicitPrefixes = explicitPrefixesOf overlay;
 
-          routes4 = map (dst: {
-            inherit dst;
-            proto = "overlay";
-            overlay = overlayName;
-            peerSite = peerSiteRef;
-            intent = {
-              kind = "overlay-reachability";
-            };
-          }) peerPrefixes.ipv4;
+          routes4 = normalizedPrefixRoutes {
+            inherit overlayName peerSiteRef;
+            family = 4;
+            prefixes = lib.unique (peerPrefixes.ipv4 ++ explicitPrefixes.ipv4);
+          };
 
-          routes6 = map (dst: {
-            inherit dst;
-            proto = "overlay";
-            overlay = overlayName;
-            peerSite = peerSiteRef;
-            intent = {
-              kind = "overlay-reachability";
-            };
-          }) peerPrefixes.ipv6;
+          routes6 = normalizedPrefixRoutes {
+            inherit overlayName peerSiteRef;
+            family = 6;
+            prefixes = lib.unique (peerPrefixes.ipv6 ++ explicitPrefixes.ipv6);
+          };
         in
         {
           name = overlayName;

@@ -76,7 +76,14 @@ let
           else
             linkNameFor normalized;
       in
-      normalized // { inherit linkName; }
+      normalized
+      // { inherit linkName; }
+      // lib.optionalAttrs ((link.overlay or null) != null) {
+        overlay = toString link.overlay;
+      }
+      // lib.optionalAttrs ((link.uplinks or null) != null) {
+        uplinks = link.uplinks;
+      }
     else
       throw "network-forwarding-model: invalid p2p link spec (expected [a b] or { a, b, lane? })";
 in

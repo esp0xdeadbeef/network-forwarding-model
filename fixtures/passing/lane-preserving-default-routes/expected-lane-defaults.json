@@ -1,0 +1,42 @@
+{
+  "enterprise": "acme",
+  "site": "ams",
+  "routes": [
+    {
+      "node": "downstream",
+      "interface": "p2p-downstream-policy--access-mgmt",
+      "family": 4,
+      "destination": "0.0.0.0/0",
+      "access": "mgmt",
+      "uplink": "wan",
+      "mustNotShareWith": [
+        "client",
+        "streaming"
+      ]
+    },
+    {
+      "node": "downstream",
+      "interface": "p2p-downstream-policy--access-client",
+      "family": 4,
+      "destination": "0.0.0.0/0",
+      "access": "client",
+      "uplink": "wan",
+      "mustNotShareWith": [
+        "mgmt",
+        "streaming"
+      ]
+    },
+    {
+      "node": "downstream",
+      "interface": "p2p-downstream-policy--access-streaming",
+      "family": 4,
+      "destination": "0.0.0.0/0",
+      "access": "streaming",
+      "uplink": "wan",
+      "mustNotShareWith": [
+        "mgmt",
+        "client"
+      ]
+    }
+  ]
+}
