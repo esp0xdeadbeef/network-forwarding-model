@@ -135,7 +135,7 @@ in
       preserveDst ? false,
     }:
     {
-      dst = helpers.canonicalCidr dst;
+      dst = if dst == helpers.default6 then helpers.default6 else helpers.canonicalCidr dst;
       inherit proto;
     }
     // lib.optionalAttrs (via4 != null) { inherit via4; }
@@ -151,10 +151,10 @@ in
       preserveDst ? false,
     }:
     {
-      dst = helpers.canonicalCidr dst;
+      dst = if dst == helpers.default6 then helpers.default6 else helpers.canonicalCidr dst;
       inherit proto;
     }
     // lib.optionalAttrs (via6 != null) { inherit via6; }
     // intentAttr intentKind
-    // lib.optionalAttrs preserveDst { inherit preserveDst; };
+    // lib.optionalAttrs (preserveDst || dst == helpers.default6) { preserveDst = true; };
 }

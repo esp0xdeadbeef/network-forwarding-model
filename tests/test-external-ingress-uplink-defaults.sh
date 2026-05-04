@@ -152,13 +152,14 @@ let
   overlayIngress = upstream.interfaces."p2p-overlayCore-upstream1".routes or { };
   overlayCoreEgress = overlayCore.interfaces."p2p-overlayCore-upstream1".routes or { };
   upstreamToWan = site.nodes.upstream1.interfaces."p2p-upstream1-wanCore".routes or { };
+  isDefault6 = dst: dst == "::/0" || dst == "0000:0000:0000:0000:0000:0000:0000:0000/0";
   hasDefault4 = builtins.any (route:
     (route.dst or null) == "0.0.0.0/0"
     && (route.proto or null) == "default"
     && (route.via4 or null) == "10.0.1.11"
   ) (overlayIngress.ipv4 or [ ]);
   hasDefault6 = builtins.any (route:
-    (route.dst or null) == "0000:0000:0000:0000:0000:0000:0000:0000/0"
+    isDefault6 (route.dst or null)
     && (route.proto or null) == "default"
     && (route.via6 or null) == "fd42:0:0:1000:0:0:0:b"
   ) (overlayIngress.ipv6 or [ ]);
@@ -168,7 +169,7 @@ let
     && (route.via4 or null) == "10.0.1.4"
   ) (overlayIngress.ipv4 or [ ]);
   hasDefaultBackToOverlay6 = builtins.any (route:
-    (route.dst or null) == "0000:0000:0000:0000:0000:0000:0000:0000/0"
+    isDefault6 (route.dst or null)
     && (route.proto or null) == "default"
     && (route.via6 or null) == "fd42:0:0:1000:0:0:0:4"
   ) (overlayIngress.ipv6 or [ ]);
@@ -178,7 +179,7 @@ let
     && (route.via4 or null) == "10.0.1.5"
   ) (overlayCoreEgress.ipv4 or [ ]);
   coreHasDefault6 = builtins.any (route:
-    (route.dst or null) == "0000:0000:0000:0000:0000:0000:0000:0000/0"
+    isDefault6 (route.dst or null)
     && (route.proto or null) == "default"
     && (route.via6 or null) == "fd42:0:0:1000:0:0:0:5"
   ) (overlayCoreEgress.ipv6 or [ ]);

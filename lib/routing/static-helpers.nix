@@ -15,55 +15,8 @@ let
 
   cidrSummary = import ./cidr-summary.nix { inherit lib; };
   summarizeCidrs = cidrSummary.summarizeCidrs;
-
-  normalizeIntent =
-    x:
-    if x == null then
-      null
-    else if builtins.isAttrs x && (x.kind or null) != null then
-      x // { kind = toString x.kind; }
-    else if builtins.isString x then
-      { kind = toString x; }
-    else
-      { kind = toString x; };
-
-  mkRoute4 =
-    {
-      dst,
-      via4,
-      proto,
-      intent ? null,
-      extra ? { },
-      routeExtra ? { },
-    }:
-    {
-      dst = canonicalCidr dst;
-      inherit via4 proto;
-    }
-    // lib.optionalAttrs (normalizeIntent intent != null) {
-      intent = normalizeIntent intent;
-    }
-    // extra
-    // routeExtra;
-
-  mkRoute6 =
-    {
-      dst,
-      via6,
-      proto,
-      intent ? null,
-      extra ? { },
-      routeExtra ? { },
-    }:
-    {
-      dst = canonicalCidr dst;
-      inherit via6 proto;
-    }
-    // lib.optionalAttrs (normalizeIntent intent != null) {
-      intent = normalizeIntent intent;
-    }
-    // extra
-    // routeExtra;
+  routeBuilders = import ./route-builders.nix { inherit lib default6 canonicalCidr; };
+  inherit (routeBuilders) mkRoute4 mkRoute6;
 
   routeBase =
     r:
@@ -86,7 +39,11 @@ let
         let
           group = grouped.${key};
           base = routeBase (builtins.head group);
-          cidrs = lib.unique (map (r: canonicalCidr r.dst) group);
+          cidrs =
+            if lib.any routePreservesDst group then
+              lib.unique (map (r: r.dst) group)
+            else
+              lib.unique (map (r: canonicalCidr r.dst) group);
           renderedCidrs =
             if lib.any routePreservesDst group then
               lib.sort (a: b: a < b) cidrs
