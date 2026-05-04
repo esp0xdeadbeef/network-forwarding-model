@@ -129,7 +129,9 @@ let
   out = flake.libBySystem."${system}".build { inherit input; };
   site = out.enterprise.acme.site.ams;
   upstream = site.nodes.upstream1;
+  overlayCore = site.nodes.overlayCore;
   overlayIngress = upstream.interfaces."p2p-overlayCore-upstream1".routes or { };
+  overlayCoreEgress = overlayCore.interfaces."p2p-overlayCore-upstream1".routes or { };
   hasDefault4 = builtins.any (route:
     (route.dst or null) == "0.0.0.0/0"
     && (route.proto or null) == "default"
@@ -140,8 +142,18 @@ let
     && (route.proto or null) == "default"
     && (route.via6 or null) != null
   ) (overlayIngress.ipv6 or [ ]);
+  coreHasDefault4 = builtins.any (route:
+    (route.dst or null) == "0.0.0.0/0"
+    && (route.proto or null) == "default"
+    && (route.via4 or null) != null
+  ) (overlayCoreEgress.ipv4 or [ ]);
+  coreHasDefault6 = builtins.any (route:
+    (route.dst or null) == "0000:0000:0000:0000:0000:0000:0000:0000/0"
+    && (route.proto or null) == "default"
+    && (route.via6 or null) != null
+  ) (overlayCoreEgress.ipv6 or [ ]);
 in
-  if hasDefault4 && hasDefault6 then "ok" else throw "missing external ingress uplink defaults"
+  if hasDefault4 && hasDefault6 && coreHasDefault4 && coreHasDefault6 then "ok" else throw "missing external ingress uplink defaults"
 EOF
 )"
 

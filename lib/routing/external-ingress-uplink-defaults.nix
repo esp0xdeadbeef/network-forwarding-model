@@ -133,12 +133,52 @@ in
             ) targetUplinks
         ) sourceCores
       ) externalToUplinkRelations;
+
+      sourceCoreRouteEntries = lib.concatMap (
+        relation:
+        let
+          sourceName = relation.from.name;
+          sourceCores = coresForUplink sourceName;
+          targetUplinks = relation.to.uplinks or [ ];
+        in
+        if !(builtins.elem nodeName sourceCores) then
+          [ ]
+        else
+          lib.concatMap (
+            targetUplinkName:
+            map (
+              targetCore:
+              let
+                routes = routesForTarget targetUplinkName targetCore;
+              in
+              {
+                linkName = (firstHopTo targetCore [ targetUplinkName ]).linkName;
+                inherit routes;
+              }
+            ) (coresForUplink targetUplinkName)
+          ) targetUplinks
+      ) externalToUplinkRelations;
+
+      nodeIsExternalSourceCore =
+        builtins.any (
+          relation: builtins.elem nodeName (coresForUplink relation.from.name)
+        ) externalToUplinkRelations;
     in
-    if selectorNodeName == null || nodeName != selectorNodeName || role != "upstream-selector" then
+    if selectorNodeName == null then
       node
-    else
+    else if nodeName == selectorNodeName && role == "upstream-selector" then
       builtins.foldl' (
         acc: entry:
         helpers.addRoutesOnLink acc entry.linkName entry.routes.routes4 entry.routes.routes6
-      ) node entries;
+      ) node entries
+    else if nodeIsExternalSourceCore then
+      builtins.foldl' (
+        acc: entry:
+        if entry.linkName == null then
+          acc
+        else
+          helpers.addRoutesOnLink acc entry.linkName entry.routes.routes4 entry.routes.routes6
+      ) node sourceCoreRouteEntries
+    else
+      node;
 }
