@@ -108,13 +108,32 @@ cat > "$tmpdir/input.nix" <<'EOF'
           ];
         };
 
+        transport.overlays = [
+          {
+            name = "east-west";
+            terminateOn = "overlayCore";
+          }
+        ];
+
         units = {
           access1.role = "access";
           downstream1.role = "downstream-selector";
           policy1.role = "policy";
           upstream1.role = "upstream-selector";
-          wanCore.role = "core";
-          overlayCore.role = "core";
+          wanCore = {
+            role = "core";
+            uplinks.wan0 = {
+              ipv4 = [ "0.0.0.0/0" ];
+              ipv6 = [ "::/0" ];
+            };
+          };
+          overlayCore = {
+            role = "core";
+            uplinks.east-west = {
+              ipv4 = [ "0.0.0.0/0" ];
+              ipv6 = [ "::/0" ];
+            };
+          };
         };
       };
     };
@@ -132,28 +151,55 @@ let
   overlayCore = site.nodes.overlayCore;
   overlayIngress = upstream.interfaces."p2p-overlayCore-upstream1".routes or { };
   overlayCoreEgress = overlayCore.interfaces."p2p-overlayCore-upstream1".routes or { };
+  upstreamToWan = site.nodes.upstream1.interfaces."p2p-upstream1-wanCore".routes or { };
   hasDefault4 = builtins.any (route:
     (route.dst or null) == "0.0.0.0/0"
     && (route.proto or null) == "default"
-    && (route.via4 or null) != null
+    && (route.via4 or null) == "10.0.1.11"
   ) (overlayIngress.ipv4 or [ ]);
   hasDefault6 = builtins.any (route:
     (route.dst or null) == "0000:0000:0000:0000:0000:0000:0000:0000/0"
     && (route.proto or null) == "default"
-    && (route.via6 or null) != null
+    && (route.via6 or null) == "fd42:0:0:1000:0:0:0:b"
+  ) (overlayIngress.ipv6 or [ ]);
+  hasDefaultBackToOverlay4 = builtins.any (route:
+    (route.dst or null) == "0.0.0.0/0"
+    && (route.proto or null) == "default"
+    && (route.via4 or null) == "10.0.1.4"
+  ) (overlayIngress.ipv4 or [ ]);
+  hasDefaultBackToOverlay6 = builtins.any (route:
+    (route.dst or null) == "0000:0000:0000:0000:0000:0000:0000:0000/0"
+    && (route.proto or null) == "default"
+    && (route.via6 or null) == "fd42:0:0:1000:0:0:0:4"
   ) (overlayIngress.ipv6 or [ ]);
   coreHasDefault4 = builtins.any (route:
     (route.dst or null) == "0.0.0.0/0"
     && (route.proto or null) == "default"
-    && (route.via4 or null) != null
+    && (route.via4 or null) == "10.0.1.5"
   ) (overlayCoreEgress.ipv4 or [ ]);
   coreHasDefault6 = builtins.any (route:
     (route.dst or null) == "0000:0000:0000:0000:0000:0000:0000:0000/0"
     && (route.proto or null) == "default"
-    && (route.via6 or null) != null
+    && (route.via6 or null) == "fd42:0:0:1000:0:0:0:5"
   ) (overlayCoreEgress.ipv6 or [ ]);
+  wanIngressKept4 = builtins.any (route:
+    (route.dst or null) == "0.0.0.0/0"
+    && (route.proto or null) == "uplink"
+    && (route.via4 or null) == "10.0.1.11"
+  ) (upstreamToWan.ipv4 or [ ]);
 in
-  if hasDefault4 && hasDefault6 && coreHasDefault4 && coreHasDefault6 then "ok" else throw "missing external ingress uplink defaults"
+  if
+    hasDefault4
+    && hasDefault6
+    && !hasDefaultBackToOverlay4
+    && !hasDefaultBackToOverlay6
+    && coreHasDefault4
+    && coreHasDefault6
+    && wanIngressKept4
+  then
+    "ok"
+  else
+    throw "external ingress uplink defaults must send overlay underlay toward the WAN core"
 EOF
 )"
 

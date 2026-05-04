@@ -3,6 +3,7 @@
 let
   graph = import ./graph.nix { inherit lib; };
   helpers = import ./static-helpers.nix { inherit lib; };
+  overlayCoreSelection = import ./overlay-core-selection.nix { inherit lib; };
 
   uplinkRouteEntriesFromNode =
     node:
@@ -40,6 +41,7 @@ in
     let
       selectorNode = topo.upstreamSelectorNodeName or null;
       uplinkCores = helpers.uplinkCores topo;
+      routeExportCores = overlayCoreSelection.nonOverlayUplinkCores topo uplinkCores;
       ownSet = helpers.ownConnectedPrefixes (topo.nodes.${nodeName});
 
       advertised = lib.concatMap (
@@ -80,7 +82,7 @@ in
                 via6 = if e.family == 6 then nextHop.via6 else null;
               }
             ) exported
-      ) uplinkCores;
+      ) routeExportCores;
 
       usable = lib.filter (
         e: (e.family == 4 && e.via4 != null) || (e.family == 6 && e.via6 != null)

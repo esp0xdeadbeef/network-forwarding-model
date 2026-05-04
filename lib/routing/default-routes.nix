@@ -5,6 +5,7 @@ let
   helpers = import ./static-helpers.nix { inherit lib; };
   directWanDefaults = import ./direct-wan-defaults.nix { inherit lib; };
   laneDefaults = import ./lane-defaults.nix { inherit lib; };
+  overlayCoreSelection = import ./overlay-core-selection.nix { inherit lib; };
 in
 {
   apply =
@@ -26,6 +27,7 @@ in
     topo: nodeName: node:
     let
       uplinks = helpers.uplinkCores topo;
+      defaultReachabilityCores = overlayCoreSelection.nonOverlayUplinkCores topo uplinks;
     in
     if uplinks == [ ] || lib.elem nodeName uplinks then
       node
@@ -41,7 +43,7 @@ in
             };
           in
           p != null && builtins.length p >= 2
-        ) uplinks;
+        ) defaultReachabilityCores;
 
         target = if reachable == [ ] then null else builtins.elemAt (lib.sort (a: b: a < b) reachable) 0;
       in
