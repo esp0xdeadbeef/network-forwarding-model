@@ -25,7 +25,7 @@ labs_path="$(
   '
 )"
 
-intent="${labs_path}/examples/s-router-test-three-site/intent.nix"
+intent="${labs_path}/examples/tri-site-dual-wan-overlay-integration-static/intent.nix"
 
 (
   cd "${repo_root}"
