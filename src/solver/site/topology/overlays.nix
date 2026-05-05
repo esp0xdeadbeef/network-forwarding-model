@@ -2,6 +2,7 @@
 
 let
   domains = import ./domains.nix { inherit lib; };
+  peerSites = import ./overlay-peer-sites.nix { inherit lib; };
   tenants = import ./tenants.nix { inherit lib; };
 
   normalizeOverlay =
@@ -57,61 +58,6 @@ let
     else
       [ ];
 
-  overlayPeerSiteRefOf =
-    enterprise: overlay:
-    let
-      raw =
-        overlay.peerSite or overlay.peerSiteId or overlay.remoteSite or overlay.site or overlay.peer
-          or null;
-      s =
-        if raw == null then
-          null
-        else if builtins.isString raw then
-          toString raw
-        else if builtins.isAttrs raw && (raw.site or null) != null then
-          toString raw.site
-        else if builtins.isAttrs raw && (raw.siteId or null) != null then
-          toString raw.siteId
-        else if builtins.isAttrs raw && (raw.name or null) != null then
-          toString raw.name
-        else
-          null;
-    in
-    if s == null then
-      null
-    else if lib.hasInfix "." s then
-      s
-    else
-      "${enterprise}.${s}";
-
-  normalizedPrefixRoutes =
-    {
-      overlayName,
-      peerSiteRef,
-      family,
-      prefixes,
-    }:
-    map (dst: {
-      inherit dst family;
-      proto = "overlay";
-      overlay = overlayName;
-      peerSite = peerSiteRef;
-      intent = {
-        kind = "overlay-reachability";
-      };
-    }) (map toString prefixes);
-
-  explicitPrefixesOf =
-    overlay:
-    let
-      prefixes = overlay.prefixes or { };
-      ipv4 = if builtins.isList (prefixes.ipv4 or null) then prefixes.ipv4 else [ ];
-      ipv6 = if builtins.isList (prefixes.ipv6 or null) then prefixes.ipv6 else [ ];
-    in
-    {
-      inherit ipv4 ipv6;
-    };
-
   siteByRef =
     allSites: ref:
     let
@@ -129,59 +75,17 @@ let
       else
         null;
 
-  overlayReachabilityForSite =
-    {
-      enterprise,
-      site,
-      allSites,
-    }:
-    builtins.listToAttrs (
-      map (
-        overlay:
-        let
-          overlayName = toString overlay.name;
-          peerSiteRef = overlayPeerSiteRefOf enterprise overlay;
-          peerSite0 = if peerSiteRef == null then null else siteByRef allSites peerSiteRef;
-          peerSite =
-            if peerSite0 == null then
-              null
-            else
-              peerSite0 // { domains = domains.materializeSiteDomains peerSite0; };
-          peerPrefixes =
-            if peerSite == null then
-              {
-                ipv4 = [ ];
-                ipv6 = [ ];
-              }
-            else
-              tenants.tenantPrefixesOfSite peerSite;
-          terminateOn = lib.unique (overlayTargetNamesFrom overlay);
-          explicitPrefixes = explicitPrefixesOf overlay;
-
-          routes4 = normalizedPrefixRoutes {
-            inherit overlayName peerSiteRef;
-            family = 4;
-            prefixes = lib.unique (peerPrefixes.ipv4 ++ explicitPrefixes.ipv4);
-          };
-
-          routes6 = normalizedPrefixRoutes {
-            inherit overlayName peerSiteRef;
-            family = 6;
-            prefixes = lib.unique (peerPrefixes.ipv6 ++ explicitPrefixes.ipv6);
-          };
-        in
-        {
-          name = overlayName;
-          value = {
-            overlay = overlayName;
-            peerSite = peerSiteRef;
-            terminateOn = terminateOn;
-            routes4 = routes4;
-            routes6 = routes6;
-          };
-        }
-      ) (overlayItemsFrom site)
-    );
+  reachability = import ./overlay-reachability.nix {
+    inherit
+      domains
+      lib
+      overlayItemsFrom
+      overlayTargetNamesFrom
+      siteByRef
+      tenants
+      ;
+    inherit (peerSites) overlayPeerSiteRefsOf;
+  };
 
 in
 {
@@ -189,8 +93,8 @@ in
     normalizeOverlay
     overlayItemsFrom
     overlayTargetNamesFrom
-    overlayPeerSiteRefOf
     siteByRef
-    overlayReachabilityForSite
     ;
+  inherit (peerSites) overlayPeerSiteRefOf overlayPeerSiteRefsOf;
+  inherit (reachability) overlayReachabilityForSite;
 }
