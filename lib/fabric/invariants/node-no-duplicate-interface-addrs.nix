@@ -1,7 +1,7 @@
-{ lib }:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 let
-  iface = import ./interface-utils.nix { inherit lib; };
+  iface = import ./interface-utils.nix { inherit lib self; };
 
   checkNode =
     {

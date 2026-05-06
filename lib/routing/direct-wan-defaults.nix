@@ -1,7 +1,7 @@
-{ lib }:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 let
-  helpers = import ./static-helpers.nix { inherit lib; };
+  helpers = import ./static-helpers.nix { inherit lib self; };
 in
 {
   apply =

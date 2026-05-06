@@ -1,4 +1,4 @@
-{ lib }:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 let
   default4 = "0.0.0.0/0";
@@ -27,6 +27,47 @@ let
       { kind = toString x; }
     else
       { kind = toString x; };
+
+  normalizeRouteEntry =
+    x:
+    if builtins.isString x then
+      { dst = toString x; }
+    else if builtins.isAttrs x then
+      (builtins.removeAttrs x [ "preserveDst" ])
+      // lib.optionalAttrs ((x.dst or null) != null) { dst = toString x.dst; }
+    else
+      { dst = toString x; };
+
+  normalizeRouteList =
+    xs:
+    let
+      normalized =
+        if xs == null then
+          [ ]
+        else if builtins.isList xs then
+          map normalizeRouteEntry xs
+        else
+          [ (normalizeRouteEntry xs) ];
+    in
+    dedupeRoutes normalized;
+
+  normalizeRouteDestination =
+    x:
+    if builtins.isString x then
+      toString x
+    else if builtins.isAttrs x && (x.dst or null) != null then
+      toString x.dst
+    else
+      toString x;
+
+  normalizeRouteDestinationList =
+    xs:
+    if xs == null then
+      [ ]
+    else if builtins.isList xs then
+      map normalizeRouteDestination xs
+    else
+      [ (normalizeRouteDestination xs) ];
 
   inferRouteIntent =
     r:
@@ -156,6 +197,10 @@ in
     normalizeIntent
     inferRouteIntent
     annotateRoute
+    normalizeRouteEntry
+    normalizeRouteList
+    normalizeRouteDestination
+    normalizeRouteDestinationList
     routeProtoRank
     routeIntentKey
     routeForwardingKey

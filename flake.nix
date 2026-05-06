@@ -55,7 +55,8 @@
           pkgs = mkPkgs system;
           patched = import nixpkgs-network { inherit system; };
 
-          applyForwardingModel = import ./s88/main.nix {
+          applyForwardingModel = import ./s88/build.nix {
+            inherit self;
             lib = pkgs.lib // {
               network = patched.lib.network;
             };
@@ -143,6 +144,8 @@
               [ $# -ge 1 ] || { echo "usage: nix run path:${self.outPath}#debug -- <ir.json>" >&2; exit 1; }
 
               IR="$1"
+              tmpdir="$(mktemp -d)"
+              trap 'rm -rf "$tmpdir"' EXIT
 
               json="$(
                 nix eval --impure --json --expr '
@@ -151,7 +154,8 @@
                     pkgs = import ${nixpkgs} { inherit system; };
                     patched = import ${nixpkgs-network} { inherit system; };
 
-                    applyForwardingModel = import ${self.outPath}/s88/main.nix {
+                    applyForwardingModel = import ${self.outPath}/s88/build.nix {
+                      self = { outPath = ${self.outPath}; };
                       lib = pkgs.lib // {
                         network = patched.lib.network;
                       };
@@ -177,7 +181,7 @@
                 --arg rev "$gitRev" \
                 --argjson dirty "$gitDirty" \
                 '.meta = (.meta // {}) | .meta.networkForwardingModel = ((.meta.networkForwardingModel // {}) + { gitRev: $rev, gitDirty: $dirty })' \
-                | tee ./output-network-forwarding-model-signed.json \
+                | tee "$tmpdir/output-network-forwarding-model-signed.json" \
                 | tee >(${pkgs.jq}/bin/jq -r '.meta.networkForwardingModel.warningMessages[]? | "WARNING: " + .' >&2) \
                 | ${pkgs.jq}/bin/jq -S
             '';

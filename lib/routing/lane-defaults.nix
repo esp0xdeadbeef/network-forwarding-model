@@ -1,9 +1,9 @@
-{ lib }:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 let
-  graph = import ./graph.nix { inherit lib; };
-  routeBuilder = import ./lane-default-route-builder.nix { inherit lib; };
-  laneMetadata = import ./lane-metadata.nix { inherit lib; };
+  graph = import ./graph.nix { inherit lib self; };
+  routeBuilder = import ./lane-default-route-builder.nix { inherit lib self; };
+  laneMetadata = import ./lane-metadata.nix { inherit lib self; };
   inherit (routeBuilder) addDefaultsTowardPeer;
   inherit (laneMetadata)
     defaultMetricForLane

@@ -1,8 +1,8 @@
-{ lib }:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 let
-  linkIntegrity = import ./final-topology-links.nix { inherit lib; };
-  transitIntegrity = import ./final-topology-transit.nix { inherit lib; };
+  linkIntegrity = import ./final-topology-links.nix { inherit lib self; };
+  transitIntegrity = import ./final-topology-transit.nix { inherit lib self; };
 in
 {
   check =

@@ -1,7 +1,7 @@
-{ lib }:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 let
-  enterprise = import ./enterprise-utils.nix { inherit lib; };
+  enterprise = import ./enterprise-utils.nix { inherit lib self; };
 
   keyForLink =
     linkName: link:

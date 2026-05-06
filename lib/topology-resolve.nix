@@ -1,11 +1,11 @@
-{ lib }:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 topoRaw:
 
 let
-  helpers = import ./topology/resolve-helpers.nix { inherit lib; };
-  link = import ./topology/link-utils.nix { inherit lib; };
-  tenantOwnersMod = import ./routing/tenant-prefix-owners.nix { inherit lib; };
+  helpers = import ./topology/resolve-helpers.nix { inherit lib self; };
+  link = import ./topology/link-utils.nix { inherit lib self; };
+  tenantOwnersMod = import ./routing/tenant-prefix-owners.nix { inherit lib self; };
 
   assert_ = cond: msg: if cond then true else throw msg;
 
@@ -340,8 +340,8 @@ let
     tenantPrefixOwners = tenantPrefixOwners;
   };
 
-  resolveLoopbacks = import ./routing/resolve-loopbacks.nix { inherit lib; };
-  routingStatic = import ./routing/static.nix { inherit lib; };
+  resolveLoopbacks = import ./routing/resolve-loopbacks.nix { inherit lib self; };
+  routingStatic = import ./routing/static.nix { inherit lib self; };
 
   topo3 = resolveLoopbacks.attach topo2;
   topo4 = routingStatic.attach topo3;

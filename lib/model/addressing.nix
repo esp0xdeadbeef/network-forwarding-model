@@ -1,7 +1,7 @@
-{ lib }:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 let
-  ip = import ../net/ip-utils.nix { inherit lib; };
+  ip = import (self.outPath + "/lib/net/ip-utils.nix") { inherit lib self; };
 
   nodeIndex =
     node: members:

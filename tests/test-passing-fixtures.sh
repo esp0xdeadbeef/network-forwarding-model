@@ -31,7 +31,6 @@ resolve_fixtures_root() {
   local candidate
 
   for candidate in \
-    "${repo_root}/fixtures/passing" \
     "${repo_root}/tests/fixtures/passing" \
     "${repo_root}/tests/fixtures"
   do

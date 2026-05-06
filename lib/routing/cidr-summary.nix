@@ -1,8 +1,8 @@
-{ lib }:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 let
-  ip = import ../net/ip-utils.nix { inherit lib; };
-  prefix = import ../model/prefix-utils.nix { inherit lib; };
+  ip = import (self.outPath + "/lib/net/ip-utils.nix") { inherit lib self; };
+  prefix = import (self.outPath + "/lib/model/prefix-utils.nix") { inherit lib self; };
 
   pow2 = n: builtins.foldl' (acc: _: acc * 2) 1 (lib.range 1 n);
 

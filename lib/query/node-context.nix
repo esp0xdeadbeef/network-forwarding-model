@@ -1,4 +1,4 @@
-{ lib }:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 {
   all ? null,
@@ -9,8 +9,8 @@
 }:
 
 let
-  sanitize = import ./sanitize.nix { inherit lib; };
-  routes = import ../model/routes.nix { inherit lib; };
+  sanitize = import ./sanitize.nix { inherit lib self; };
+  routes = import (self.outPath + "/lib/model/routes.nix") { inherit lib self; };
 
   ifaceRoutes = routes.ifaceRoutes;
 

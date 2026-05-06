@@ -1,8 +1,8 @@
-{ lib }:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 let
-  cidr = import ./cidr-utils.nix { inherit lib; };
-  common = import ./common.nix { inherit lib; };
+  cidr = import ./cidr-utils.nix { inherit lib self; };
+  common = import ./common.nix { inherit lib self; };
 
   hostRange4 = ip: cidr.cidrRange "${common.stripMask ip}/32";
   hostRange6 = ip: cidr.cidrRange "${common.stripMask ip}/128";

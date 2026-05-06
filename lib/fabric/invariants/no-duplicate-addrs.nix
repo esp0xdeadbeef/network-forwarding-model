@@ -1,8 +1,8 @@
-{ lib }:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 let
-  common = import ./common.nix { inherit lib; };
-  iface = import ./interface-utils.nix { inherit lib; };
+  common = import ./common.nix { inherit lib self; };
+  iface = import ./interface-utils.nix { inherit lib self; };
 
   collectExecutionAddrs =
     site:

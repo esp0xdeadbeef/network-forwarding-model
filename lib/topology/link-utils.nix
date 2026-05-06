@@ -1,4 +1,4 @@
-{ lib }:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 let
   membersOf = l: lib.unique ((l.members or [ ]) ++ (builtins.attrNames (l.endpoints or { })));

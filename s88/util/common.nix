@@ -1,4 +1,4 @@
-{ lib }:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 let
   requireAttr =

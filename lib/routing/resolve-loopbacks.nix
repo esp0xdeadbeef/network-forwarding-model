@@ -1,7 +1,7 @@
-{ lib }:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 let
-  graph = import ./graph.nix { inherit lib; };
+  graph = import ./graph.nix { inherit lib self; };
 
   laneUplinkNameFromLinkName =
     linkName:

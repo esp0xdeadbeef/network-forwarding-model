@@ -1,8 +1,8 @@
-{ lib }:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 let
-  graph = import ./graph.nix { inherit lib; };
-  helpers = import ./static-helpers.nix { inherit lib; };
+  graph = import ./graph.nix { inherit lib self; };
+  helpers = import ./static-helpers.nix { inherit lib self; };
 in
 rec {
   mkDefaultRoutes =

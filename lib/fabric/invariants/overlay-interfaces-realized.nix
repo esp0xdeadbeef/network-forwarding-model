@@ -1,4 +1,4 @@
-{ lib }:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 let
   assert_ = cond: msg: if cond then true else throw msg;

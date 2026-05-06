@@ -1,11 +1,11 @@
-{ lib }:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 let
-  routeContext = import ./route-context.nix { inherit lib; };
-  externalIngressUplinkDefaults = import ./external-ingress-uplink-defaults.nix { inherit lib; };
-  internalRoutes = import ./internal-routes.nix { inherit lib; };
-  defaultRoutes = import ./default-routes.nix { inherit lib; };
-  uplinkLearnedRoutes = import ./uplink-learned-routes.nix { inherit lib; };
+  routeContext = import ./route-context.nix { inherit lib self; };
+  externalIngressUplinkDefaults = import ./external-ingress-uplink-defaults.nix { inherit lib self; };
+  internalRoutes = import ./internal-routes.nix { inherit lib self; };
+  defaultRoutes = import ./default-routes.nix { inherit lib self; };
+  uplinkLearnedRoutes = import ./uplink-learned-routes.nix { inherit lib self; };
   inherit (routeContext)
     laneAccessNodeNameFromLinkName
     laneUplinkNameFromLinkName

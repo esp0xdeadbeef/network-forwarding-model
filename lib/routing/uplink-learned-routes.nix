@@ -1,9 +1,9 @@
-{ lib }:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 let
-  graph = import ./graph.nix { inherit lib; };
-  helpers = import ./static-helpers.nix { inherit lib; };
-  overlayCoreSelection = import ./overlay-core-selection.nix { inherit lib; };
+  graph = import ./graph.nix { inherit lib self; };
+  helpers = import ./static-helpers.nix { inherit lib self; };
+  overlayCoreSelection = import ./overlay-core-selection.nix { inherit lib self; };
 
   uplinkRouteEntriesFromNode =
     node:
