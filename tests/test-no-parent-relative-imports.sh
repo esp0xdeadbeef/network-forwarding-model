@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+repo_root="$(git rev-parse --show-toplevel)"
 tmp_file="$(mktemp)"
 trap 'rm -f "${tmp_file}"' EXIT
 

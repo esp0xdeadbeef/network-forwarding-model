@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_root="$(git rev-parse --show-toplevel)"
 system="${NIX_SYSTEM:-$(nix eval --impure --raw --expr 'builtins.currentSystem')}"
 
 resolve_examples_root() {
@@ -127,12 +127,12 @@ run_local_passing_fixtures() {
     local rel
     local name
 
-    dir="$(dirname "${input}")"
+    dir="${input%/*}"
     rel="${dir#${fixtures_root}/}"
     name="${rel}"
 
     if [[ "${name}" == "${dir}" || -z "${name}" ]]; then
-      name="$(basename "${dir}")"
+      name="${dir##*/}"
     fi
 
     run_direct_case "fixture:${name}" "${input}"
