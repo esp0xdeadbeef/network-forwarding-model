@@ -4,8 +4,11 @@ set -euo pipefail
 repo_root="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 
 "${repo_root}/test-nix-file-loc.sh"
+"${repo_root}/test-s88-structure-keywords.sh"
 "${repo_root}/test-passing-fixtures.sh"
+"${repo_root}/test-network-labs-output.sh"
 "${repo_root}/test-failing-invariants.sh"
+"${repo_root}/test-negative-forwarding.sh"
 "${repo_root}/test-no-guessing.sh"
 "${repo_root}/test-dedicated-lanes.sh"
 "${repo_root}/test-lane-preserving-default-route-contract.sh"

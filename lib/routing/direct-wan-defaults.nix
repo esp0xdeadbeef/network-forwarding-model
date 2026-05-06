@@ -57,18 +57,6 @@ in
                   intentKind = "default-reachability";
                 })
               ]
-            else if
-              (iface.kind or null) == "wan" && (iface.gateway or false) && (iface.addr4 or null) != null
-            then
-              [
-                {
-                  dst = helpers.default4;
-                  proto = "default";
-                  intent = {
-                    kind = "default-reachability";
-                  };
-                }
-              ]
             else
               [ ];
 
@@ -83,18 +71,6 @@ in
                   proto = "default";
                   intentKind = "default-reachability";
                 })
-              ]
-            else if
-              (iface.kind or null) == "wan" && (iface.gateway or false) && (iface.addr6 or null) != null
-            then
-              [
-                {
-                  dst = helpers.default6;
-                  proto = "default";
-                  intent = {
-                    kind = "default-reachability";
-                  };
-                }
               ]
             else
               [ ];
