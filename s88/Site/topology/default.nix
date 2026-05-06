@@ -1,2 +1,2 @@
 { lib, self ? { outPath = ./.; }, ... }:
-(import ./build.nix { inherit lib self; })
+import (self.outPath + "/implementation/s88/Site/topology/default.nix") { inherit lib self; }

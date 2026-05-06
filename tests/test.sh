@@ -1,23 +1,104 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+repo_root="$(git rev-parse --show-toplevel)"
 
-"${repo_root}/test-nix-file-loc.sh"
-"${repo_root}/test-s88-structure-layout.sh"
-"${repo_root}/test-no-parent-relative-imports.sh"
-"${repo_root}/test-s88-structure-keywords.sh"
-"${repo_root}/test-passing-fixtures.sh"
-"${repo_root}/test-network-labs-output.sh"
-"${repo_root}/test-failing-invariants.sh"
-"${repo_root}/test-negative-forwarding.sh"
-"${repo_root}/test-no-guessing.sh"
-"${repo_root}/test-dedicated-lanes.sh"
-"${repo_root}/test-lane-naming-contract.sh"
-"${repo_root}/test-lane-preserving-default-route-contract.sh"
-"${repo_root}/test-overlay-core-access-p2p-contract.sh"
-"${repo_root}/test-overlay-peer-sites.sh"
-"${repo_root}/test-external-ingress-uplink-defaults.sh"
-"${repo_root}/test-dual-wan-branch-overlay.sh"
-"${repo_root}/test-overlay-access-lane-warning.sh"
-"${repo_root}/test-preferred-access-lanes.sh"
+max_jobs="${TEST_JOBS:-$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN)}"
+if ! [[ "${max_jobs}" =~ ^[0-9]+$ ]] || [ "${max_jobs}" -lt 1 ]; then
+  max_jobs=1
+fi
+
+tests=(
+  test-nix-file-loc.sh
+  test-s88-structure-layout.sh
+  test-no-parent-relative-imports.sh
+  test-s88-structure-keywords.sh
+  test-passing-fixtures.sh
+  test-network-labs-output.sh
+  test-failing-invariants.sh
+  test-negative-forwarding.sh
+  test-no-guessing.sh
+  test-dedicated-lanes.sh
+  test-lane-naming-contract.sh
+  test-lane-preserving-default-route-contract.sh
+  test-overlay-core-access-p2p-contract.sh
+  test-overlay-peer-sites.sh
+  test-external-ingress-uplink-defaults.sh
+  test-dual-wan-branch-overlay.sh
+  test-overlay-access-lane-warning.sh
+  test-preferred-access-lanes.sh
+)
+
+tmpdir="$(mktemp -d)"
+pids=()
+names=()
+logs=()
+
+cleanup() {
+  local pid
+  for pid in "${pids[@]:-}"; do
+    if kill -0 "${pid}" 2>/dev/null; then
+      kill "${pid}" 2>/dev/null || true
+    fi
+  done
+  rm -rf "${tmpdir}"
+}
+trap cleanup EXIT INT TERM
+
+running_jobs() {
+  local count=0
+  local pid
+  for pid in "${pids[@]:-}"; do
+    if kill -0 "${pid}" 2>/dev/null; then
+      count=$((count + 1))
+    fi
+  done
+  printf '%s\n' "${count}"
+}
+
+wait_for_slot() {
+  while [ "$(running_jobs)" -ge "${max_jobs}" ]; do
+    sleep 0.2
+  done
+}
+
+printf 'Running %s tests with TEST_JOBS=%s\n' "${#tests[@]}" "${max_jobs}"
+
+for test_name in "${tests[@]}"; do
+  wait_for_slot
+
+  log="${tmpdir}/${test_name}.log"
+  (
+    cd "${repo_root}"
+    "tests/${test_name}"
+  ) >"${log}" 2>&1 &
+
+  pids+=("$!")
+  names+=("${test_name}")
+  logs+=("${log}")
+done
+
+failed=0
+
+for idx in "${!pids[@]}"; do
+  pid="${pids[$idx]}"
+  name="${names[$idx]}"
+  log="${logs[$idx]}"
+
+  if wait "${pid}"; then
+    printf 'PASS %s\n' "${name}"
+  else
+    status=$?
+    failed=$((failed + 1))
+    printf 'FAIL %s (exit %s)\n' "${name}" "${status}" >&2
+  fi
+
+  sed "s/^/[${name}] /" "${log}"
+done
+
+if [ "${failed}" -ne 0 ]; then
+  printf 'FAIL tests: %s failed\n' "${failed}" >&2
+  exit 1
+fi
+
+printf 'PASS tests\n'

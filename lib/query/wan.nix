@@ -1,3 +1,2 @@
-{ lib, routed }:
-
-lib.filterAttrs (_: l: (l.kind or null) == "wan") routed.links
+{ lib, self ? { outPath = ./.; }, ... }:
+import (self.outPath + "/implementation/lib/query/wan.nix") { inherit lib self; }

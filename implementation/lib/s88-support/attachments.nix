@@ -1,4 +1,4 @@
-{ lib, self ? { outPath = ./.; }, ... }:
+{ lib, ... }:
 
 let
   requireAttr =
@@ -48,31 +48,24 @@ let
 
   unitRefOfAttachment =
     a:
-    if !builtins.isAttrs a then
-      null
-    else if a ? unit && a.unit != null then
-      toString a.unit
-    else if a ? node && a.node != null then
-      toString a.node
-    else if a ? target && builtins.isAttrs a.target && (a.target.unit or null) != null then
-      toString a.target.unit
-    else if a ? target && builtins.isAttrs a.target && (a.target.node or null) != null then
-      toString a.target.node
-    else if a ? to && builtins.isAttrs a.to && (a.to.unit or null) != null then
-      toString a.to.unit
-    else if a ? to && builtins.isAttrs a.to && (a.to.node or null) != null then
-      toString a.to.node
-    else
-      null;
+    if !builtins.isAttrs a then null
+    else if a ? unit && a.unit != null then toString a.unit
+    else if a ? node && a.node != null then toString a.node
+    else if a ? target && builtins.isAttrs a.target && (a.target.unit or null) != null then toString a.target.unit
+    else if a ? target && builtins.isAttrs a.target && (a.target.node or null) != null then toString a.target.node
+    else if a ? to && builtins.isAttrs a.to && (a.to.unit or null) != null then toString a.to.unit
+    else if a ? to && builtins.isAttrs a.to && (a.to.node or null) != null then toString a.to.node
+    else null;
+
 in
 {
   inherit
+    attachmentsOf
+    flattenAttachmentSource
+    isAttachmentLeaf
     requireAttr
     safeHead
     split
-    isAttachmentLeaf
-    flattenAttachmentSource
-    attachmentsOf
     unitRefOfAttachment
     ;
 }

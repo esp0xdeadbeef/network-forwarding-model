@@ -1,2 +1,2 @@
-{ lib, routed }:
-lib.mapAttrs (_: node: node.interfaces or { }) (routed.nodes or { })
+{ lib, self ? { outPath = ./.; }, ... }:
+import (self.outPath + "/implementation/lib/query/routing-table.nix") { inherit lib self; }

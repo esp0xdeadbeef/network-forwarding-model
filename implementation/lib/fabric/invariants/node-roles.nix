@@ -1,0 +1,87 @@
+{ lib, self ? { outPath = ./.; }, ... }:
+
+let
+  common = import ./common.nix { inherit lib self; };
+
+  isRole = role: n: (n.role or "") == role;
+
+  nodeNamesByRole = role: nodes: builtins.attrNames (lib.filterAttrs (_: n: isRole role n) nodes);
+
+in
+{
+  check =
+    { site, ... }:
+    let
+      nodes = site.nodes or { };
+
+      _mustHaveNodes = common.assert_ (
+        builtins.isAttrs nodes && (builtins.attrNames nodes) != [ ]
+      ) "invariants(node-roles): site must define non-empty nodes";
+
+      supported = [
+        "core"
+        "access"
+        "policy"
+        "downstream-selector"
+        "upstream-selector"
+      ];
+
+      badRoles = lib.filter (
+        n:
+        let
+          r = nodes.${n}.role or null;
+        in
+        r == null || !(lib.elem r supported)
+      ) (builtins.attrNames nodes);
+
+      _rolesOk =
+        common.assert_ (badRoles == [ ])
+          "invariants(node-roles): unsupported or missing role on node(s): ${
+            lib.concatStringsSep ", " (map (n: "${n}=${nodes.${n}.role or "null"}") badRoles)
+          }";
+
+      policyNodes = nodeNamesByRole "policy" nodes;
+      _exactlyOnePolicy = common.assert_ (
+        builtins.length policyNodes == 1
+      ) "invariants(node-roles): exactly one node with role='policy' is required";
+
+      downstreamNodes = nodeNamesByRole "downstream-selector" nodes;
+      _downstreamOptionalButUnique = common.assert_ (
+        builtins.length downstreamNodes <= 1
+      ) "invariants(node-roles): at most one node with role='downstream-selector' is allowed";
+
+      upstreamNodes = nodeNamesByRole "upstream-selector" nodes;
+      _upstreamOptionalButUnique = common.assert_ (
+        builtins.length upstreamNodes <= 1
+      ) "invariants(node-roles): at most one node with role='upstream-selector' is allowed";
+
+      coreNodes = nodeNamesByRole "core" nodes;
+      _atLeastOneCore = common.assert_ (
+        builtins.length coreNodes >= 1
+      ) "invariants(node-roles): at least one node with role='core' is required";
+
+      offenders = lib.filter (
+        n:
+        let
+          nets = nodes.${n}.networks or null;
+        in
+        nets != null && (nodes.${n}.role or "") != "access"
+      ) (builtins.attrNames nodes);
+
+      _accessOnlyNetworks = common.assert_ (
+        offenders == [ ]
+      ) "invariants(node-roles): only access nodes may define networks";
+
+    in
+    builtins.seq _mustHaveNodes (
+      builtins.seq _rolesOk (
+        builtins.seq _exactlyOnePolicy (
+          builtins.seq _downstreamOptionalButUnique (
+            builtins.seq _upstreamOptionalButUnique (
+              builtins.seq _atLeastOneCore (builtins.seq _accessOnlyNetworks true)
+            )
+          )
+        )
+      )
+    );
+}

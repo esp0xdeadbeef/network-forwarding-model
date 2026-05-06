@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_root="$(git rev-parse --show-toplevel)"
 expected_sites="${repo_root}/tests/expected/network-labs-sites.tsv"
 expected_routes="${repo_root}/tests/expected/network-labs-routes.tsv"
 
@@ -203,7 +203,8 @@ validate_contracts() {
 }
 
 while read -r intent; do
-  example_name="$(basename "$(dirname "${intent}")")"
+  example_dir="${intent%/*}"
+  example_name="${example_dir##*/}"
   output_json="${tmp_dir}/${example_name}.jsonc"
   stderr_log="${tmp_dir}/${example_name}.stderr"
 
