@@ -78,6 +78,9 @@ let
       in
       normalized
       // { inherit linkName; }
+      // lib.optionalAttrs ((link.laneMeta or null) != null) {
+        laneMeta = link.laneMeta;
+      }
       // lib.optionalAttrs ((link.overlay or null) != null) {
         overlay = toString link.overlay;
       }

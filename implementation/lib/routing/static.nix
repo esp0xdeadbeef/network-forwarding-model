@@ -6,70 +6,30 @@ let
   internalRoutes = import ./internal-routes.nix { inherit lib self; };
   defaultRoutes = import ./default-routes.nix { inherit lib self; };
   uplinkLearnedRoutes = import ./uplink-learned-routes.nix { inherit lib self; };
-  inherit (routeContext)
-    laneAccessNodeNameFromLinkName
-    laneUplinkNameFromLinkName
-    loopbackOwnerNodeForDst
-    mkRoute4
-    mkRoute6
-    nextHopWithPreferredUplinks
-    ;
-
 
   addInternalRoutes =
     topo: nodeName: node:
     internalRoutes.apply {
-      inherit
-        topo
-        nodeName
-        node
-        nextHopWithPreferredUplinks
-        laneUplinkNameFromLinkName
-        loopbackOwnerNodeForDst
-        mkRoute4
-        mkRoute6
-        ;
+      inherit topo nodeName node routeContext;
     };
 
 
   routeDefaultsForNode =
     topo: nodeName: node:
     defaultRoutes.apply {
-      inherit
-        topo
-        nodeName
-        node
-        nextHopWithPreferredUplinks
-        laneAccessNodeNameFromLinkName
-        mkRoute4
-        mkRoute6
-        ;
+      inherit topo nodeName node routeContext;
     };
 
   addExternalIngressUplinkDefaults =
     topo: nodeName: node:
     externalIngressUplinkDefaults.apply {
-      inherit
-        topo
-        nodeName
-        node
-        nextHopWithPreferredUplinks
-        mkRoute4
-        mkRoute6
-        ;
+      inherit topo nodeName node routeContext;
     };
 
   addUplinkLearnedRoutesToSelector =
     topo: nodeName: node:
     uplinkLearnedRoutes.addToSelector {
-      inherit
-        topo
-        nodeName
-        node
-        nextHopWithPreferredUplinks
-        mkRoute4
-        mkRoute6
-        ;
+      inherit topo nodeName node routeContext;
     };
 
 in

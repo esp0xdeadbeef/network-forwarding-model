@@ -142,6 +142,7 @@ in
                 kind = "p2p";
                 lane = p.lane;
               }
+              // lib.optionalAttrs ((p.laneMeta or null) != null) { laneMeta = p.laneMeta; }
               // lib.optionalAttrs ((p.overlay or null) != null) { overlay = p.overlay; }
               // lib.optionalAttrs ((p.uplinks or null) != null) { uplinks = p.uplinks; }
               // {

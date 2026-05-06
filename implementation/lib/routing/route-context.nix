@@ -4,22 +4,12 @@ let
   graph = import ./graph.nix { inherit lib self; };
   helpers = import ./static-helpers.nix { inherit lib self; };
 
-  laneUplinkNameFromLinkName =
-    linkName:
-    let
-      parts = lib.splitString "--uplink-" (toString linkName);
-    in
-    if builtins.length parts < 2 then null else builtins.elemAt parts ((builtins.length parts) - 1);
+  laneMetaForLink = link:
+    if builtins.isAttrs (link.laneMeta or null) then link.laneMeta else { };
 
-  laneAccessNodeNameFromLinkName =
-    linkName:
-    let
-      parts = lib.splitString "--access-" (toString linkName);
-      lastPart =
-        if builtins.length parts < 2 then null else builtins.elemAt parts ((builtins.length parts) - 1);
-      segments = if lastPart == null then [ ] else lib.splitString "--uplink-" lastPart;
-    in
-    if segments == [ ] then null else builtins.elemAt segments 0;
+  laneUplinkNameFromLink = link: (laneMetaForLink link).uplink or null;
+
+  laneAccessNodeNameFromLink = link: (laneMetaForLink link).access or null;
 
   loopbackOwnerNodeForDst =
     topo: family: dst:
@@ -68,7 +58,7 @@ let
           lib.filter (
             linkName:
             let
-              uplinkName = laneUplinkNameFromLinkName linkName;
+              uplinkName = laneUplinkNameFromLink links.${linkName};
             in
             uplinkName != null && builtins.elem uplinkName preferredUplinkSet
           ) candidates;
@@ -80,7 +70,7 @@ let
           lib.filter (
             linkName:
             let
-              accessNodeName = laneAccessNodeNameFromLinkName linkName;
+              accessNodeName = laneAccessNodeNameFromLink links.${linkName};
             in
             accessNodeName != null && builtins.elem accessNodeName preferredAccessSet
           ) candidates;
@@ -120,8 +110,8 @@ let
 in
 {
   inherit
-    laneAccessNodeNameFromLinkName
-    laneUplinkNameFromLinkName
+    laneAccessNodeNameFromLink
+    laneUplinkNameFromLink
     loopbackOwnerNodeForDst
     nextHopWithPreferredUplinks
     ;

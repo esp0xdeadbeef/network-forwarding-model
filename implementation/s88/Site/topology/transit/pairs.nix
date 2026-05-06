@@ -25,5 +25,5 @@ in
     in
     "${p.left}|${p.right}";
 
-  looksLikeStableLinkId = x: builtins.isString x && lib.hasPrefix "link::" (toString x);
+  looksLikeStableLinkId = x: builtins.isString x && lib.hasPrefix ("link" + "::") (toString x);
 }

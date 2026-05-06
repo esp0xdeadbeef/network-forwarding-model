@@ -7,9 +7,9 @@ let
   inherit (routeBuilder) addDefaultsTowardPeer;
   inherit (laneMetadata)
     defaultMetricForLane
-    hasUplinkLaneSuffix
-    laneAccessNodeNameFromLinkName
-    laneUplinkNameFromLinkName
+    hasUplinkLane
+    laneAccessNodeName
+    laneUplinkName
     ;
 
 in
@@ -19,11 +19,11 @@ in
       topo,
       nodeName,
       node,
-      laneAccessNodeNameFromLinkName,
-      mkRoute4,
-      mkRoute6,
+      routeContext,
     }:
     let
+      inherit (routeContext) mkRoute4 mkRoute6;
+
       policyNodeName = topo.policyNodeName or null;
       links = topo.links or { };
       role = node.role or null;
@@ -31,7 +31,7 @@ in
         accessName:
         lib.unique (
           lib.filter (uplinkName: uplinkName != null) (
-            map laneUplinkNameFromLinkName (
+            map (linkName: laneUplinkName links.${linkName}) (
               lib.filter (
                 linkName:
                 let
@@ -40,8 +40,8 @@ in
                 in
                 lib.elem policyNodeName members
                 && lib.elem (topo.upstreamSelectorNodeName or null) members
-                && laneAccessNodeNameFromLinkName linkName == accessName
-                && hasUplinkLaneSuffix linkName
+                && laneAccessNodeName linkObj == accessName
+                && hasUplinkLane linkObj
               ) (builtins.attrNames links)
             )
           )
@@ -58,13 +58,14 @@ in
             in
             lib.elem nodeName members
             && lib.elem policyNodeName members
-            && laneAccessNodeNameFromLinkName linkName != null
+            && laneAccessNodeName linkObj != null
           ) (lib.sort (a: b: a < b) (builtins.attrNames links));
     in
     builtins.foldl' (
       acc: linkName:
       let
-        accessName = laneAccessNodeNameFromLinkName linkName;
+        linkObj = links.${linkName};
+        accessName = laneAccessNodeName linkObj;
         uplinks = uplinksForAccess accessName;
         uplinkName = if uplinks == [ ] then null else builtins.head (lib.sort (a: b: a < b) uplinks);
       in
@@ -90,11 +91,11 @@ in
       topo,
       nodeName,
       node,
-      laneAccessNodeNameFromLinkName,
-      mkRoute4,
-      mkRoute6,
+      routeContext,
     }:
     let
+      inherit (routeContext) mkRoute4 mkRoute6;
+
       policyNodeName = topo.policyNodeName or null;
       selectorNodeName = topo.upstreamSelectorNodeName or null;
       links = topo.links or { };
@@ -111,8 +112,8 @@ in
             in
             lib.elem policyNodeName members
             && lib.elem selectorNodeName members
-            && laneAccessNodeNameFromLinkName linkName != null
-            && hasUplinkLaneSuffix linkName
+            && laneAccessNodeName linkObj != null
+            && hasUplinkLane linkObj
           ) (lib.sort (a: b: a < b) (builtins.attrNames links));
     in
     builtins.foldl' (
@@ -125,10 +126,10 @@ in
           mkRoute6
           ;
         lane = {
-          access = laneAccessNodeNameFromLinkName linkName;
-          uplink = laneUplinkNameFromLinkName linkName;
+          access = laneAccessNodeName links.${linkName};
+          uplink = laneUplinkName links.${linkName};
         };
-        metric = defaultMetricForLane topo linkName;
+        metric = defaultMetricForLane topo links.${linkName};
         node = acc;
         peerNodeName = selectorNodeName;
         reason = "policy-derived-default";

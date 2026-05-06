@@ -3,13 +3,15 @@
   graph,
   hopNode,
   isOverlay,
-  laneUplinkNameFromLinkName,
   nodeName,
   preferredUplinks,
+  routeContext,
   topo,
 }:
 
 let
+  inherit (routeContext) laneUplinkNameFromLink;
+
   links = topo.links or { };
   candidates = builtins.sort (a: b: a < b) (
     builtins.filter (
@@ -29,7 +31,7 @@ let
       builtins.filter (
         lname:
         let
-          uplinkName = laneUplinkNameFromLinkName lname;
+          uplinkName = laneUplinkNameFromLink links.${lname};
         in
         uplinkName != null && builtins.elem uplinkName preferredUplinks
       ) candidates;

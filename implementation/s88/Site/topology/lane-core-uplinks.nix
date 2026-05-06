@@ -71,6 +71,12 @@
             inherit a b;
             name = canonicalP2pLinkNameForEndpoints a b;
             lane = "uplink::${builtins.head uplinkNames}";
+            laneMeta = {
+              kind = "uplink";
+              access = null;
+              uplink = builtins.head uplinkNames;
+              uplinks = uplinkNames;
+            };
           }
         else
           pair;
@@ -120,6 +126,14 @@
         else
           link
           // { inherit uplinks; }
+          // lib.optionalAttrs (builtins.length uplinks == 1) {
+            laneMeta = {
+              kind = "uplink";
+              access = null;
+              uplink = builtins.head uplinks;
+              inherit uplinks;
+            };
+          }
           // lib.optionalAttrs (lane != null && (existingLane == null || existingLane == "default")) {
             inherit lane;
           };

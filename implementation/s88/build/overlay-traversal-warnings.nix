@@ -10,7 +10,11 @@ let
       hasAccessLaneForOverlay =
         overlayName:
         builtins.any (
-          linkName: builtins.match ".*--access-.+--uplink-${overlayName}" linkName != null
+          linkName:
+          let
+            laneMeta = (site.links.${linkName}.laneMeta or { });
+          in
+          (laneMeta.kind or null) == "access-uplink" && (laneMeta.uplink or null) == overlayName
         ) linkNames;
       overlayHasTermination =
         overlayName: ((site.overlayReachability.${overlayName}.terminateOn or [ ]) != [ ]);
@@ -19,7 +23,7 @@ let
       overlayName:
       if overlayHasTermination overlayName && !(hasAccessLaneForOverlay overlayName) then
         [
-          "network-forwarding-model: ${siteKey}: overlay '${overlayName}' terminates on core node(s) but has no access-specific uplink lane; Nebula overlay cores must be reached through access/policy traversal, so add an allowed relation from the intended access tenant(s) to external '${overlayName}'"
+          "network-forwarding-model: ${siteKey}: overlay '${overlayName}' terminates on core node(s) but has no access-specific uplink lane; overlay cores must be reached through access/policy traversal, so add an allowed relation from the intended access tenant(s) to external '${overlayName}'"
         ]
       else
         [ ]

@@ -34,11 +34,11 @@ in
       topo,
       nodeName,
       node,
-      nextHopWithPreferredUplinks,
-      mkRoute4,
-      mkRoute6,
+      routeContext,
     }:
     let
+      inherit (routeContext) nextHopWithPreferredUplinks;
+
       selectorNode = topo.upstreamSelectorNodeName or null;
       uplinkCores = helpers.uplinkCores topo;
       routeExportCores = overlayCoreSelection.nonOverlayUplinkCores topo uplinkCores;
@@ -94,7 +94,7 @@ in
           add4 =
             if e.family == 4 then
               [
-                (mkRoute4 {
+                (routeContext.mkRoute4 {
                   dst = e.dst;
                   via4 = e.via4;
                   proto = "uplink";
@@ -107,7 +107,7 @@ in
           add6 =
             if e.family == 6 then
               [
-                (mkRoute6 {
+                (routeContext.mkRoute6 {
                   dst = e.dst;
                   via6 = e.via6;
                   proto = "uplink";

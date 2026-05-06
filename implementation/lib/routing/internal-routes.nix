@@ -18,13 +18,11 @@ in
       topo,
       nodeName,
       node,
-      nextHopWithPreferredUplinks,
-      laneUplinkNameFromLinkName,
-      loopbackOwnerNodeForDst,
-      mkRoute4,
-      mkRoute6,
+      routeContext,
     }:
     let
+      inherit (routeContext) mkRoute4 mkRoute6;
+
       aggregatePrefixesForNode =
         let
           mode = helpers.aggregationMode topo;
@@ -41,10 +39,8 @@ in
               remoteResolver.resolve {
                 inherit
                   dstEntry
-                  laneUplinkNameFromLinkName
-                  loopbackOwnerNodeForDst
-                  nextHopWithPreferredUplinks
                   nodeName
+                  routeContext
                   topo
                   ;
               }
