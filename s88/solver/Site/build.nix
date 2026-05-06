@@ -7,14 +7,14 @@
 }:
 
 let
-  utils = import ../util { inherit lib; };
-  rolesMod = import ./site/roles.nix { inherit lib; };
-  wanMod = import ./site/wan.nix { inherit lib; };
-  topoMod = import ./site/topology { inherit lib; };
-  enfMod = import ./site/enforcement.nix { inherit lib; };
-  transitMod = import ./site/topology/transit.nix { inherit lib; };
-  transitOrderingMod = import ./site/transit-ordering.nix { inherit lib; };
-  inputRoleMod = import ./site/roles/input-role.nix { inherit lib; };
+  utils = import ../../util { inherit lib; };
+  rolesMod = import ../Unit/roles.nix { inherit lib; };
+  wanMod = import ../EquipmentModule/wan.nix { inherit lib; };
+  topoMod = import ./topology { inherit lib; };
+  enfMod = import ../ControlModule/enforcement.nix { inherit lib; };
+  transitMod = import ./topology/transit.nix { inherit lib; };
+  transitOrderingMod = import ./transit-ordering.nix { inherit lib; };
+  inputRoleMod = import ../Unit/roles/input-role.nix { inherit lib; };
 
   _ =
     if builtins.isAttrs site then

@@ -7,7 +7,7 @@
   },
 }:
 let
-  buildSiteForwardingModel = import ./site.nix { inherit lib; };
+  buildSiteForwardingModel = import ../Site/build.nix { inherit lib; };
 in
 if !builtins.isAttrs sites then
   throw "network-forwarding-model: sites.${enterprise} must be an attrset"
