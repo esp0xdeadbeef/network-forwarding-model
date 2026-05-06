@@ -118,6 +118,7 @@ in
             let
               unitName = toString u;
               base = common.nodeFromSite site unitName;
+              forwardingBase = builtins.removeAttrs base [ "containers" ];
               attachedNetworks = tenants.tenantNetworksForUnit siteForTopology unitName;
               explicitLoopback = explicitLoopbackByUnit.${unitName} or null;
 
@@ -155,10 +156,9 @@ in
                     ipv6 = final6;
                   };
             in
-            base
+            forwardingBase
             // {
               role = rolesResult.roleFromInput unitName;
-              containers = base.containers or [ "default" ];
             }
             // lib.optionalAttrs (attachedNetworks != { }) {
               networks = attachedNetworks;
