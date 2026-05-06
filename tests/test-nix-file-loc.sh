@@ -30,6 +30,7 @@ if ((${#hard_oversized[@]} > 0)); then
 fi
 
 if ((${#oversized[@]} == 0)); then
+  printf 'PASS nix-file-loc\n'
   exit 0
 fi
 
@@ -84,3 +85,5 @@ if (( fail != 0 )); then
   printf '<lines> <path> | state=watch | reason=<why this file remains above the soft limit>\n' >&2
   exit 1
 fi
+
+printf 'PASS nix-file-loc\n'

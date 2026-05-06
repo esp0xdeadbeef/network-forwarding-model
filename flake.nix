@@ -55,7 +55,7 @@
           pkgs = mkPkgs system;
           patched = import nixpkgs-network { inherit system; };
 
-          applyForwardingModel = import ./src/main.nix {
+          applyForwardingModel = import ./s88/main.nix {
             lib = pkgs.lib // {
               network = patched.lib.network;
             };
@@ -151,7 +151,7 @@
                     pkgs = import ${nixpkgs} { inherit system; };
                     patched = import ${nixpkgs-network} { inherit system; };
 
-                    applyForwardingModel = import ${self.outPath}/src/main.nix {
+                    applyForwardingModel = import ${self.outPath}/s88/main.nix {
                       lib = pkgs.lib // {
                         network = patched.lib.network;
                       };

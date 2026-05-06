@@ -212,6 +212,67 @@ It is not allowed to decide:
 * VLAN attachment choices
 * container placement
 
+## Forwarding output contract
+
+The forwarding output is not just a graph. It is the handoff contract that CPM
+and renderers must consume without rediscovering semantics from names or input
+examples.
+
+Stable lane identities:
+
+* p2p lane links have deterministic names and `link::enterprise.site::name`
+  identities
+* access-specific downstream and policy lanes carry `lane =
+  "access::<access-unit>"`
+* access-to-uplink lanes carry `lane =
+  "access::<access-unit>::uplink::<uplink-name>"`
+* core-facing selector lanes carry `lane = "uplink::<uplink-name>"` when a
+  single uplink is attached to that core path
+
+Logical interface identities:
+
+* emitted interface names are forwarding identities, not device names
+* p2p interfaces identify the logical adjacency that must later be realized
+* WAN interfaces identify uplink-facing forwarding endpoints
+* overlay interfaces are logical interfaces with `kind = "overlay"`,
+  `logical = true`, and `virtual = true`
+
+Overlay forwarding semantics:
+
+* `transport.overlays[].terminateOn` selects the forwarding node that owns the
+  overlay termination
+* `overlayReachability.<overlay>` records peer sites, termination ownership, and
+  overlay route sets
+* overlay routes use `proto = "overlay"` and `intent.kind =
+  "overlay-reachability"`
+* overlay routes on the termination interface carry `overlay` and `peerSite`
+  metadata so downstream stages do not parse route destinations or link names
+
+Route intent classes:
+
+* `connected-reachability` describes directly attached forwarding prefixes
+* `internal-reachability` describes staged fabric reachability inside the site
+* `default-reachability` describes executable default reachability toward an
+  upstream next hop
+* `uplink-learned-reachability` describes explicit prefixes learned from an
+  uplink-facing adjacency
+* `overlay-reachability` describes prefixes reached through an overlay
+  termination and peer-site relationship
+
+Realization-required subset:
+
+* every emitted stage node must be bound to a realized execution context by CPM
+* every tenant attachment must be bound to an ingress realization
+* every emitted p2p lane link must be bound to concrete L2 realization
+* every WAN interface must be bound to an uplink realization with the required
+  local and peer endpoint addresses
+* every overlay termination and overlay logical interface must be bound to a
+  downstream control-plane and renderer realization
+
+The forwarding model may say these identities must exist. It must not decide
+whether they become VLANs, bridges, namespaces, containers, subinterfaces, or
+physical ports.
+
 ## Renderer Input Boundary
 
 Renderers do not consume `intent.nix` or inventory files as semantic authority.
@@ -452,11 +513,24 @@ Examples include:
 * single-site to multi-site
 * single-enterprise to multi-enterprise
 * compact co-located deployments to more distributed deployments
+* single-overlay to multi-overlay
+* one tenant attachment to many access-side attachments
 
 This project treats those as **data growth problems**, not reasons to replace the forwarding architecture.
 
 The canonical staged model remains the same.
-Only scope, cardinality, and realization complexity change.
+Only scope, cardinality, and realization complexity change:
+
+* multi-enterprise adds more `enterprise.<name>` scopes, not a new forwarding
+  model
+* multi-site adds more site authority boundaries and inter-site overlay
+  reachability
+* multi-uplink adds more uplink-specific lanes and route ownership, not
+  renderer-side uplink inference
+* multi-overlay adds more logical overlay terminations and peer-site route
+  sets, not overlay-specific fake clients
+* co-located stages reduce realization density without erasing stage
+  responsibilities from the model
 
 ---
 

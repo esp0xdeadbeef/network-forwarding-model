@@ -1,2 +1,2 @@
 { lib ? (import <nixpkgs> { }).lib }:
-import ./src { inherit lib; }
+import ./s88 { inherit lib; }

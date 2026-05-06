@@ -92,12 +92,33 @@ nix run "${repo_root}#debug" -- "${ir_json}" >"${model_json}"
 
 if jq -e '
   .enterprise.acme.site.ams.overlayReachability."east-west" as $overlay
+  | .enterprise.acme.site.ams.nodes."core-overlay".interfaces."overlay-east-west" as $overlayIface
   | $overlay.peerSites == [ "acme.remote-a", "acme.remote-b" ]
   and ($overlay.routes4 | any(.dst == "10.40.10.0/24" and .peerSite == "acme.remote-a"))
   and ($overlay.routes4 | any(.dst == "10.60.10.0/24" and .peerSite == "acme.remote-b"))
+  and $overlay.terminateOn == [ "core-overlay" ]
+  and $overlayIface.kind == "overlay"
+  and $overlayIface.logical == true
+  and $overlayIface.virtual == true
+  and $overlayIface.overlay == "east-west"
+  and $overlayIface.transport.peerSites == [ "acme.remote-a", "acme.remote-b" ]
+  and ($overlayIface.routes.ipv4 | any(
+    .dst == "10.40.10.0/24"
+    and .proto == "overlay"
+    and .intent.kind == "overlay-reachability"
+    and .overlay == "east-west"
+    and .peerSite == "acme.remote-a"
+  ))
+  and ($overlayIface.routes.ipv4 | any(
+    .dst == "10.60.10.0/24"
+    and .proto == "overlay"
+    and .intent.kind == "overlay-reachability"
+    and .overlay == "east-west"
+    and .peerSite == "acme.remote-b"
+  ))
 ' "${model_json}" >/dev/null; then
   echo "PASS overlay-peer-sites"
 else
-  echo "FAIL overlay-peer-sites: FWM did not expand multi-peer overlay reachability" >&2
+  echo "FAIL overlay-peer-sites: FWM did not emit complete multi-peer overlay reachability and logical overlay interface ownership" >&2
   exit 1
 fi
