@@ -2,8 +2,10 @@
 
 let
   graph = import (self.outPath + "/lib/routing/graph.nix") { inherit lib self; };
-  lane = import (self.outPath + "/implementation/lib/routing/loopbacks/lane-link-name.nix") { inherit lib self; };
   routeFields = import (self.outPath + "/implementation/lib/routing/loopbacks/route-fields.nix") { inherit lib self; };
+
+  laneMeta = link:
+    if builtins.isAttrs (link.laneMeta or null) then link.laneMeta else { };
 
 in
 {
@@ -33,7 +35,7 @@ in
       preferredUplinkCandidates = lib.filter (
         lname:
         let
-          uplinkName = lane.uplinkName lname;
+          uplinkName = (laneMeta links.${lname}).uplink or null;
         in
         preferredUplinkSet != [ ] && uplinkName != null && builtins.elem uplinkName preferredUplinkSet
       ) candidates;
@@ -41,7 +43,7 @@ in
       preferredAccessCandidates = lib.filter (
         lname:
         let
-          accessNodeName = lane.accessNodeName lname;
+          accessNodeName = (laneMeta links.${lname}).access or null;
         in
         preferredAccessSet != [ ] && accessNodeName != null && builtins.elem accessNodeName preferredAccessSet
       ) candidates;

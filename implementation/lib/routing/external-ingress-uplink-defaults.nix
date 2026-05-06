@@ -10,11 +10,11 @@ in
       topo,
       nodeName,
       node,
-      nextHopWithPreferredUplinks,
-      mkRoute4,
-      mkRoute6,
+      routeContext,
     }:
     let
+      inherit (routeContext) nextHopWithPreferredUplinks;
+
       selectorNodeName = topo.upstreamSelectorNodeName or null;
       role = node.role or null;
       nodes = topo.nodes or { };
@@ -93,7 +93,7 @@ in
         {
           routes4 =
             if nh.via4 == null then [ ] else [
-              (mkRoute4 {
+              (routeContext.mkRoute4 {
                 dst = helpers.default4;
                 via4 = nh.via4;
                 proto = "default";
@@ -102,7 +102,7 @@ in
             ];
           routes6 =
             if nh.via6 == null then [ ] else [
-              (mkRoute6 {
+              (routeContext.mkRoute6 {
                 dst = helpers.default6;
                 via6 = nh.via6;
                 proto = "default";

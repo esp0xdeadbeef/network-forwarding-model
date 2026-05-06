@@ -11,29 +11,20 @@ let
     );
 in
 rec {
-  hasUplinkLaneSuffix = linkName: builtins.match ".*--uplink-.+" (toString linkName) != null;
+  laneMeta =
+    link:
+    if builtins.isAttrs (link.laneMeta or null) then link.laneMeta else { };
 
-  laneUplinkNameFromLinkName =
-    linkName:
-    let
-      parts = lib.splitString "--uplink-" (toString linkName);
-    in
-    if builtins.length parts < 2 then null else builtins.elemAt parts ((builtins.length parts) - 1);
+  hasUplinkLane = link: (laneMeta link).uplink or null != null;
 
-  laneAccessNodeNameFromLinkName =
-    linkName:
-    let
-      parts = lib.splitString "--access-" (toString linkName);
-      lastPart =
-        if builtins.length parts < 2 then null else builtins.elemAt parts ((builtins.length parts) - 1);
-      segments = if lastPart == null then [ ] else lib.splitString "--uplink-" lastPart;
-    in
-    if segments == [ ] then null else builtins.elemAt segments 0;
+  laneUplinkName = link: (laneMeta link).uplink or null;
+
+  laneAccessNodeName = link: (laneMeta link).access or null;
 
   defaultMetricForLane =
-    topo: linkName:
+    topo: link:
     let
-      uplinkName = laneUplinkNameFromLinkName linkName;
+      uplinkName = laneUplinkName link;
       overlayNames = overlayUplinkNameSet topo;
     in
     if uplinkName == null then null else if builtins.hasAttr uplinkName overlayNames then 2000 else 1000;

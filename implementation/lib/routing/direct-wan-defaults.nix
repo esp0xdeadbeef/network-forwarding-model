@@ -7,10 +7,11 @@ in
   apply =
     {
       node,
-      mkRoute4,
-      mkRoute6,
+      routeContext,
     }:
     let
+      inherit (routeContext) mkRoute4 mkRoute6;
+
       ifs = node.interfaces or { };
       ifNames = builtins.attrNames ifs;
 

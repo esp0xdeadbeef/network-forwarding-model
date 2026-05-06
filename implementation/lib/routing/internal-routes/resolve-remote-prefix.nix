@@ -11,11 +11,11 @@ in
       topo,
       nodeName,
       dstEntry,
-      nextHopWithPreferredUplinks,
-      laneUplinkNameFromLinkName,
-      loopbackOwnerNodeForDst,
+      routeContext,
     }:
     let
+      inherit (routeContext) loopbackOwnerNodeForDst nextHopWithPreferredUplinks;
+
       path = graph.shortestPath {
         links = topo.links or { };
         src = nodeName;
@@ -49,9 +49,9 @@ in
         candidateLinks = import (self.outPath + "/implementation/lib/routing/internal-routes/route-candidates.nix") {
           inherit
             graph
-            laneUplinkNameFromLinkName
             nodeName
             preferredUplinks
+            routeContext
             topo
             ;
           baseLinkName = baseNh.linkName;

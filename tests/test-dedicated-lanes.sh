@@ -147,6 +147,9 @@ let
   uplinkNames = site.uplinkNames or [ ];
   coreALane = site.links.p2p-coreA-upstream1.lane or null;
   coreBLane = site.links.p2p-coreB-upstream1.lane or null;
+  coreALaneMeta = site.links.p2p-coreA-upstream1.laneMeta or { };
+  coreBLaneMeta = site.links.p2p-coreB-upstream1.laneMeta or { };
+  accessEdgeLaneMeta = site.links.p2p-access1-downstream1.laneMeta or { };
 
   isLane = name: builtins.match "p2p-policy1-upstream1--access-access1--uplink-.*" name != null;
   policyUpstreamLaneLinks = builtins.filter isLane linkNames;
@@ -157,6 +160,7 @@ let
 
   dsPolicyLane = builtins.head dsPolicyLaneLinks;
   dsPolicyLaneValue = site.links.\${dsPolicyLane}.lane or null;
+  dsPolicyLaneMeta = site.links.\${dsPolicyLane}.laneMeta or { };
   dsPolicyLaneRoutes = downstream.interfaces.\${dsPolicyLane}.routes or { };
   hasRoute = routes: dst: via:
     builtins.any (route: (route.dst or null) == dst && (route.via4 or route.via6 or null) == via) routes;
@@ -177,10 +181,14 @@ in
     && coreBIntent.wanInterfaces == [ "wan-coreB-wan1" ]
     && coreALane == "uplink::wan0"
     && coreBLane == "uplink::wan1"
+    && coreALaneMeta == { kind = "uplink"; access = null; uplink = "wan0"; uplinks = [ "wan0" ]; }
+    && coreBLaneMeta == { kind = "uplink"; access = null; uplink = "wan1"; uplinks = [ "wan1" ]; }
+    && accessEdgeLaneMeta == { kind = "access-edge"; access = "access1"; uplink = null; uplinks = [ ]; }
     && !(builtins.elem "east-west" uplinkNames)
     && !(builtins.elem "p2p-policy1-upstream1" linkNames)
     && builtins.length dsPolicyLaneLinks == 1
     && dsPolicyLaneValue == "access::access1"
+    && dsPolicyLaneMeta == { kind = "access"; access = "access1"; uplink = null; uplinks = [ ]; }
     && !(builtins.elem "p2p-downstream1-policy1" linkNames)
     && hasRoute (dsPolicyLaneRoutes.ipv4 or [ ]) "0.0.0.0/0" "10.0.1.7"
     && hasDefault6 (dsPolicyLaneRoutes.ipv6 or [ ])

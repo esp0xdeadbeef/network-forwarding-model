@@ -65,11 +65,46 @@ in
         linkSpecConnectsEndpoints
         ;
 
+      annotateAccessEdgeLane =
+        pair:
+        let
+          matchingAccessUnits =
+            lib.filter (
+              accessUnit:
+              downstreamSelectorUnit != null && linkSpecConnectsEndpoints accessUnit downstreamSelectorUnit pair
+            ) accessUnitNames;
+        in
+        if builtins.length matchingAccessUnits == 1 then
+          {
+            a = if builtins.isList pair then toString (builtins.elemAt pair 0) else toString pair.a;
+            b = if builtins.isList pair then toString (builtins.elemAt pair 1) else toString pair.b;
+            name =
+              if builtins.isAttrs pair && (pair.name or null) != null then
+                pair.name
+              else
+                canonicalP2pLinkNameForEndpoints
+                  (if builtins.isList pair then builtins.elemAt pair 0 else pair.a)
+                  (if builtins.isList pair then builtins.elemAt pair 1 else pair.b);
+          }
+          // lib.optionalAttrs (builtins.isAttrs pair && (pair.lane or null) != null) { lane = pair.lane; }
+          // lib.optionalAttrs (builtins.isAttrs pair && (pair.overlay or null) != null) { overlay = pair.overlay; }
+          // lib.optionalAttrs (builtins.isAttrs pair && (pair.uplinks or null) != null) { uplinks = pair.uplinks; }
+          // {
+            laneMeta = {
+              kind = "access-edge";
+              access = builtins.head matchingAccessUnits;
+              uplink = null;
+              uplinks = [ ];
+            };
+          }
+        else
+          pair;
+
       basePairsWithoutSelectorBuses =
         if policyUnit == null then
-          map annotateCoreUplinkLane baseP2pPairs
+          map (pair: annotateAccessEdgeLane (annotateCoreUplinkLane pair)) baseP2pPairs
         else
-          map annotateCoreUplinkLane (
+          map (pair: annotateAccessEdgeLane (annotateCoreUplinkLane pair)) (
             lib.filter (
               pair:
               let
@@ -98,6 +133,12 @@ in
                   a = policyUnit;
                   b = downstreamSelectorUnit;
                   lane = "access::${toString accessUnit}";
+                  laneMeta = {
+                    kind = "access";
+                    access = toString accessUnit;
+                    uplink = null;
+                    uplinks = [ ];
+                  };
                   name =
                     canonicalP2pLinkNameForEndpointsWithSuffix policyUnit downstreamSelectorUnit
                       "access-${toString accessUnit}";
@@ -116,6 +157,12 @@ in
                 a = policyUnit;
                 b = upstreamSelectorUnit;
                 lane = "access::${toString accessUnit}::uplink::${toString uplinkName}";
+                laneMeta = {
+                  kind = "access-uplink";
+                  access = toString accessUnit;
+                  uplink = toString uplinkName;
+                  uplinks = [ (toString uplinkName) ];
+                };
                 name =
                   canonicalP2pLinkNameForEndpointsWithSuffix policyUnit upstreamSelectorUnit
                     "access-${toString accessUnit}--uplink-${toString uplinkName}";
