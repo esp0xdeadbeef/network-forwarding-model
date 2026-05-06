@@ -583,7 +583,9 @@ It may not decide that the model means something else.
 Build from a compiled IR JSON (output of `network-compiler`):
 
 ```bash
-nix run .#debug -- ./output-compiler-signed.json
+ir_json="$(mktemp --suffix=.json)"
+nix run github:esp0xdeadbeef/network-compiler#compile -- ./path/to/intent.nix > "$ir_json"
+nix run .#debug -- "$ir_json"
 ```
 
 Or compile + build in one step (starting from a compiler input Nix file, e.g. `intent.nix`):

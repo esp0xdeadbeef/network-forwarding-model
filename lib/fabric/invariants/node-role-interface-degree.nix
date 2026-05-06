@@ -1,7 +1,7 @@
-{ lib }:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 let
-  common = import ./common.nix { inherit lib; };
+  common = import ./common.nix { inherit lib self; };
 
   ifaceCount =
     x:

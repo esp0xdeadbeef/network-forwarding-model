@@ -1,7 +1,7 @@
 { lib, topo }:
 
 let
-  routes = import ../model/routes.nix { inherit lib; };
+  routes = import (self.outPath + "/lib/model/routes.nix") { inherit lib self; };
 
   ifaceRoutes = routes.ifaceRoutes;
 

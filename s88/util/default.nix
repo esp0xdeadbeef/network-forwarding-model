@@ -1,2 +1,2 @@
-{ lib }:
-import ./common.nix { inherit lib; }
+{ lib, self ? { outPath = ./.; }, ... }:
+import ./common.nix { inherit lib self; }

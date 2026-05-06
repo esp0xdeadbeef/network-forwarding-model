@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
-fixture_dir="${repo_root}/fixtures/passing/lane-preserving-default-routes"
+fixture_dir="${repo_root}/tests/fixtures/passing/lane-preserving-default-routes"
 input_path="${fixture_dir}/input.nix"
 expected_path="${fixture_dir}/expected-lane-defaults.json"
 

@@ -5,6 +5,7 @@ repo_root="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 
 "${repo_root}/test-nix-file-loc.sh"
 "${repo_root}/test-s88-structure-layout.sh"
+"${repo_root}/test-no-parent-relative-imports.sh"
 "${repo_root}/test-s88-structure-keywords.sh"
 "${repo_root}/test-passing-fixtures.sh"
 "${repo_root}/test-network-labs-output.sh"

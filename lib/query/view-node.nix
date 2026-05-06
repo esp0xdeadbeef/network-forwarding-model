@@ -1,9 +1,9 @@
-{ lib }:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 nodeName: topo:
 
 let
-  nodeContext = import ./node-context.nix { inherit lib; };
+  nodeContext = import ./node-context.nix { inherit lib self; };
 
   ctx = nodeContext {
     routed = topo;

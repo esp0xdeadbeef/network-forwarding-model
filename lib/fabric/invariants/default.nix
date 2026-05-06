@@ -1,12 +1,12 @@
 # ./lib/fabric/invariants/default.nix
-{ lib }:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 let
-  collect = import ../../lib/collect-nix-files.nix { inherit lib; };
+  collect = import (self.outPath + "/lib/lib/collect-nix-files.nix") { inherit lib self; };
 
   modules =
     map
-      (p: import p { inherit lib; })
+      (p: import p { inherit lib self; })
       (lib.filter
         (p:
           baseNameOf p != "default.nix"

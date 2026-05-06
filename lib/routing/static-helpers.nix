@@ -1,9 +1,9 @@
-{ lib }:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 let
-  ip = import ../net/ip-utils.nix { inherit lib; };
-  prefix = import ../model/prefix-utils.nix { inherit lib; };
-  routes = import ../model/routes.nix { inherit lib; };
+  ip = import (self.outPath + "/lib/net/ip-utils.nix") { inherit lib self; };
+  prefix = import (self.outPath + "/lib/model/prefix-utils.nix") { inherit lib self; };
+  routes = import (self.outPath + "/lib/model/routes.nix") { inherit lib self; };
 
   default4 = "0.0.0.0/0";
   default6 = "::/0";
@@ -13,7 +13,7 @@ let
   ifaceRoutes = routes.ifaceRoutes;
   rawDedupeRoutes = routes.dedupeRoutes;
 
-  cidrSummary = import ./cidr-summary.nix { inherit lib; };
+  cidrSummary = import ./cidr-summary.nix { inherit lib self; };
   summarizeCidrs = cidrSummary.summarizeCidrs;
   routeBuilders = import ./route-builders.nix { inherit lib default6 canonicalCidr; };
   inherit (routeBuilders) mkRoute4 mkRoute6;

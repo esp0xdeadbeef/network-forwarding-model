@@ -80,7 +80,7 @@ if [[ ! -s "${matches_file}" ]]; then
 fi
 
 fail "domain role words, abbreviations, concrete lab identities, generated-name fragments, or parser primitives were found in implementation files outside include statements."
-fail "Implement the S88-style structure before this test may pass: files must be scoped to the specific problem they solve, with role/site/example names parsed once and then carried as structured data."
+fail "Implement the S88-style structure before this test may pass; regression.md may not waive this guard."
 fail "Repeated tokens such as access/policy/core/upstream-selector/downstream-selector, protocol abbreviations, tenant/service names, lane/uplink names, and example identities like esp0xdeadbeef are structural coupling, not harmless naming."
 fail "This is a hard failure because scattered keyword parsing can miss compiled output families, lanes, and policy rows when the model shape changes."
 
@@ -103,5 +103,4 @@ awk -F '\t' '
 
 fail "full match list follows: group<TAB>file<TAB>line<TAB>text"
 sed 's/^/FAIL s88-structure-keywords:   /' "${matches_file}" >&2
-
 exit 1

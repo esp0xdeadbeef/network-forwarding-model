@@ -1,8 +1,8 @@
-{ lib }:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 let
-  common = import ./common.nix { inherit lib; };
-  roleStages = import ../transit-role-stages.nix { };
+  common = import ./common.nix { inherit lib self; };
+  roleStages = import (self.outPath + "/lib/fabric/transit-role-stages.nix") { };
 
   sorted = xs: lib.sort (a: b: a < b) xs;
 

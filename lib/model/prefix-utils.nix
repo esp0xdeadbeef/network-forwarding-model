@@ -1,8 +1,8 @@
-{ lib }:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 let
-  cidrNormalize = import ../net/cidr-normalize.nix { inherit lib; };
-  network = import ./network-utils.nix { inherit lib; };
+  cidrNormalize = import (self.outPath + "/lib/net/cidr-normalize.nix") { inherit lib self; };
+  network = import ./network-utils.nix { inherit lib self; };
 
   canonicalCidr = cidrNormalize.canonicalCidr;
 

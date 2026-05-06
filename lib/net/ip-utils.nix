@@ -1,4 +1,4 @@
-{ lib }:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 let
   splitRaw = s: lib.splitString "/" (toString s);

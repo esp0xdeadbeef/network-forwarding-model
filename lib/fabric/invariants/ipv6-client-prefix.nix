@@ -1,9 +1,9 @@
-{ lib }:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 let
-  common = import ./common.nix { inherit lib; };
-  ip = import ../../net/ip-utils.nix { inherit lib; };
-  network = import ../../model/network-utils.nix { inherit lib; };
+  common = import ./common.nix { inherit lib self; };
+  ip = import (self.outPath + "/lib/net/ip-utils.nix") { inherit lib self; };
+  network = import (self.outPath + "/lib/model/network-utils.nix") { inherit lib self; };
 
   hasPrefixLength =
     cidr: want:

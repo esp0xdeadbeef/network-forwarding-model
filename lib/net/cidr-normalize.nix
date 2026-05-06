@@ -1,8 +1,8 @@
-{ lib }:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 let
-  ip = import ./ip-utils.nix { inherit lib; };
-  cidr = import ../fabric/invariants/cidr-utils.nix { inherit lib; };
+  ip = import ./ip-utils.nix { inherit lib self; };
+  cidr = import (self.outPath + "/lib/fabric/invariants/cidr-utils.nix") { inherit lib self; };
 
   splitCidr = ip.splitCidr;
   intToV4 = ip.intToIPv4;

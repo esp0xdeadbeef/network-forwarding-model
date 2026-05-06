@@ -1,4 +1,4 @@
-{ lib }:
+{ lib, self ? { outPath = ./.; }, ... }:
 list:
 builtins.filter
   (x: !builtins.isPath x || lib.hasSuffix ".nix" (toString x))
