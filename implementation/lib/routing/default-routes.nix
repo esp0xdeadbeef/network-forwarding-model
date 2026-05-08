@@ -93,6 +93,7 @@ in
       inherit addDefaultTowardNearestUplinkCore;
       addDownstreamSelectorPolicyLaneDefaults = laneDefaults.addDownstreamSelectorPolicyDefaults passArgs;
       addPolicyUpstreamSelectorLaneDefaults = laneDefaults.addPolicyUpstreamSelectorDefaults passArgs;
+      addUpstreamSelectorPolicyLaneCoreDefaults = laneDefaults.addUpstreamSelectorPolicyLaneCoreDefaults passArgs;
       addDirectWanDefaults = directWanDefaults.apply { inherit node routeContext; };
     };
 }

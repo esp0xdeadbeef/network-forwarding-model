@@ -4,6 +4,7 @@ let
   graph = import ./graph.nix { inherit lib self; };
   routeBuilder = import ./lane-default-route-builder.nix { inherit lib self; };
   laneMetadata = import ./lane-metadata.nix { inherit lib self; };
+  upstreamSelectorLaneDefaults = import ./upstream-selector-lane-defaults.nix { inherit lib self; };
   inherit (routeBuilder) addDefaultsTowardPeer;
   inherit (laneMetadata)
     defaultMetricForLane
@@ -135,4 +136,7 @@ in
         reason = "policy-derived-default";
       }
     ) node laneLinks;
+
+  addUpstreamSelectorPolicyLaneCoreDefaults =
+    upstreamSelectorLaneDefaults.addPolicyLaneCoreDefaults;
 }

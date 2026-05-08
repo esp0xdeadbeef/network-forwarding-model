@@ -37,6 +37,84 @@
         "mgmt",
         "client"
       ]
+    },
+    {
+      "node": "upstream",
+      "interface": "p2p-policy-upstream--access-mgmt--uplink-wan",
+      "family": 4,
+      "destination": "0.0.0.0/0",
+      "via": "10.42.1.2",
+      "access": "mgmt",
+      "uplink": "wan",
+      "mustNotShareWith": [
+        "client",
+        "streaming"
+      ]
+    },
+    {
+      "node": "upstream",
+      "interface": "p2p-policy-upstream--access-mgmt--uplink-wan",
+      "family": 6,
+      "destination": "::/0",
+      "via": "fd42:42:1:0:0:0:0:2",
+      "access": "mgmt",
+      "uplink": "wan",
+      "mustNotShareWith": [
+        "client",
+        "streaming"
+      ]
+    },
+    {
+      "node": "upstream",
+      "interface": "p2p-policy-upstream--access-client--uplink-wan",
+      "family": 4,
+      "destination": "0.0.0.0/0",
+      "via": "10.42.1.2",
+      "access": "client",
+      "uplink": "wan",
+      "mustNotShareWith": [
+        "mgmt",
+        "streaming"
+      ]
+    },
+    {
+      "node": "upstream",
+      "interface": "p2p-policy-upstream--access-client--uplink-wan",
+      "family": 6,
+      "destination": "::/0",
+      "via": "fd42:42:1:0:0:0:0:2",
+      "access": "client",
+      "uplink": "wan",
+      "mustNotShareWith": [
+        "mgmt",
+        "streaming"
+      ]
+    },
+    {
+      "node": "upstream",
+      "interface": "p2p-policy-upstream--access-streaming--uplink-wan",
+      "family": 4,
+      "destination": "0.0.0.0/0",
+      "via": "10.42.1.2",
+      "access": "streaming",
+      "uplink": "wan",
+      "mustNotShareWith": [
+        "mgmt",
+        "client"
+      ]
+    },
+    {
+      "node": "upstream",
+      "interface": "p2p-policy-upstream--access-streaming--uplink-wan",
+      "family": 6,
+      "destination": "::/0",
+      "via": "fd42:42:1:0:0:0:0:2",
+      "access": "streaming",
+      "uplink": "wan",
+      "mustNotShareWith": [
+        "mgmt",
+        "client"
+      ]
     }
   ]
 }
