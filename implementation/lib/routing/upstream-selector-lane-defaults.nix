@@ -45,6 +45,7 @@ in
             && lib.elem selectorNodeName members
             && laneAccessNodeName linkObj != null
             && hasUplinkLane linkObj
+            && !(linkObj ? overlay)
           ) linkNames;
 
       coreLinkForUplink =
