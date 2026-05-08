@@ -70,9 +70,11 @@ OUTPUT_JSON="${tmp_json}" EXPECTED_JSON="${expected_path}" nix eval --impure --e
       (((site.nodes.${nodeName}.interfaces or {}).${ifName} or {}).routes or {});
     routeExists = spec:
       let routes = if spec.family == 6 then (ifaceRoutes spec.node spec.interface).ipv6 or [ ] else (ifaceRoutes spec.node spec.interface).ipv4 or [ ];
+          viaField = if spec.family == 6 then "via6" else "via4";
       in builtins.any
         (route:
           (route.dst or null) == spec.destination
+          && (!(spec ? via) || (route.${viaField} or null) == spec.via)
           && (route.lane.access or null) == spec.access
           && (route.lane.uplink or null) == spec.uplink
           && (route.reason or null) == "policy-derived-default")
@@ -83,8 +85,15 @@ OUTPUT_JSON="${tmp_json}" EXPECTED_JSON="${expected_path}" nix eval --impure --e
         (forbiddenAccess:
           builtins.all (route: (route.lane.access or null) != forbiddenAccess) routes)
         (spec.mustNotShareWith or [ ]);
+    failures =
+      builtins.filter
+        (spec: !(routeExists spec && noForbiddenSharing spec))
+        expected.routes;
   in
-    builtins.all (spec: routeExists spec && noForbiddenSharing spec) expected.routes
+    if failures == [ ] then true else throw (
+      "lane-preserving-default-route-contract missing/invalid defaults: "
+      + builtins.toJSON failures
+    )
 ' >/dev/null || {
   cat >&2 <<'EOF'
 FAIL lane-preserving-default-route-contract

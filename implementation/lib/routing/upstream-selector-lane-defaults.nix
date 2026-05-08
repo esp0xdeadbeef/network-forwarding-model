@@ -1,0 +1,97 @@
+{ lib, self ? { outPath = ./.; }, ... }:
+
+let
+  graph = import ./graph.nix { inherit lib self; };
+  helpers = import ./static-helpers.nix { inherit lib self; };
+  routeBuilder = import ./lane-default-route-builder.nix { inherit lib self; };
+  laneMetadata = import ./lane-metadata.nix { inherit lib self; };
+  inherit (routeBuilder) mkDefaultRoutes;
+  inherit (laneMetadata)
+    defaultMetricForLane
+    hasUplinkLane
+    laneAccessNodeName
+    laneUplinkName
+    ;
+in
+{
+  addPolicyLaneCoreDefaults =
+    {
+      topo,
+      nodeName,
+      node,
+      routeContext,
+    }:
+    let
+      inherit (routeContext) mkRoute4 mkRoute6;
+
+      policyNodeName = topo.policyNodeName or null;
+      selectorNodeName = topo.upstreamSelectorNodeName or null;
+      links = topo.links or { };
+      role = node.role or null;
+
+      linkNames = lib.sort (a: b: a < b) (builtins.attrNames links);
+
+      policyLaneLinks =
+        if role != "upstream-selector" || selectorNodeName != nodeName || policyNodeName == null then
+          [ ]
+        else
+          lib.filter (
+            linkName:
+            let
+              linkObj = links.${linkName};
+              members = graph.membersOf linkObj;
+            in
+            lib.elem policyNodeName members
+            && lib.elem selectorNodeName members
+            && laneAccessNodeName linkObj != null
+            && hasUplinkLane linkObj
+          ) linkNames;
+
+      coreLinkForUplink =
+        uplinkName:
+        let
+          matches =
+            lib.filter (
+              linkName:
+              let
+                linkObj = links.${linkName};
+                members = graph.membersOf linkObj;
+              in
+              lib.elem selectorNodeName members
+              && laneAccessNodeName linkObj == null
+              && laneUplinkName linkObj == uplinkName
+              && lib.any (memberName: ((topo.nodes or { }).${memberName} or { }).role or null == "core") members
+            ) linkNames;
+        in
+        if matches == [ ] then null else builtins.head matches;
+    in
+    builtins.foldl' (
+      acc: policyLinkName:
+      let
+        policyLink = links.${policyLinkName};
+        uplinkName = laneUplinkName policyLink;
+        coreLinkName = coreLinkForUplink uplinkName;
+        routes =
+          if coreLinkName == null then
+            { routes4 = [ ]; routes6 = [ ]; }
+          else
+            mkDefaultRoutes {
+              inherit mkRoute4 mkRoute6;
+              epTo = graph.getEp coreLinkName links.${coreLinkName} (
+                builtins.head (
+                  lib.filter
+                    (memberName: memberName != selectorNodeName)
+                    (graph.membersOf links.${coreLinkName})
+                )
+              );
+              lane = {
+                access = laneAccessNodeName policyLink;
+                uplink = uplinkName;
+              };
+              metric = defaultMetricForLane topo policyLink;
+              reason = "policy-derived-default";
+            };
+      in
+      helpers.addRoutesOnLink acc policyLinkName routes.routes4 routes.routes6
+    ) node policyLaneLinks;
+}

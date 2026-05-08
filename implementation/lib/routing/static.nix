@@ -53,7 +53,10 @@ in
           policyUpstreamLaneDefaults = routeDefaultsForNode topo n withPolicyLaneDefaults;
           withPolicyUpstreamLaneDefaults = policyUpstreamLaneDefaults.addPolicyUpstreamSelectorLaneDefaults;
 
-          withExternalIngressDefaults = addExternalIngressUplinkDefaults topo n withPolicyUpstreamLaneDefaults;
+          upstreamCoreLaneDefaults = routeDefaultsForNode topo n withPolicyUpstreamLaneDefaults;
+          withUpstreamCoreLaneDefaults = upstreamCoreLaneDefaults.addUpstreamSelectorPolicyLaneCoreDefaults;
+
+          withExternalIngressDefaults = addExternalIngressUplinkDefaults topo n withUpstreamCoreLaneDefaults;
 
           directWanDefaults = routeDefaultsForNode topo n withExternalIngressDefaults;
         in
