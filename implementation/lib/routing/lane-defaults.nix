@@ -83,6 +83,7 @@ in
         };
         node = acc;
         peerNodeName = policyNodeName;
+        policyOnly = true;
         reason = "policy-derived-default";
       }
     ) node laneLinks;
@@ -133,6 +134,7 @@ in
         metric = defaultMetricForLane topo links.${linkName};
         node = acc;
         peerNodeName = selectorNodeName;
+        policyOnly = true;
         reason = "policy-derived-default";
       }
     ) node laneLinks;

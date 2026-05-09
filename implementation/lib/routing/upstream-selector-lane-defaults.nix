@@ -90,6 +90,7 @@ in
                 uplink = uplinkName;
               };
               metric = defaultMetricForLane topo policyLink;
+              policyOnly = true;
               reason = "policy-derived-default";
             };
       in

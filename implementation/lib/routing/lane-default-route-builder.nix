@@ -12,6 +12,7 @@ rec {
       mkRoute6,
       metric ? null,
       lane ? null,
+      policyOnly ? false,
       reason ? null,
     }:
     let
@@ -29,6 +30,7 @@ rec {
               inherit
                 lane
                 metric
+                policyOnly
                 reason
                 via4
                 ;
@@ -46,6 +48,7 @@ rec {
               inherit
                 lane
                 metric
+                policyOnly
                 reason
                 via6
                 ;
@@ -65,6 +68,7 @@ rec {
       mkRoute6,
       metric ? null,
       lane ? null,
+      policyOnly ? false,
       reason ? null,
     }:
     let
@@ -73,6 +77,7 @@ rec {
         inherit
           lane
           metric
+          policyOnly
           mkRoute4
           mkRoute6
           reason
