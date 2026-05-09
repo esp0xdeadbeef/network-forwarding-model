@@ -23,6 +23,7 @@ fixed by layering.
 ## Layering Policy
 
 - state=required | target=all implementation files | reason=correct layering is required; oversized files are not tracked as regression exceptions because size notes become an excuse to keep bad boundaries.
+- state=fixed-locally | target=policy-derived lane defaults | reason=Forwarding-model now marks policy/upstream-selector policy-derived default routes as `policyOnly = true` at the source, and `tests/test-lane-default-routes-policy-only.sh` gates the prod-risk network-labs examples so CPM/renderers do not have to infer lane scoping.
 - state=allowed | target=flake.lock | reason=flake.lock is generated lock state and is the only file allowed to be large by context rather than by implementation ownership.
 - state=non-waivable | target=tests/test-s88-structure-keywords.sh | reason=regression.md must not contain per-file keyword exceptions; the guard is intended to fail until the implementation is segmented and structured data replaces scattered parsing.
 - state=hard-guard | target=tests/test-nix-file-loc.sh | reason=large Nix implementation files must be split into concrete responsibilities. flake.nix is excluded from this guard because flake wiring is context-heavy and not a useful place to force artificial layering.
