@@ -12,9 +12,9 @@ multi-wan-dedicated-lanes	esp0xdeadbeef	site-a	7	10	6	10	2	0	22	109	107
 overlay-east-west	enterprise-a	site-a	6	5	5	5	2	1	12	72	72
 overlay-east-west	enterprise-b	site-b	6	5	5	5	2	1	12	72	72
 priority-stability	esp0xdeadbeef	site-stable	7	8	6	8	1	0	19	105	105
-s-router-overlay-dns-lane-policy	esp0xdeadbeef	site-a	12	29	11	29	3	1	65	369	369
-s-router-overlay-dns-lane-policy	esp0xdeadbeef	site-c	7	10	6	10	2	1	23	127	127
-s-router-overlay-dns-lane-policy	espbranch	site-b	7	10	6	10	2	1	23	156	156
+s-router-overlay-dns-lane-policy	esp0xdeadbeef	site-a	12	29	11	29	3	1	65	399	399
+s-router-overlay-dns-lane-policy	esp0xdeadbeef	site-c	7	10	6	10	2	1	23	175	175
+s-router-overlay-dns-lane-policy	espbranch	site-b	7	10	6	10	2	1	23	172	172
 s-router-public-overlay-service	esp0xdeadbeef	site-a	12	29	11	29	3	1	65	369	369
 s-router-public-overlay-service	esp0xdeadbeef	site-c	7	10	6	10	2	1	23	127	127
 s-router-public-overlay-service	espbranch	site-b	7	10	6	10	2	1	23	156	156
