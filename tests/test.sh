@@ -26,6 +26,7 @@ tests=(
   test-lane-naming-contract.sh
   test-lane-preserving-default-route-contract.sh
   test-lane-default-routes-policy-only.sh
+  test-compiler-traffic-path-propagation.sh
   test-overlay-core-access-p2p-contract.sh
   test-overlay-peer-sites.sh
   test-external-ingress-uplink-defaults.sh
