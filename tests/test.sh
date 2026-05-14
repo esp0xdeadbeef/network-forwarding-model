@@ -28,6 +28,7 @@ tests=(
   test-lane-default-routes-policy-only.sh
   test-compiler-traffic-path-propagation.sh
   test-overlay-core-access-p2p-contract.sh
+  test-hostile-dedicated-east-west-lanes.sh
   test-overlay-peer-sites.sh
   test-external-ingress-uplink-defaults.sh
   test-dual-wan-branch-overlay.sh
