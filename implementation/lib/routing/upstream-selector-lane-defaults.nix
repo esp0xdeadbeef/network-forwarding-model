@@ -30,6 +30,16 @@ in
       role = node.role or null;
 
       linkNames = lib.sort (a: b: a < b) (builtins.attrNames links);
+      uplinkHasDefault =
+        uplinkName:
+        builtins.any (
+          coreName:
+          let
+            uplink = (((topo.nodes or { }).${coreName} or { }).uplinks or { }).${uplinkName} or { };
+          in
+          builtins.elem helpers.default4 (uplink.ipv4 or [ ])
+          || builtins.elem helpers.default6 (uplink.ipv6 or [ ])
+        ) (builtins.attrNames (topo.nodes or { }));
 
       policyLaneLinks =
         if role != "upstream-selector" || selectorNodeName != nodeName || policyNodeName == null then
@@ -72,7 +82,7 @@ in
         uplinkName = laneUplinkName policyLink;
         coreLinkName = coreLinkForUplink uplinkName;
         routes =
-          if coreLinkName == null then
+          if coreLinkName == null || uplinkName == null || !(uplinkHasDefault uplinkName) then
             { routes4 = [ ]; routes6 = [ ]; }
           else
             mkDefaultRoutes {

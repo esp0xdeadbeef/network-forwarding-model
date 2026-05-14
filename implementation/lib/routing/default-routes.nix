@@ -63,6 +63,26 @@ in
         else
           builtins.head (lib.sort (a: b: a < b) reachable);
 
+      overlayUplinkNameSet =
+        let
+          overlayReachabilityNames = builtins.attrNames (topo.overlayReachability or { });
+          linkOverlayNames = lib.filter (name: name != null) (
+            map (linkName: (topo.links.${linkName}.overlay or null)) (builtins.attrNames (topo.links or { }))
+          );
+        in
+        lib.listToAttrs (
+          map (name: {
+            inherit name;
+            value = true;
+          }) (lib.unique (overlayReachabilityNames ++ linkOverlayNames))
+        );
+
+      nonOverlayUplinkNames =
+        lib.filter (uplinkName: !(builtins.hasAttr uplinkName overlayUplinkNameSet)) (topo.uplinkNames or [ ]);
+
+      defaultReachabilityUplinkNames =
+        if nonOverlayUplinkNames != [ ] then nonOverlayUplinkNames else topo.uplinkNames or [ ];
+
       addDefaultTowardNearestUplinkCore =
         if nearestUplinkCore == null then
           node
@@ -77,10 +97,16 @@ in
               inherit topo;
               from = nodeName;
               to = builtins.elemAt path 1;
-              preferredUplinks = topo.uplinkNames or [ ];
+              preferredUplinks = defaultReachabilityUplinkNames;
             };
+            selectedLink =
+              if nextHop.linkName == null then null else (topo.links or { }).${nextHop.linkName} or { };
+            selectedUplinkName = routeContext.laneUplinkNameFromLink selectedLink;
+            selectedIsOverlayUplink =
+              selectedUplinkName != null && builtins.hasAttr selectedUplinkName overlayUplinkNameSet;
+            skipOverlayGenericDefault = nonOverlayUplinkNames != [ ] && selectedIsOverlayUplink;
           in
-          if nextHop.linkName == null then
+          if nextHop.linkName == null || skipOverlayGenericDefault then
             node
           else
             helpers.addRoutesOnLink

@@ -2,6 +2,7 @@
 
 let
   graph = import ./graph.nix { inherit lib self; };
+  helpers = import ./static-helpers.nix { inherit lib self; };
   routeBuilder = import ./lane-default-route-builder.nix { inherit lib self; };
   laneMetadata = import ./lane-metadata.nix { inherit lib self; };
   upstreamSelectorLaneDefaults = import ./upstream-selector-lane-defaults.nix { inherit lib self; };
@@ -12,6 +13,17 @@ let
     laneAccessNodeName
     laneUplinkName
     ;
+
+  uplinkHasDefault =
+    topo: uplinkName:
+    builtins.any (
+      nodeName:
+      let
+        uplink = (((topo.nodes or { }).${nodeName} or { }).uplinks or { }).${uplinkName} or { };
+      in
+      builtins.elem helpers.default4 (uplink.ipv4 or [ ])
+      || builtins.elem helpers.default6 (uplink.ipv6 or [ ])
+    ) (builtins.attrNames (topo.nodes or { }));
 
 in
 {
@@ -120,23 +132,29 @@ in
     in
     builtins.foldl' (
       acc: linkName:
-      addDefaultsTowardPeer {
-        inherit
-          links
-          linkName
-          mkRoute4
-          mkRoute6
-          ;
-        lane = {
-          access = laneAccessNodeName links.${linkName};
-          uplink = laneUplinkName links.${linkName};
-        };
-        metric = defaultMetricForLane topo links.${linkName};
-        node = acc;
-        peerNodeName = selectorNodeName;
-        policyOnly = true;
-        reason = "policy-derived-default";
-      }
+      let
+        uplinkName = laneUplinkName links.${linkName};
+      in
+      if uplinkName == null || !(uplinkHasDefault topo uplinkName) then
+        acc
+      else
+        addDefaultsTowardPeer {
+          inherit
+            links
+            linkName
+            mkRoute4
+            mkRoute6
+            ;
+          lane = {
+            access = laneAccessNodeName links.${linkName};
+            uplink = uplinkName;
+          };
+          metric = defaultMetricForLane topo links.${linkName};
+          node = acc;
+          peerNodeName = selectorNodeName;
+          policyOnly = true;
+          reason = "policy-derived-default";
+        }
     ) node laneLinks;
 
   addUpstreamSelectorPolicyLaneCoreDefaults =
