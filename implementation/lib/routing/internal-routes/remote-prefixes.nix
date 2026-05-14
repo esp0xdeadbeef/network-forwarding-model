@@ -2,6 +2,14 @@
 
 let
   helpers = import (self.outPath + "/lib/routing/static-helpers.nix") { inherit lib self; };
+  graph = import (self.outPath + "/lib/routing/graph.nix") { inherit lib self; };
+  laneMetadata = import (self.outPath + "/implementation/lib/routing/lane-metadata.nix") {
+    inherit lib self;
+  };
+  inherit (laneMetadata)
+    laneAccessNodeName
+    laneUplinkName
+    ;
 
 in
 {
@@ -14,9 +22,58 @@ in
       overlayEntries =
         if kind == "overlay" then builtins.attrValues (topo.overlayReachability or { }) else [ ];
 
+      links = topo.links or { };
+      nodes = topo.nodes or { };
+      node = nodes.${nodeName} or { };
+      nodeRole = node.role or null;
+
+      uplinksOnNode =
+        lib.unique (
+          lib.filter (uplinkName: uplinkName != null) (
+            map (linkName: laneUplinkName links.${linkName}) (
+              lib.filter (
+                linkName:
+                let
+                  linkObj = links.${linkName};
+                in
+                lib.elem nodeName (graph.membersOf linkObj)
+                && laneAccessNodeName linkObj == null
+                && laneUplinkName linkObj != null
+              ) (builtins.attrNames links)
+            )
+          )
+        );
+
+      uplinksAllowedForAccess =
+        accessNodeName:
+        lib.unique (
+          lib.filter (uplinkName: uplinkName != null) (
+            map (linkName: laneUplinkName links.${linkName}) (
+              lib.filter (
+                linkName:
+                let
+                  linkObj = links.${linkName};
+                in
+                laneAccessNodeName linkObj == accessNodeName && laneUplinkName linkObj != null
+              ) (builtins.attrNames links)
+            )
+          )
+        );
+
+      tenantReachableFromNode =
+        entry:
+        let
+          allowedUplinks = uplinksAllowedForAccess entry.owner;
+        in
+        nodeRole != "core"
+        || uplinksOnNode == [ ]
+        || lib.any (uplinkName: builtins.elem uplinkName allowedUplinks) uplinksOnNode;
+
       perTenantOwner =
         entry:
         if entry.owner == nodeName then
+          [ ]
+        else if !(tenantReachableFromNode entry) then
           [ ]
         else
           [
