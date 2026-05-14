@@ -32,6 +32,7 @@ tests=(
   test-dual-wan-branch-overlay.sh
   test-overlay-access-lane-warning.sh
   test-preferred-access-lanes.sh
+  test-hostile-no-wan-core-reachability.sh
 )
 
 tmpdir="$(mktemp -d)"
