@@ -14,6 +14,7 @@ fi
 
 tests=(
   test-nix-file-loc.sh
+  test-regression-md-resolved-states.sh
   test-s88-structure-layout.sh
   test-no-parent-relative-imports.sh
   test-s88-structure-keywords.sh
