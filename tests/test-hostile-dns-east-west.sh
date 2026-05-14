@@ -83,4 +83,29 @@ OUTPUT_JSON="${s_router_output_json}" nix eval --impure --expr '
   fi
 }
 
+OUTPUT_JSON="${s_router_output_json}" nix eval --impure --expr '
+  let
+    data = builtins.fromJSON (builtins.readFile (builtins.getEnv "OUTPUT_JSON"));
+    siteC = data.enterprise.esp0xdeadbeef.site."site-c";
+    policyIfaces = siteC.nodes."c-router-policy".interfaces;
+    clientEw =
+      policyIfaces."p2p-c-router-policy-c-router-upstream-selector--access-c-router-access-client--uplink-east-west".routes;
+    clientWan =
+      policyIfaces."p2p-c-router-policy-c-router-upstream-selector--access-c-router-access-client--uplink-wan".routes;
+    hasRoute = routes: destination: gateway:
+      builtins.any (
+        route:
+        (route.dst or null) == destination
+        && ((route.via4 or null) == gateway || (route.via6 or null) == gateway)
+      ) ((routes.ipv4 or [ ]) ++ (routes.ipv6 or [ ]));
+  in
+    !(hasRoute clientEw "0.0.0.0/0" "10.80.0.13")
+    && hasRoute clientWan "0.0.0.0/0" "10.80.0.15"
+' | {
+  if ! grep -qx true; then
+    echo "FAIL hostile-dns-east-west: site-c client public IPv4 default must prefer WAN, not east-west overlay" >&2
+    exit 1
+  fi
+}
+
 echo "PASS hostile-dns-east-west"
