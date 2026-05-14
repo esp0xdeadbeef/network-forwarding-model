@@ -71,6 +71,10 @@ let
         members = nodeNames;
         endpoints = map (nodeName: mkEndpoint nodeName endpoints.${nodeName}) nodeNames;
       }
+      // lib.optionalAttrs ((link.lane or null) != null) { lane = link.lane; }
+      // lib.optionalAttrs (builtins.isAttrs (link.laneMeta or null)) { laneMeta = link.laneMeta; }
+      // lib.optionalAttrs (builtins.isList (link.uplinks or null)) { uplinks = link.uplinks; }
+      // lib.optionalAttrs ((link.overlay or null) != null) { overlay = link.overlay; }
     );
 in
 map mkAdjacency p2pLinkNames

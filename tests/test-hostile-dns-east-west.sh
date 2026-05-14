@@ -23,11 +23,14 @@ labs_path="$(
 )"
 
 intent_path="${labs_path}/examples/tri-site-dual-wan-overlay-integration-static/intent.nix"
+s_router_intent_path="${labs_path}/examples/s-router-overlay-dns-lane-policy/intent.nix"
 
 output_json="$(mktemp)"
-trap 'rm -f "'"${archive_json}"'" "'"${output_json}"'"' EXIT
+s_router_output_json="$(mktemp)"
+trap 'rm -f "'"${archive_json}"'" "'"${output_json}"'" "'"${s_router_output_json}"'"' EXIT
 
 nix run "${repo_root}#compile-and-build-forwarding-model" -- "${intent_path}" > "${output_json}"
+nix run "${repo_root}#compile-and-build-forwarding-model" -- "${s_router_intent_path}" > "${s_router_output_json}"
 
 OUTPUT_JSON="${output_json}" nix eval --impure --expr '
   let
@@ -50,6 +53,32 @@ OUTPUT_JSON="${output_json}" nix eval --impure --expr '
 ' | {
   if ! grep -qx true; then
     echo "FAIL hostile-dns-east-west: hostile east-west policy lane must carry IPv4/IPv6 defaults toward the overlay core" >&2
+    exit 1
+  fi
+}
+
+OUTPUT_JSON="${s_router_output_json}" nix eval --impure --expr '
+  let
+    data = builtins.fromJSON (builtins.readFile (builtins.getEnv "OUTPUT_JSON"));
+    siteB = data.enterprise.espbranch.site."site-b";
+    upstreamIfaces = siteB.nodes."b-router-upstream-selector".interfaces;
+    hostileEw =
+      upstreamIfaces."p2p-b-router-policy-b-router-upstream-selector--access-b-router-access-hostile--uplink-east-west".routes;
+    hasRoute = routes: destination: gateway:
+      builtins.any (
+        route:
+        (route.dst or null) == destination
+        && ((route.via4 or null) == gateway || (route.via6 or null) == gateway)
+      ) ((routes.ipv4 or [ ]) ++ (routes.ipv6 or [ ]));
+    hasDefault6 = routes: gateway:
+      hasRoute routes "::/0" gateway
+      || hasRoute routes "0000:0000:0000:0000:0000:0000:0000:0000/0" gateway;
+  in
+    hasRoute hostileEw "0.0.0.0/0" "10.50.0.4"
+    && hasDefault6 hostileEw "fd42:dead:feed:1000:0:0:0:4"
+' | {
+  if ! grep -qx true; then
+    echo "FAIL hostile-dns-east-west: s-router hostile upstream-selector east-west lane must default to the Nebula core selected by policy" >&2
     exit 1
   fi
 }
