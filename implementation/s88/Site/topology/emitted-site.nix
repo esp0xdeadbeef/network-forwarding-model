@@ -80,6 +80,11 @@ in
 
       emittedUplinkCoreNames = uplinkMetadata.coreNames { inherit normalizedRouteSite wanResult; };
       emittedUplinkNames = uplinkMetadata.uplinkNames { inherit normalizedRouteSite wanResult; };
+      hostNatIngress =
+        if builtins.isAttrs (normalizedRouteSite.hostNatIngress or null) then
+          normalizedRouteSite.hostNatIngress
+        else
+          { };
     in
     builtins.removeAttrs normalizedRouteSite [
       "_enforcement"
@@ -96,6 +101,7 @@ in
     // {
       inherit enterprise siteId overlayReachability;
       siteName = normalizedRouteSite.siteName or siteName;
+      inherit hostNatIngress;
       coreNodeNames = finalCoreNodeNames;
       policyNodeName = finalPolicyNodeName;
       upstreamSelectorNodeName = builtins.seq validateUpstreamSelectorNodeName emittedUpstreamSelectorNodeName;

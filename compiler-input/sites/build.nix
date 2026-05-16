@@ -95,6 +95,7 @@ let
       coreNodeNames = coreNodeNames;
       domains = domains;
       topology = topology;
+      hostNatIngress = (merged.topology.hostNatIngress or (merged.hostNatIngress or { }));
       nodes = nodes;
       links = links;
       transport = merged.transport or { };
