@@ -7,6 +7,7 @@
 }:
 
 let
+  trace = import (self.outPath + "/lib/trace.nix") { };
   utils = import (self.outPath + "/lib/s88-support") { inherit lib self; };
   rolesMod = import (self.outPath + "/s88/Unit/roles/build.nix") { inherit lib self; };
   wanMod = import (self.outPath + "/s88/Unit/core.nix") { inherit lib self; };
@@ -57,16 +58,16 @@ let
   );
 
   rawOrderingPairs =
-    (transitMod.normalizeInputOrdering {
+    trace.emit "site:${enterprise}.${siteId}:normalize-ordering" ((transitMod.normalizeInputOrdering {
       siteName = "${enterprise}.${siteId}";
       ordering = rawOrdering;
-    }).pairs;
+    }).pairs);
 
-  canonicalOrdering = transitOrderingMod.canonicalize {
+  canonicalOrdering = trace.emit "site:${enterprise}.${siteId}:canonical-ordering" (transitOrderingMod.canonicalize {
     siteName = "${enterprise}.${siteId}";
     pairs = rawOrderingPairs;
     roleFromInput = roleFromInputExplicit;
-  };
+  });
 
   p2pPool = utils.requireAttr "sites.${enterprise}.${siteId}.addressPools.p2p" (
     site.addressPools.p2p or null
@@ -99,7 +100,7 @@ let
     ++ builtins.attrNames forwardingSemanticsNodes
   );
 
-  rolesResult = rolesMod.compute {
+  rolesResult = trace.emit "site:${enterprise}.${siteId}:roles" (rolesMod.compute {
     inherit
       lib
       site
@@ -109,8 +110,8 @@ let
       allUnits
       ;
     ordering = canonicalOrdering;
-  };
-  wanResult = wanMod.build {
+  });
+  wanResult = trace.emit "site:${enterprise}.${siteId}:wan" (wanMod.build {
     inherit
       lib
       site
@@ -119,16 +120,16 @@ let
       ;
     roleFromInput = rolesResult.roleFromInput;
     inherit nodesBase;
-  };
-  enforcementResult = enfMod.build {
+  });
+  enforcementResult = trace.emit "site:${enterprise}.${siteId}:enforcement" (enfMod.build {
     inherit
       lib
       site
       rolesResult
       wanResult
       ;
-  };
-  topologyResult = topoMod.build {
+  });
+  topologyResult = trace.emit "site:${enterprise}.${siteId}:topology" (topoMod.build {
     inherit
       lib
       site
@@ -142,6 +143,6 @@ let
       ;
     ordering = canonicalOrdering;
     linkPairs = rawOrderingPairs;
-  };
+  });
 in
 builtins.seq rolesResult.assertions topologyResult

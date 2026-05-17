@@ -2,10 +2,12 @@
 { input }:
 
 let
+  trace = import (self.outPath + "/lib/trace.nix") { };
+
   config = input;
 
   normalizeSites = import (self.outPath + "/compiler-input/sites/build.nix") { inherit lib self; };
-  normalizedSitesByEnterprise = normalizeSites { inherit config; };
+  normalizedSitesByEnterprise = trace.emit "build:normalize-sites" (normalizeSites { inherit config; });
 
   flatSites = import (self.outPath + "/implementation/s88/build/flat-sites.nix") { inherit lib self; };
   contracts = import (self.outPath + "/implementation/s88/build/contracts.nix") { inherit lib self; };
@@ -15,26 +17,27 @@ let
 
   solver = import ./Enterprise/build.nix { inherit lib self; };
 
-  solverResultByEnterprise = builtins.mapAttrs (
+  solverResultByEnterprise = trace.emit "build:solve-enterprises" (builtins.mapAttrs (
     enterpriseName: sites:
     solver {
       enterprise = enterpriseName;
       inherit sites;
       allSites = normalizedSitesByEnterprise;
     }
-  ) normalizedSitesByEnterprise;
+  ) normalizedSitesByEnterprise);
 
-  solvedSitesByEnterprise = builtins.mapAttrs flatSites.extractSolvedSites solverResultByEnterprise;
+  solvedSitesByEnterprise =
+    trace.emit "build:extract-solved-sites" (builtins.mapAttrs flatSites.extractSolvedSites solverResultByEnterprise);
 
-  flatSolvedSites = flatSites.flatten solvedSitesByEnterprise;
+  flatSolvedSites = trace.emit "build:flatten-sites" (flatSites.flatten solvedSitesByEnterprise);
 
   invariants = import (self.outPath + "/lib/fabric/invariants") { inherit lib self; };
 
-  _siteInvariantChecks = builtins.deepSeq (builtins.attrValues (
+  _siteInvariantChecks = trace.emit "build:site-invariants" (builtins.deepSeq (builtins.attrValues (
     builtins.mapAttrs (_: site: invariants.checkSite { inherit site; }) flatSolvedSites
-  )) true;
+  )) true);
 
-  _globalInvariantChecks = invariants.checkAll { sites = flatSolvedSites; };
+  _globalInvariantChecks = trace.emit "build:global-invariants" (invariants.checkAll { sites = flatSolvedSites; });
 
   enterpriseNames = builtins.attrNames solverResultByEnterprise;
 

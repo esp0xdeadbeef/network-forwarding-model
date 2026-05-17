@@ -12,53 +12,78 @@ let
     ;
 
 in
-{
-  ofKind =
-    topo: nodeName: kind:
+rec {
+  buildFacts =
+    topo:
     let
-      tenantOwnerEntries =
-        if kind == "tenant" then builtins.attrValues (topo.tenantPrefixOwners or { }) else [ ];
-
-      overlayEntries =
-        if kind == "overlay" then builtins.attrValues (topo.overlayReachability or { }) else [ ];
-
       links = topo.links or { };
+      nodes = topo.nodes or { };
+      nodeNames = helpers.allNodeNames topo;
+      linkNames = builtins.attrNames links;
+
+      addUnique = acc: name: value:
+        acc // { "${name}" = lib.unique ((acc.${name} or [ ]) ++ [ value ]); };
+
+      linkFacts =
+        builtins.foldl' (
+          acc: linkName:
+          let
+            linkObj = links.${linkName};
+            uplinkName = laneUplinkName linkObj;
+            accessNodeName = laneAccessNodeName linkObj;
+            members = graph.membersOf linkObj;
+            accWithNodeUplinks =
+              if accessNodeName != null || uplinkName == null then
+                acc
+              else
+                builtins.foldl' (
+                  nodeAcc: member: nodeAcc // { uplinksByNode = addUnique nodeAcc.uplinksByNode member uplinkName; }
+                ) acc members;
+          in
+          if accessNodeName == null || uplinkName == null then
+            accWithNodeUplinks
+          else
+            accWithNodeUplinks // {
+              uplinksByAccess = addUnique accWithNodeUplinks.uplinksByAccess accessNodeName uplinkName;
+            }
+        ) { uplinksByNode = { }; uplinksByAccess = { }; } linkNames;
+
+      p2pByOwner = builtins.listToAttrs (
+        map
+          (owner: {
+            name = owner;
+            value = map (
+              x:
+              x
+              // {
+                owner = owner;
+                kind = "p2p";
+              }
+            ) (builtins.attrValues (helpers.prefixSetFromP2pIfaces nodes.${owner}));
+          })
+          nodeNames
+      );
+    in
+    {
+      inherit nodeNames p2pByOwner;
+      tenantOwnerEntries = builtins.attrValues (topo.tenantPrefixOwners or { });
+      overlayEntries = builtins.attrValues (topo.overlayReachability or { });
+      inherit (linkFacts) uplinksByNode uplinksByAccess;
+    };
+
+  ofKindWithFacts =
+    facts: topo: nodeName: kind:
+    let
       nodes = topo.nodes or { };
       node = nodes.${nodeName} or { };
       nodeRole = node.role or null;
 
-      uplinksOnNode =
-        lib.unique (
-          lib.filter (uplinkName: uplinkName != null) (
-            map (linkName: laneUplinkName links.${linkName}) (
-              lib.filter (
-                linkName:
-                let
-                  linkObj = links.${linkName};
-                in
-                lib.elem nodeName (graph.membersOf linkObj)
-                && laneAccessNodeName linkObj == null
-                && laneUplinkName linkObj != null
-              ) (builtins.attrNames links)
-            )
-          )
-        );
+      tenantOwnerEntries = if kind == "tenant" then facts.tenantOwnerEntries else [ ];
+      overlayEntries = if kind == "overlay" then facts.overlayEntries else [ ];
 
-      uplinksAllowedForAccess =
-        accessNodeName:
-        lib.unique (
-          lib.filter (uplinkName: uplinkName != null) (
-            map (linkName: laneUplinkName links.${linkName}) (
-              lib.filter (
-                linkName:
-                let
-                  linkObj = links.${linkName};
-                in
-                laneAccessNodeName linkObj == accessNodeName && laneUplinkName linkObj != null
-              ) (builtins.attrNames links)
-            )
-          )
-        );
+      uplinksOnNode = facts.uplinksByNode.${nodeName} or [ ];
+
+      uplinksAllowedForAccess = accessNodeName: facts.uplinksByAccess.${accessNodeName} or [ ];
 
       tenantReachableFromNode =
         entry:
@@ -110,24 +135,15 @@ in
             ) prefixes
         ) owners;
 
-      perNode =
-        other:
-        if other == nodeName then
-          [ ]
-        else
-          map (
-            x:
-            x
-            // {
-              owner = other;
-              kind = "p2p";
-            }
-          ) (builtins.attrValues (helpers.prefixSetFromP2pIfaces topo.nodes.${other}));
     in
     if kind == "tenant" then
       lib.concatMap perTenantOwner tenantOwnerEntries
     else if kind == "overlay" then
       lib.concatMap perOverlayOwner overlayEntries
     else
-      lib.concatMap perNode (helpers.allNodeNames topo);
+      lib.concatMap
+        (owner: if owner == nodeName then [ ] else facts.p2pByOwner.${owner} or [ ])
+        facts.nodeNames;
+
+  ofKind = topo: nodeName: kind: ofKindWithFacts (buildFacts topo) topo nodeName kind;
 }

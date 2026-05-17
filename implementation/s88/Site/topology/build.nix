@@ -1,6 +1,7 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
+  trace = import (self.outPath + "/lib/trace.nix") { };
   topoResolve = import (self.outPath + "/lib/topology-resolve.nix") { inherit lib self; };
 
   domains = import ./domains.nix { inherit lib self; };
@@ -35,23 +36,23 @@ in
       localPool = site.addressPools.local or null;
       topologyPairs = if linkPairs == null then ordering else linkPairs;
 
-      siteDomains = domains.materializeSiteDomains site;
+      siteDomains = trace.emit "topology:${enterprise}.${siteId}:domains" (domains.materializeSiteDomains site);
 
-      overlayReachability = overlays.overlayReachabilityForSite {
+      overlayReachability = trace.emit "topology:${enterprise}.${siteId}:overlay-reachability" (overlays.overlayReachabilityForSite {
         inherit enterprise;
         site = site // {
           domains = siteDomains;
         };
         allSites = sites;
-      };
+      });
 
       siteForTopology = site // {
         domains = siteDomains;
       };
 
-      unitNames = unitNamesMod.collect { inherit site topologyPairs rolesResult; };
+      unitNames = trace.emit "topology:${enterprise}.${siteId}:unit-names" (unitNamesMod.collect { inherit site topologyPairs rolesResult; });
 
-      laneLinkResult = laneLinks.derive {
+      laneLinkResult = trace.emit "topology:${enterprise}.${siteId}:lane-links" (laneLinks.derive {
         inherit
           rolesResult
           site
@@ -59,18 +60,18 @@ in
           unitNames
           wanResult
           ;
-      };
+      });
 
       p2pLinkSpecs = laneLinkResult.p2pLinkSpecs;
       annotateMergedLinkLane = laneLinkResult.annotateMergedLinkLane;
 
-      nodes = topologyNodes.build { inherit site siteForTopology unitNames localPool rolesResult; };
+      nodes = trace.emit "topology:${enterprise}.${siteId}:nodes" (topologyNodes.build { inherit site siteForTopology unitNames localPool rolesResult; });
 
       explicitLoopbackEntries = pools.explicitLoopbackEntriesFromUnits site unitNames;
       userPrefixes =
         (pools.userPrefixEntriesFromNodes nodes) ++ (tenants.tenantPrefixEntriesFromDomains siteDomains);
 
-      p2pLinks = allocatedP2pLinks.allocate {
+      p2pLinks = trace.emit "topology:${enterprise}.${siteId}:p2p-links" (allocatedP2pLinks.allocate {
         inherit
           enterprise
           explicitLoopbackEntries
@@ -83,7 +84,7 @@ in
           siteName
           userPrefixes
           ;
-      };
+      });
 
       coreNodeNames = lib.sort (a: b: a < b) (
         map toString (lib.filter (u: rolesResult.roleFromInput u == "core") unitNames)
@@ -99,7 +100,7 @@ in
         in
         if selectorNames == [ ] then null else builtins.head selectorNames;
 
-      resolvedSite = topoResolve (
+      resolvedSite = trace.emit "topology:${enterprise}.${siteId}:resolve" (topoResolve (
         siteForTopology
         // enforcementResult
         // {
@@ -120,9 +121,9 @@ in
             p2pLinks // (wanResult.wanLinks or { }) // (site.links or { })
           );
         }
-      );
+      ));
 
-      routed = emittedSite.materialize {
+      routed = trace.emit "topology:${enterprise}.${siteId}:emitted-site" (emittedSite.materialize {
         inherit
           coreNodeNames
           enterprise
@@ -136,12 +137,12 @@ in
           wanResult
           ;
         routedSite = resolvedSite;
-      };
+      });
 
-      annotated = semantics.annotateSite {
+      annotated = trace.emit "topology:${enterprise}.${siteId}:semantics" (semantics.annotateSite {
         inherit rolesResult wanResult;
         site = routed;
-      };
+      });
     in
     annotated;
 }
