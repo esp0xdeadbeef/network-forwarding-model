@@ -3,6 +3,7 @@
 let
   helpers = import (self.outPath + "/lib/routing/static-helpers.nix") { inherit lib self; };
   graph = import (self.outPath + "/lib/routing/graph.nix") { inherit lib self; };
+  overlayScope = import ./overlay-scope.nix { inherit lib; };
   laneMetadata = import (self.outPath + "/implementation/lib/routing/lane-metadata.nix") {
     inherit lib self;
   };
@@ -20,6 +21,8 @@ rec {
       nodes = topo.nodes or { };
       nodeNames = helpers.allNodeNames topo;
       linkNames = builtins.attrNames links;
+      tenantOwnerEntries = builtins.attrValues (topo.tenantPrefixOwners or { });
+      overlayScopeFacts = overlayScope.build topo tenantOwnerEntries;
 
       addUnique = acc: name: value:
         acc // { "${name}" = lib.unique ((acc.${name} or [ ]) ++ [ value ]); };
@@ -113,8 +116,10 @@ rec {
     in
     {
       inherit nodeNames p2pByOwner p2pEntries overlayRouteEntries;
-      tenantOwnerEntries = builtins.attrValues (topo.tenantPrefixOwners or { });
+      inherit tenantOwnerEntries;
+      overlayPolicyAllowedNodes = overlayScopeFacts.policyAllowedNodes;
       overlayEntries = builtins.attrValues (topo.overlayReachability or { });
+      overlayAllowedNodes = overlayScopeFacts.attachmentAllowedNodes;
       inherit (linkFacts) uplinksByNode uplinksByAccess;
     };
 
@@ -156,11 +161,29 @@ rec {
             }
           ];
 
+      overlayAllowedOnNode =
+        entry:
+        let
+          overlayName = entry.overlay or null;
+          policyScoped =
+            overlayName != null
+            && builtins.hasAttr overlayName (facts.overlayPolicyAllowedNodes or { });
+          attachmentScoped =
+            overlayName != null
+            && builtins.hasAttr overlayName (facts.overlayAllowedNodes or { });
+        in
+        if policyScoped then
+          builtins.elem nodeName facts.overlayPolicyAllowedNodes.${overlayName}
+        else if attachmentScoped then
+          builtins.elem nodeName facts.overlayAllowedNodes.${overlayName}
+        else
+          true;
+
     in
     if kind == "tenant" then
       lib.concatMap perTenantOwner tenantOwnerEntries
     else if kind == "overlay" then
-      lib.filter (entry: entry.owner != nodeName) (facts.overlayRouteEntries or [ ])
+      lib.filter (entry: entry.owner != nodeName && overlayAllowedOnNode entry) (facts.overlayRouteEntries or [ ])
     else
       lib.filter (entry: entry.owner != nodeName) (facts.p2pEntries or [ ]);
 

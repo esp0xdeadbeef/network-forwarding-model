@@ -25,7 +25,9 @@ let
   normalizeTenants =
     site:
     lib.filter (t: builtins.isAttrs t && (t.name or null) != null) (
-      normalizeTenantsFromRaw ((site.domains or { }).tenants or [ ])
+      normalizeTenantsFromRaw (
+        if site ? tenants && site.tenants != [ ] then site.tenants else ((site.domains or { }).tenants or [ ])
+      )
     );
 
   tenantCatalog =

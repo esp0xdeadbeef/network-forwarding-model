@@ -14,6 +14,7 @@ in
       nodeName,
       node,
       routeContext,
+      routeFacts ? routeContext.buildFacts topo,
       routeGraph ? graph.context (topo.links or { }),
     }:
     let
@@ -44,7 +45,7 @@ in
 
       nearestUplinkCore =
         let
-          uplinks = helpers.uplinkCores topo;
+          uplinks = routeFacts.uplinkCores or [ ];
           candidates = overlayCoreSelection.nonOverlayUplinkCores topo uplinks;
           reachable =
             lib.filter (
@@ -63,25 +64,9 @@ in
         else
           builtins.head (lib.sort (a: b: a < b) reachable);
 
-      overlayUplinkNameSet =
-        let
-          overlayReachabilityNames = builtins.attrNames (topo.overlayReachability or { });
-          linkOverlayNames = lib.filter (name: name != null) (
-            map (linkName: (topo.links.${linkName}.overlay or null)) (builtins.attrNames (topo.links or { }))
-          );
-        in
-        lib.listToAttrs (
-          map (name: {
-            inherit name;
-            value = true;
-          }) (lib.unique (overlayReachabilityNames ++ linkOverlayNames))
-        );
-
-      nonOverlayUplinkNames =
-        lib.filter (uplinkName: !(builtins.hasAttr uplinkName overlayUplinkNameSet)) (topo.uplinkNames or [ ]);
-
-      defaultReachabilityUplinkNames =
-        if nonOverlayUplinkNames != [ ] then nonOverlayUplinkNames else topo.uplinkNames or [ ];
+      overlayUplinkNameSet = routeFacts.overlayUplinkNameSet or { };
+      nonOverlayUplinkNames = routeFacts.nonOverlayUplinkNames or [ ];
+      defaultReachabilityUplinkNames = routeFacts.defaultReachabilityUplinkNames or (topo.uplinkNames or [ ]);
 
       addDefaultTowardNearestUplinkCore =
         if nearestUplinkCore == null then

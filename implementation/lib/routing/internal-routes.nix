@@ -23,6 +23,7 @@ in
       nodeName,
       node,
       routeContext,
+      routeFacts ? routeContext.buildFacts topo,
       remotePrefixFacts ? remotePrefixes.buildFacts topo,
       routeGraph ? graph.context (topo.links or { }),
     }:
@@ -59,6 +60,7 @@ in
                   dstEntry = sample;
                   inherit
                     nodeName
+                    routeFacts
                     routeContext
                     topo
                     ;
@@ -87,9 +89,7 @@ in
             e:
             "${e.linkName}|${toString e.family}|${toString (e.via4 or "")}|${toString (e.via6 or "")}|${e.kind}|${toString (e.overlay or "")}|${toString (e.peerSite or "")}";
 
-          grouped = builtins.foldl' (
-            acc: e: acc // { "${perNextHopKey e}" = (acc.${perNextHopKey e} or [ ]) ++ [ e ]; }
-          ) { } resolved;
+          grouped = builtins.groupBy perNextHopKey resolved;
         in
         builtins.mapAttrs
           (_linkName: routes: {

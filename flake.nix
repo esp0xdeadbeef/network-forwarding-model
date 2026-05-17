@@ -69,6 +69,13 @@
             else
               value;
 
+          isCompilerOutput =
+            value:
+            builtins.isAttrs value
+            && value ? sites
+            && builtins.isAttrs value.sites
+            && !(value ? enterprise);
+
           compilerLib =
             if network-compiler ? libBySystem then
               network-compiler.libBySystem.${system}
@@ -87,8 +94,11 @@
 
           buildFromCompilerInputs =
             args:
+            let
+              normalized = normalizeModelInput args;
+            in
             build {
-              input = compilerLib.compile (normalizeModelInput args);
+              input = if isCompilerOutput normalized then normalized else compilerLib.compile normalized;
             };
 
           buildFromCompilerInputPath =

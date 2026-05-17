@@ -13,19 +13,59 @@ let
 
   loopbackOwnerNodeForDst =
     topo: family: dst:
+    loopbackOwnerNodeForDstWithFacts (buildFacts topo) family dst;
+
+  loopbackOwnerNodeForDstWithFacts =
+    facts: family: dst:
     let
       wanted = helpers.stripMask dst;
+      key = "${toString family}|${wanted}";
+    in
+    facts.loopbackOwnerByKey.${key} or null;
+
+  buildFacts =
+    topo:
+    let
       nodes = topo.nodes or { };
-      matches = lib.filter (
+      loopbackEntries = lib.concatMap (
         nodeName:
         let
           loopback = nodes.${nodeName}.loopback or { };
-          raw = if family == 4 then loopback.ipv4 or null else loopback.ipv6 or null;
+          entry =
+            family: raw:
+            if raw == null then
+              [ ]
+            else
+              [
+                {
+                  name = "${toString family}|${helpers.stripMask raw}";
+                  value = nodeName;
+                }
+              ];
         in
-        raw != null && helpers.stripMask raw == wanted
+        (entry 4 (loopback.ipv4 or null)) ++ (entry 6 (loopback.ipv6 or null))
       ) (builtins.attrNames nodes);
+
+      overlayReachabilityNames = builtins.attrNames (topo.overlayReachability or { });
+      linkOverlayNames = lib.filter (name: name != null) (
+        map (linkName: (topo.links.${linkName}.overlay or null)) (builtins.attrNames (topo.links or { }))
+      );
+      overlayUplinkNameSet = lib.listToAttrs (
+        map (name: {
+          inherit name;
+          value = true;
+        }) (lib.unique (overlayReachabilityNames ++ linkOverlayNames))
+      );
+      nonOverlayUplinkNames =
+        lib.filter (uplinkName: !(builtins.hasAttr uplinkName overlayUplinkNameSet)) (topo.uplinkNames or [ ]);
     in
-    if matches == [ ] then null else builtins.head matches;
+    {
+      loopbackOwnerByKey = builtins.listToAttrs loopbackEntries;
+      uplinkCores = helpers.uplinkCores topo;
+      inherit overlayUplinkNameSet nonOverlayUplinkNames;
+      defaultReachabilityUplinkNames =
+        if nonOverlayUplinkNames != [ ] then nonOverlayUplinkNames else topo.uplinkNames or [ ];
+    };
 
   nextHopWithPreferredUplinks =
     {
@@ -103,9 +143,11 @@ let
 in
 {
   inherit
+    buildFacts
     laneAccessNodeNameFromLink
     laneUplinkNameFromLink
     loopbackOwnerNodeForDst
+    loopbackOwnerNodeForDstWithFacts
     nextHopWithPreferredUplinks
     ;
 

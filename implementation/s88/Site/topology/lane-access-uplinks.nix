@@ -27,6 +27,15 @@
         in
         builtins.foldl' step { } attachments;
 
+      accessUnitByTenant =
+        builtins.foldl' (
+          acc: accessUnit:
+          builtins.foldl' (
+            tenantAcc: tenant:
+            tenantAcc // { "${tenant}" = toString accessUnit; }
+          ) acc (tenantsByAccessUnit.${accessUnit} or [ ])
+        ) { } (builtins.attrNames tenantsByAccessUnit);
+
       endpointTenantByName =
         let
           endpoints = site.ownership.endpoints or [ ];
@@ -79,6 +88,96 @@
         else
           [ ];
 
+      sourceAccessUnits =
+        source:
+        let
+          kind = source.kind or null;
+        in
+        if kind == "tenant" then
+          let
+            tenantName = toString (source.name or "");
+            accessUnit = accessUnitByTenant.${tenantName} or null;
+          in
+          if accessUnit == null then [ ] else [ accessUnit ]
+        else if kind == "tenant-set" then
+          let
+            members = if builtins.isList (source.members or null) then map toString source.members else [ ];
+          in
+          lib.unique (lib.filter (x: x != null) (map (tenant: accessUnitByTenant.${tenant} or null) members))
+        else
+          [ ];
+
+      pathAccessUnits =
+        path:
+        lib.filter (
+          nodeName: builtins.elem nodeName accessUnitNames
+        ) (map toString path);
+
+      pathUplinks =
+        path:
+        let
+          pathSet = builtins.listToAttrs (map (nodeName: { name = toString nodeName; value = true; }) path);
+          cores = site.upstreams.cores or { };
+          coreNames = builtins.attrNames cores;
+          matchingCores = lib.filter (coreName: builtins.hasAttr coreName pathSet) coreNames;
+        in
+        lib.concatMap (
+          coreName:
+          map (u: toString (u.name or "")) (cores.${coreName} or [ ])
+        ) matchingCores;
+
+      trafficPathEntries =
+        let
+          trafficPaths = site.trafficPaths or [ ];
+          perPath =
+            path:
+            if !(builtins.isAttrs path) || (path.action or "allow") != "allow" then
+              [ ]
+            else
+              let
+                destination = path.destination or { };
+                destinationUplinks =
+                  if (destination.kind or null) != "external" then
+                    [ ]
+                  else if builtins.isList (destination.uplinks or null) then
+                    map toString destination.uplinks
+                  else if (destination.name or null) != null then
+                    [ (toString destination.name) ]
+                  else
+                    [ ];
+                alternatives = path.nodePathAlternatives or [ (path.nodePath or [ ]) ];
+                sourceUnits = sourceAccessUnits (path.source or { });
+                accessUnits =
+                  if sourceUnits != [ ] then
+                    sourceUnits
+                  else
+                    lib.concatMap pathAccessUnits alternatives;
+                uplinks =
+                  if destinationUplinks != [ ] then
+                    destinationUplinks
+                  else
+                    lib.concatMap pathUplinks alternatives;
+              in
+              lib.concatMap (
+                accessUnit:
+                map (uplinkName: {
+                  inherit accessUnit uplinkName;
+                }) uplinks
+              ) accessUnits;
+        in
+        lib.concatMap perPath trafficPaths;
+
+      trafficPathUplinksByAccessUnit =
+        builtins.foldl' (
+          acc: entry:
+          if (entry.accessUnit or "") == "" || (entry.uplinkName or "") == "" then
+            acc
+          else
+            acc // {
+              "${entry.accessUnit}" = (acc.${entry.accessUnit} or [ ]) ++ [ entry.uplinkName ];
+            }
+        ) { } trafficPathEntries;
+
       relationAppliesToAccessUnit =
         unit: rel:
         let
@@ -115,8 +214,11 @@
         let
           relations = site.communicationContract.allowedRelations or [ ];
           hasAnyAllowRelation = lib.any (rel: (rel.action or null) == "allow") relations;
+          compilerUplinks = trafficPathUplinksByAccessUnit.${unit} or [ ];
           uplinks =
-            if !hasAnyAllowRelation then
+            if compilerUplinks != [ ] then
+              compilerUplinks
+            else if !hasAnyAllowRelation then
               allUplinkNames
             else
               lib.concatMap (

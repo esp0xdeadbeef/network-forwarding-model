@@ -12,10 +12,11 @@ in
       nodeName,
       dstEntry,
       routeContext,
+      routeFacts ? routeContext.buildFacts topo,
       routeGraph ? graph.context (topo.links or { }),
     }:
     let
-      inherit (routeContext) loopbackOwnerNodeForDst nextHopWithPreferredUplinks;
+      inherit (routeContext) loopbackOwnerNodeForDstWithFacts nextHopWithPreferredUplinks;
 
       path = routeGraph.shortestPath {
         src = nodeName;
@@ -37,7 +38,7 @@ in
         preferredAccessNodes = lib.unique (
           lib.filter (x: x != null) [
             (dstEntry.owner or null)
-            (loopbackOwnerNodeForDst topo dstEntry.family dstEntry.dst)
+            (loopbackOwnerNodeForDstWithFacts routeFacts dstEntry.family dstEntry.dst)
           ]
         );
         baseNh = nextHopWithPreferredUplinks {
