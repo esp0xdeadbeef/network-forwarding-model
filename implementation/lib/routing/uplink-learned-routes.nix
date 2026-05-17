@@ -35,6 +35,7 @@ in
       nodeName,
       node,
       routeContext,
+      routeGraph ? graph.context (topo.links or { }),
     }:
     let
       inherit (routeContext) nextHopWithPreferredUplinks;
@@ -48,8 +49,7 @@ in
         core:
         let
           coreNode = topo.nodes.${core} or { };
-          path = graph.shortestPath {
-            links = topo.links or { };
+          path = routeGraph.shortestPath {
             src = nodeName;
             dst = core;
           };
@@ -63,6 +63,7 @@ in
               inherit topo;
               from = nodeName;
               to = hop;
+              inherit routeGraph;
               preferredUplinks = topo.uplinkNames or [ ];
             };
 

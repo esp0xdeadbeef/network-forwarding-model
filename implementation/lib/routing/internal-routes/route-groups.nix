@@ -16,8 +16,21 @@ in
     let
       sample = builtins.head entries;
       entryDsts = lib.unique (map (e: e.dst) entries);
+      aggDst =
+        if mode == "none" && sample.kind != "p2p" then
+          null
+        else if sample.kind == "p2p" then
+          helpers.buildP2pAggregate topo sample.family
+        else if sample.kind == "tenant" then
+          helpers.buildTenantAggregate topo sample.family
+        else
+          null;
       summarizedDsts =
-        if builtins.length entryDsts <= 1 then
+        if sample.kind == "p2p" && aggDst != null then
+          [ ]
+        else if sample.kind == "overlay" || sample.kind == "p2p" then
+          entryDsts
+        else if builtins.length entryDsts <= 1 then
           entryDsts
         else
           helpers.summarizeCidrs sample.family entryDsts;
@@ -31,7 +44,7 @@ in
               inherit dst intentKind;
               via4 = sample.via4;
               proto = "internal";
-              preserveDst = sample.kind == "p2p";
+              preserveDst = sample.kind == "p2p" || sample.kind == "overlay";
             }
           ) summarizedDsts
         else
@@ -41,19 +54,9 @@ in
               inherit dst intentKind;
               via6 = sample.via6;
               proto = "internal";
-              preserveDst = sample.kind == "p2p";
+              preserveDst = sample.kind == "p2p" || sample.kind == "overlay";
             }
           ) summarizedDsts;
-
-      aggDst =
-        if mode == "none" then
-          null
-        else if sample.kind == "p2p" then
-          helpers.buildP2pAggregate topo sample.family
-        else if sample.kind == "tenant" then
-          helpers.buildTenantAggregate topo sample.family
-        else
-          null;
 
       aggRoute =
         if aggDst == null then

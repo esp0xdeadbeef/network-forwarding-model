@@ -32,12 +32,21 @@ let
   flatSolvedSites = trace.emit "build:flatten-sites" (flatSites.flatten solvedSitesByEnterprise);
 
   invariants = import (self.outPath + "/lib/fabric/invariants") { inherit lib self; };
+  skipInvariants = builtins.getEnv "S88_NFM_PROFILE_SKIP_INVARIANTS" == "1";
 
-  _siteInvariantChecks = trace.emit "build:site-invariants" (builtins.deepSeq (builtins.attrValues (
-    builtins.mapAttrs (_: site: invariants.checkSite { inherit site; }) flatSolvedSites
-  )) true);
+  _siteInvariantChecks =
+    if skipInvariants then
+      true
+    else
+      trace.emit "build:site-invariants" (builtins.deepSeq (builtins.attrValues (
+        builtins.mapAttrs (_: site: invariants.checkSite { inherit site; }) flatSolvedSites
+      )) true);
 
-  _globalInvariantChecks = trace.emit "build:global-invariants" (invariants.checkAll { sites = flatSolvedSites; });
+  _globalInvariantChecks =
+    if skipInvariants then
+      true
+    else
+      trace.emit "build:global-invariants" (invariants.checkAll { sites = flatSolvedSites; });
 
   enterpriseNames = builtins.attrNames solverResultByEnterprise;
 

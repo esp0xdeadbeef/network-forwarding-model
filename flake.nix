@@ -191,6 +191,7 @@
             name = "compile-and-build-forwarding-model";
 
             runtimeInputs = [
+              pkgs.git
               pkgs.jq
               pkgs.nix
             ];
@@ -202,12 +203,32 @@
 
               INPUTS_NIX="$1"
 
-              IR_JSON="$(mktemp)"
-              trap 'rm -f "$IR_JSON"' EXIT
+              json="$(
+                nix eval --impure --json --expr '
+                  let
+                    system = "'${system}'";
+                    nfm = builtins.getFlake "path:${self.outPath}";
+                  in
+                    nfm.libBySystem.${system}.buildFromCompilerInputPath "'"$INPUTS_NIX"'"
+                '
+              )"
 
-              nix run --no-warn-dirty path:${network-compiler.outPath}#compile -- "$INPUTS_NIX" > "$IR_JSON"
+              gitRev="$(${pkgs.git}/bin/git rev-parse HEAD 2>/dev/null || echo "unknown")"
+              gitDirty=false
+              if ${pkgs.git}/bin/git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+                if ${pkgs.git}/bin/git diff --quiet >/dev/null 2>&1 && ${pkgs.git}/bin/git diff --cached --quiet >/dev/null 2>&1; then
+                  gitDirty=false
+                else
+                  gitDirty=true
+                fi
+              fi
 
-              nix run path:${self.outPath}#debug -- "$IR_JSON"
+              echo "$json" | ${pkgs.jq}/bin/jq -S -c \
+                --arg rev "$gitRev" \
+                --argjson dirty "$gitDirty" \
+                '.meta = (.meta // {}) | .meta.networkForwardingModel = ((.meta.networkForwardingModel // {}) + { gitRev: $rev, gitDirty: $dirty })' \
+                | tee >(${pkgs.jq}/bin/jq -r '.meta.networkForwardingModel.warningMessages[]? | "WARNING: " + .' >&2) \
+                | ${pkgs.jq}/bin/jq -S
             '';
           };
 

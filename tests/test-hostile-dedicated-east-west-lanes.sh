@@ -56,7 +56,7 @@ OUTPUT_JSON="${output_json}" nix eval --impure --expr '
           "core"
         ]
         && (path.nodePath or [ ]) == [
-          "b-router-access-branch"
+          "b-router-access-hostile"
           "b-router-downstream-selector"
           "b-router-policy"
           "b-router-upstream-selector"

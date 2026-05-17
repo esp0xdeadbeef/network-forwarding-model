@@ -64,7 +64,7 @@ in
           {
             name = ifName;
             value = helpers.mkOverlayIface {
-              inherit nodeName ifName overlay;
+              inherit nodeName ifName overlay node;
               overlayName = overlay.name;
               reachability = overlayReachability.${overlay.name} or null;
             };

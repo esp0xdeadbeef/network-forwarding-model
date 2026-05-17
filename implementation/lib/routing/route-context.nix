@@ -34,19 +34,12 @@ let
       to,
       preferredUplinks ? [ ],
       preferredAccessNodes ? [ ],
+      routeGraph ? graph.context (topo.links or { }),
     }:
     let
       links = topo.links or { };
 
-      candidates = lib.sort (a: b: a < b) (
-        lib.filter (
-          linkName:
-          let
-            members = graph.membersOf links.${linkName};
-          in
-          lib.elem from members && lib.elem to members
-        ) (builtins.attrNames links)
-      );
+      candidates = routeGraph.linksBetween from to;
 
       preferredUplinkSet = lib.unique (map toString (lib.filter (x: x != null) preferredUplinks));
       preferredAccessSet = lib.unique (map toString (lib.filter (x: x != null) preferredAccessNodes));

@@ -1,7 +1,9 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
+  graph = import (self.outPath + "/lib/routing/graph.nix") { inherit lib self; };
   helpers = import (self.outPath + "/lib/routing/static-helpers.nix") { inherit lib self; };
+  trace = import (self.outPath + "/lib/trace.nix") { };
   remotePrefixes = import (self.outPath + "/implementation/lib/routing/internal-routes/remote-prefixes.nix") {
     inherit lib self;
   };
@@ -22,6 +24,7 @@ in
       node,
       routeContext,
       remotePrefixFacts ? remotePrefixes.buildFacts topo,
+      routeGraph ? graph.context (topo.links or { }),
     }:
     let
       inherit (routeContext) mkRoute4 mkRoute6;
@@ -30,24 +33,55 @@ in
         let
           mode = helpers.aggregationMode topo;
           ownSet = helpers.ownConnectedPrefixes topo.nodes.${nodeName};
-          remote = lib.filter (e: !(ownSet ? "${toString e.family}|${e.dst}")) (
-            (remotePrefixes.ofKindWithFacts remotePrefixFacts topo nodeName "p2p")
-            ++ (remotePrefixes.ofKindWithFacts remotePrefixFacts topo nodeName "tenant")
-            ++ (remotePrefixes.ofKindWithFacts remotePrefixFacts topo nodeName "overlay")
+          p2pRemote = remotePrefixes.ofKindWithFacts remotePrefixFacts topo nodeName "p2p";
+          tenantRemote = remotePrefixes.ofKindWithFacts remotePrefixFacts topo nodeName "tenant";
+          overlayRemote = remotePrefixes.ofKindWithFacts remotePrefixFacts topo nodeName "overlay";
+          includeP2p = builtins.getEnv "S88_NFM_PROFILE_SKIP_INTERNAL_P2P" != "1";
+          includeTenant = builtins.getEnv "S88_NFM_PROFILE_SKIP_INTERNAL_TENANT" != "1";
+          includeOverlay = builtins.getEnv "S88_NFM_PROFILE_SKIP_INTERNAL_OVERLAY" != "1";
+          remote0 = trace.emit
+            "routing:internal:${nodeName}:remote:p2p=${toString (builtins.length p2pRemote)}:tenant=${toString (builtins.length tenantRemote)}:overlay=${toString (builtins.length overlayRemote)}"
+            ((if includeP2p then p2pRemote else [ ])
+              ++ (if includeTenant then tenantRemote else [ ])
+              ++ (if includeOverlay then overlayRemote else [ ]));
+          remote = lib.filter (e: !(ownSet ? "${toString e.family}|${e.dst}")) remote0;
+          _remoteCount = trace.emit "routing:internal:${nodeName}:remote-filtered=${toString (builtins.length remote)}" true;
+          resolutionKey =
+            e:
+            "${toString (e.owner or "")}|${toString (e.kind or "")}|${toString (e.overlay or "")}|${toString (e.peerSite or "")}";
+          remoteGroups = builtins.groupBy resolutionKey remote;
+          resolveGroup =
+            entries:
+            let
+              sample = builtins.head entries;
+              resolvedSample =
+                remoteResolver.resolve {
+                  dstEntry = sample;
+                  inherit
+                    nodeName
+                    routeContext
+                    topo
+                    ;
+                  inherit routeGraph;
+                };
+            in
+            lib.concatMap (
+              resolvedHop:
+              map (
+                entry:
+                entry
+                // {
+                  hopNode = resolvedHop.hopNode;
+                  linkName = resolvedHop.linkName;
+                  via4 = resolvedHop.via4;
+                  via6 = resolvedHop.via6;
+                }
+              ) entries
+            ) resolvedSample;
+          resolved = trace.emit "routing:internal:${nodeName}:resolving:groups=${toString (builtins.length (builtins.attrNames remoteGroups))}" (
+            lib.concatMap (key: resolveGroup remoteGroups.${key}) (builtins.attrNames remoteGroups)
           );
-          resolved = builtins.concatLists (
-            map (
-              dstEntry:
-              remoteResolver.resolve {
-                inherit
-                  dstEntry
-                  nodeName
-                  routeContext
-                  topo
-                  ;
-              }
-            ) remote
-          );
+          _resolvedCount = trace.emit "routing:internal:${nodeName}:resolved=${toString (builtins.length resolved)}" true;
 
           perNextHopKey =
             e:
@@ -76,13 +110,15 @@ in
                     ;
                 };
               in
-              acc
+              trace.emit "routing:internal:${nodeName}:group:${built.linkName}:entries=${toString (builtins.length entries)}" (
+                acc
               // {
                 "${built.linkName}" = {
                   routes4 = (acc.${built.linkName}.routes4 or [ ]) ++ built.routes4;
                   routes6 = (acc.${built.linkName}.routes6 or [ ]) ++ built.routes6;
                 };
               }
+              )
             ) { } (builtins.attrValues grouped)
           );
 

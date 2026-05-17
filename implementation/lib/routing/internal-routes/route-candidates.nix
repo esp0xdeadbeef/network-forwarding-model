@@ -6,6 +6,7 @@
   nodeName,
   preferredUplinks,
   routeContext,
+  routeGraph ? null,
   topo,
 }:
 
@@ -13,16 +14,20 @@ let
   inherit (routeContext) laneUplinkNameFromLink;
 
   links = topo.links or { };
-  candidates = builtins.sort (a: b: a < b) (
-    builtins.filter (
-      lname:
-      let
-        l = links.${lname};
-        members = graph.membersOf l;
-      in
-      builtins.elem nodeName members && builtins.elem hopNode members
-    ) (builtins.attrNames links)
-  );
+  candidates =
+    if routeGraph != null then
+      routeGraph.linksBetween nodeName hopNode
+    else
+      builtins.sort (a: b: a < b) (
+        builtins.filter (
+          lname:
+          let
+            l = links.${lname};
+            members = graph.membersOf l;
+          in
+          builtins.elem nodeName members && builtins.elem hopNode members
+        ) (builtins.attrNames links)
+      );
 
   preferredCandidates =
     if preferredUplinks == [ ] then

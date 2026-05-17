@@ -43,6 +43,11 @@ trap 'rm -f "${actual_sites}" "${actual_routes}" "${actual_sites_sorted}" "${exp
 printf 'example\tenterprise\tsite\tnodes\tlinks\ttopologyLinks\ttransitOrder\tuplinks\toverlays\tinterfaces\tipv4Routes\tipv6Routes\n' > "${actual_sites}"
 printf 'example\tenterprise\tsite\tipv4Intent\tipv6Intent\tipv4Proto\tipv6Proto\n' > "${actual_routes}"
 
+max_jobs="${TEST_JOBS:-$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN)}"
+if ! [[ "${max_jobs}" =~ ^[0-9]+$ ]] || [ "${max_jobs}" -lt 1 ]; then
+  max_jobs=1
+fi
+
 write_site_summary() {
   local example_name="$1"
   local output_json="$2"
@@ -67,7 +72,7 @@ write_site_summary() {
         ([$site.value.nodes[]?.interfaces[]?.routes.ipv4 // [] | length] | add // 0),
         ([$site.value.nodes[]?.interfaces[]?.routes.ipv6 // [] | length] | add // 0)
       ] | @tsv
-  ' "${output_json}" >> "${actual_sites}"
+  ' "${output_json}"
 }
 
 write_route_summary() {
@@ -94,7 +99,7 @@ write_route_summary() {
         counts([$site.value.nodes[]?.interfaces[]?.routes.ipv4[]?.proto // empty]),
         counts([$site.value.nodes[]?.interfaces[]?.routes.ipv6[]?.proto // empty])
       ] | @tsv
-  ' "${output_json}" >> "${actual_routes}"
+  ' "${output_json}"
 }
 
 validate_full_sites() {
@@ -202,12 +207,17 @@ validate_contracts() {
   ' "${output_json}" >/dev/null || fail "FAIL network-labs-contracts: ${example_name}"
 }
 
-while read -r intent; do
-  example_dir="${intent%/*}"
-  example_name="${example_dir##*/}"
-  output_json="${tmp_dir}/${example_name}.jsonc"
-  stderr_log="${tmp_dir}/${example_name}.stderr"
+run_example() {
+  local intent="$1"
+  local example_dir="${intent%/*}"
+  local example_name="${example_dir##*/}"
+  local work_dir="${tmp_dir}/${example_name}"
+  local output_json="${work_dir}/output.jsonc"
+  local stderr_log="${work_dir}/stderr.log"
+  local site_summary="${work_dir}/sites.tsv"
+  local route_summary="${work_dir}/routes.tsv"
 
+  mkdir -p "${work_dir}"
   nix run "${repo_root}#compile-and-build-forwarding-model" -- "${intent}" 2>"${stderr_log}" | jq -c . > "${output_json}" \
     || {
       echo "--- STDERR (${example_name}) ---" >&2
@@ -218,9 +228,79 @@ while read -r intent; do
   validate_full_sites "${example_name}" "${output_json}"
   validate_routes "${example_name}" "${output_json}"
   validate_contracts "${example_name}" "${output_json}"
-  write_site_summary "${example_name}" "${output_json}"
-  write_route_summary "${example_name}" "${output_json}"
+  write_site_summary "${example_name}" "${output_json}" > "${site_summary}"
+  write_route_summary "${example_name}" "${output_json}" > "${route_summary}"
   echo "PASS network-labs-output:${example_name}"
+}
+
+pids=()
+names=()
+logs=()
+
+cleanup_workers() {
+  local pid
+  for pid in "${pids[@]:-}"; do
+    if kill -0 "${pid}" 2>/dev/null; then
+      kill "${pid}" 2>/dev/null || true
+    fi
+  done
+}
+
+trap 'cleanup_workers; rm -f "${actual_sites}" "${actual_routes}" "${actual_sites_sorted}" "${expected_sites_sorted}" "${actual_routes_sorted}" "${expected_routes_sorted}"; rm -rf "${tmp_dir}"' EXIT INT TERM
+
+running_jobs() {
+  local count=0
+  local pid
+  for pid in "${pids[@]:-}"; do
+    if kill -0 "${pid}" 2>/dev/null; then
+      count=$((count + 1))
+    fi
+  done
+  printf '%s\n' "${count}"
+}
+
+wait_for_slot() {
+  while [ "$(running_jobs)" -ge "${max_jobs}" ]; do
+    sleep 0.2
+  done
+}
+
+while read -r intent; do
+  example_dir="${intent%/*}"
+  example_name="${example_dir##*/}"
+  log="${tmp_dir}/${example_name}.log"
+
+  wait_for_slot
+  run_example "${intent}" >"${log}" 2>&1 &
+  pids+=("$!")
+  names+=("${example_name}")
+  logs+=("${log}")
+done < <(find "${examples_root}" -mindepth 2 -maxdepth 2 -type f -name intent.nix | sort)
+
+failed=0
+for idx in "${!pids[@]}"; do
+  pid="${pids[$idx]}"
+  name="${names[$idx]}"
+  log="${logs[$idx]}"
+
+  if wait "${pid}"; then
+    cat "${log}"
+  else
+    failed=$((failed + 1))
+    cat "${log}" >&2
+    echo "FAIL network-labs-output:${name}" >&2
+  fi
+done
+
+if [ "${failed}" -ne 0 ]; then
+  fail "FAIL network-labs-output: ${failed} example(s) failed"
+fi
+
+while read -r intent; do
+  example_dir="${intent%/*}"
+  example_name="${example_dir##*/}"
+  cat "${tmp_dir}/${example_name}/sites.tsv" >> "${actual_sites}"
+  cat "${tmp_dir}/${example_name}/routes.tsv" >> "${actual_routes}"
 done < <(find "${examples_root}" -mindepth 2 -maxdepth 2 -type f -name intent.nix | sort)
 
 {
