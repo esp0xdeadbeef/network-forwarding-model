@@ -109,6 +109,7 @@ in
       nodes0 = topo.nodes or { };
       graph = import ./graph.nix { inherit lib self; };
       routeGraph = graph.context (topo.links or { });
+      routeFacts = routeContext.buildFacts topo;
       remotePrefixFacts = internalRoutes.buildRemotePrefixFacts topo;
       skipInternal = builtins.getEnv "S88_NFM_PROFILE_SKIP_INTERNAL_ROUTES" == "1";
       skipNearest = builtins.getEnv "S88_NFM_PROFILE_SKIP_NEAREST_DEFAULTS" == "1";
@@ -127,22 +128,38 @@ in
               internalRoutes.apply {
                 inherit topo;
                 nodeName = n;
-                inherit node routeContext remotePrefixFacts routeGraph;
+                inherit node routeContext routeFacts remotePrefixFacts routeGraph;
               };
 
-          nearestUplinkDefaults = routeDefaultsForNode topo routeGraph n withInternalRoutes;
+          nearestUplinkDefaults = defaultRoutes.apply {
+            inherit topo routeContext routeFacts routeGraph;
+            nodeName = n;
+            node = withInternalRoutes;
+          };
           withNearestUplinkDefault =
             if skipNearest then withInternalRoutes else nearestUplinkDefaults.addDefaultTowardNearestUplinkCore;
 
-          policyLaneDefaults = routeDefaultsForNode topo routeGraph n withNearestUplinkDefault;
+          policyLaneDefaults = defaultRoutes.apply {
+            inherit topo routeContext routeFacts routeGraph;
+            nodeName = n;
+            node = withNearestUplinkDefault;
+          };
           withPolicyLaneDefaults =
             if skipLaneDefaults then withNearestUplinkDefault else policyLaneDefaults.addDownstreamSelectorPolicyLaneDefaults;
 
-          policyUpstreamLaneDefaults = routeDefaultsForNode topo routeGraph n withPolicyLaneDefaults;
+          policyUpstreamLaneDefaults = defaultRoutes.apply {
+            inherit topo routeContext routeFacts routeGraph;
+            nodeName = n;
+            node = withPolicyLaneDefaults;
+          };
           withPolicyUpstreamLaneDefaults =
             if skipLaneDefaults then withPolicyLaneDefaults else policyUpstreamLaneDefaults.addPolicyUpstreamSelectorLaneDefaults;
 
-          upstreamCoreLaneDefaults = routeDefaultsForNode topo routeGraph n withPolicyUpstreamLaneDefaults;
+          upstreamCoreLaneDefaults = defaultRoutes.apply {
+            inherit topo routeContext routeFacts routeGraph;
+            nodeName = n;
+            node = withPolicyUpstreamLaneDefaults;
+          };
           withUpstreamCoreLaneDefaults =
             if skipLaneDefaults then withPolicyUpstreamLaneDefaults else upstreamCoreLaneDefaults.addUpstreamSelectorPolicyLaneCoreDefaults;
 
@@ -152,7 +169,11 @@ in
             else
               addExternalIngressUplinkDefaults topo routeGraph n withUpstreamCoreLaneDefaults;
 
-          directWanDefaults = routeDefaultsForNode topo routeGraph n withExternalIngressDefaults;
+          directWanDefaults = defaultRoutes.apply {
+            inherit topo routeContext routeFacts routeGraph;
+            nodeName = n;
+            node = withExternalIngressDefaults;
+          };
         in
         if skipDirectWan then withExternalIngressDefaults else directWanDefaults.addDirectWanDefaults
       ) nodes0;
