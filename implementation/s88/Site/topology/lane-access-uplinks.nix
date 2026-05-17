@@ -27,6 +27,41 @@
         in
         builtins.foldl' step { } attachments;
 
+      endpointTenantByName =
+        let
+          endpoints = site.ownership.endpoints or [ ];
+          step =
+            acc: endpoint:
+            if !(builtins.isAttrs endpoint) then
+              acc
+            else
+              let
+                name = toString (endpoint.name or "");
+                tenant = toString (endpoint.tenant or "");
+              in
+              if name == "" || tenant == "" then acc else acc // { "${name}" = tenant; };
+        in
+        builtins.foldl' step { } endpoints;
+
+      serviceProviderTenants =
+        serviceName:
+        let
+          services = site.communicationContract.services or site.services or [ ];
+          matchingServices =
+            lib.filter (
+              service:
+              builtins.isAttrs service && toString (service.name or "") == serviceName
+            ) services;
+          providerNames =
+            lib.concatMap (
+              service:
+              if builtins.isList (service.providers or null) then map toString service.providers else [ ]
+            ) matchingServices;
+        in
+        lib.unique (lib.filter (tenant: tenant != "") (
+          map (provider: endpointTenantByName.${provider} or "") providerNames
+        ));
+
       relationToUplinkNames =
         rel:
         let
@@ -58,6 +93,11 @@
             members = if builtins.isList (from.members or null) then map toString from.members else [ ];
           in
           lib.any (t: builtins.elem t members) unitTenants
+        else if kind == "service" then
+          let
+            providerTenants = serviceProviderTenants (toString (from.name or ""));
+          in
+          lib.any (tenant: builtins.elem tenant unitTenants) providerTenants
         else
           false;
 
