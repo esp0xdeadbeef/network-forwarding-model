@@ -32,6 +32,7 @@ tests=(
   test-hostile-dedicated-east-west-lanes.sh
   test-overlay-peer-sites.sh
   test-external-ingress-uplink-defaults.sh
+  test-service-source-uplink-lanes.sh
   test-dual-wan-branch-overlay.sh
   test-overlay-access-lane-warning.sh
   test-preferred-access-lanes.sh
