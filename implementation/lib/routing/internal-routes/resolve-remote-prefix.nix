@@ -12,12 +12,12 @@ in
       nodeName,
       dstEntry,
       routeContext,
+      routeGraph ? graph.context (topo.links or { }),
     }:
     let
       inherit (routeContext) loopbackOwnerNodeForDst nextHopWithPreferredUplinks;
 
-      path = graph.shortestPath {
-        links = topo.links or { };
+      path = routeGraph.shortestPath {
         src = nodeName;
         dst = dstEntry.owner;
       };
@@ -44,6 +44,7 @@ in
           inherit topo;
           from = nodeName;
           to = hop;
+          inherit routeGraph;
           inherit preferredUplinks preferredAccessNodes;
         };
         candidateLinks = import (self.outPath + "/implementation/lib/routing/internal-routes/route-candidates.nix") {
@@ -51,9 +52,10 @@ in
             graph
             nodeName
             preferredUplinks
-            routeContext
-            topo
-            ;
+          routeContext
+          topo
+          ;
+          inherit routeGraph;
           baseLinkName = baseNh.linkName;
           isOverlay = dstEntry.kind == "overlay";
           hopNode = hop;

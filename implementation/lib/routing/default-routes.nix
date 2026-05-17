@@ -14,6 +14,7 @@ in
       nodeName,
       node,
       routeContext,
+      routeGraph ? graph.context (topo.links or { }),
     }:
     let
       inherit (routeContext) nextHopWithPreferredUplinks;
@@ -49,8 +50,7 @@ in
             lib.filter (
               target:
               let
-                path = graph.shortestPath {
-                  links = topo.links or { };
+                path = routeGraph.shortestPath {
                   src = nodeName;
                   dst = target;
                 };
@@ -88,8 +88,7 @@ in
           node
         else
           let
-            path = graph.shortestPath {
-              links = topo.links or { };
+            path = routeGraph.shortestPath {
               src = nodeName;
               dst = nearestUplinkCore;
             };
@@ -97,6 +96,7 @@ in
               inherit topo;
               from = nodeName;
               to = builtins.elemAt path 1;
+              inherit routeGraph;
               preferredUplinks = defaultReachabilityUplinkNames;
             };
             selectedLink =

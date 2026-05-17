@@ -11,6 +11,7 @@ in
       nodeName,
       node,
       routeContext,
+      routeGraph ? graph.context (topo.links or { }),
     }:
     let
       inherit (routeContext) nextHopWithPreferredUplinks;
@@ -56,6 +57,7 @@ in
       externalToUplinkRelations = lib.filter (
         relation:
         (relation.action or "allow") == "allow"
+        && (relation.trafficType or null) == "any"
         && (relation.from.kind or null) == "external"
         && (relation.from.name or null) != null
         && (relation.to.kind or null) == "external"
@@ -66,8 +68,7 @@ in
       firstHopTo =
         targetCore: preferredUplinks:
         let
-          path = graph.shortestPath {
-            inherit links;
+          path = routeGraph.shortestPath {
             src = nodeName;
             dst = targetCore;
           };
@@ -80,7 +81,7 @@ in
           }
         else
           nextHopWithPreferredUplinks {
-            inherit topo preferredUplinks;
+            inherit topo preferredUplinks routeGraph;
             from = nodeName;
             to = builtins.elemAt path 1;
           };

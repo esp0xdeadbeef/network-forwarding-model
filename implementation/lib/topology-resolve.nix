@@ -142,8 +142,9 @@ let
   resolveLoopbacks = import ./routing/resolve-loopbacks.nix { inherit lib self; };
   routingStatic = import ./routing/static.nix { inherit lib self; };
 
-  topo3 = resolveLoopbacks.attach topo2;
-  topo4 = routingStatic.attach topo3;
+  skipRouting = builtins.getEnv "S88_NFM_PROFILE_SKIP_ROUTING" == "1";
+  topo3 = if skipRouting then topo2 else resolveLoopbacks.attach topo2;
+  topo4 = if skipRouting then topo3 else routingStatic.attach topo3;
 
 in
 builtins.seq _validatedLinks (builtins.seq _p2pLinkMembershipValidated topo4)

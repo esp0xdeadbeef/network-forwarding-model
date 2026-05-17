@@ -46,7 +46,7 @@ cat > "$tmpdir/input.nix" <<'EOF'
               action = "allow";
               from = { kind = "external"; name = "east-west"; };
               to = { kind = "external"; uplinks = [ "wan0" ]; };
-              trafficType = "overlay-underlay";
+              trafficType = "any";
               match = [
                 { proto = "any"; dports = [ ]; family = "any"; }
               ];

@@ -4,6 +4,7 @@ let
   ip = import (self.outPath + "/lib/net/ip-utils.nix") { inherit lib self; };
   prefix = import (self.outPath + "/lib/model/prefix-utils.nix") { inherit lib self; };
   routes = import (self.outPath + "/lib/model/routes.nix") { inherit lib self; };
+  trace = import (self.outPath + "/lib/trace.nix") { };
 
   default4 = "0.0.0.0/0";
   default6 = "::/0";
@@ -31,6 +32,20 @@ let
 
   normalizeRouteList =
     family: rs:
+    trace.emit "routing:normalizeRouteList:${toString family}:${toString (builtins.length rs)}" (
+    if rs == [ ] then
+      [ ]
+    else if builtins.length rs == 1 then
+      let
+        route = builtins.head (rawDedupeRoutes rs);
+        dst =
+          if routePreservesDst route then
+            route.dst
+          else
+            canonicalCidr route.dst;
+      in
+      [ (routeBase route // { inherit dst; }) ]
+    else
     let
       grouped = lib.groupBy (r: builtins.toJSON (routeBase r)) (rawDedupeRoutes rs);
 
@@ -58,7 +73,8 @@ let
         map (dst: base // { dst = dst; }) renderedCidrs
       ) (builtins.attrNames grouped);
     in
-    lib.sort (a: b: (builtins.toJSON a) < (builtins.toJSON b)) normalizedGroups;
+    lib.sort (a: b: (builtins.toJSON a) < (builtins.toJSON b)) normalizedGroups
+    );
 
   dedupeRoutes =
     rs:
