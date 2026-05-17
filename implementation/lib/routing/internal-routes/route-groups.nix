@@ -15,7 +15,12 @@ in
     }:
     let
       sample = builtins.head entries;
-      summarizedDsts = helpers.summarizeCidrs sample.family (map (e: e.dst) entries);
+      entryDsts = lib.unique (map (e: e.dst) entries);
+      summarizedDsts =
+        if builtins.length entryDsts <= 1 then
+          entryDsts
+        else
+          helpers.summarizeCidrs sample.family entryDsts;
       intentKind = if sample.kind == "overlay" then "overlay-reachability" else "internal-reachability";
 
       rawRoutes =

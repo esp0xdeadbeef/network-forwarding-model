@@ -47,6 +47,11 @@ let
           renderedCidrs =
             if lib.any routePreservesDst group then
               lib.sort (a: b: a < b) cidrs
+            else if
+              builtins.length cidrs <= 1
+              && !(family == 6 && builtins.match ".*/0" (builtins.head cidrs) != null)
+            then
+              cidrs
             else
               summarizeCidrs family cidrs;
         in

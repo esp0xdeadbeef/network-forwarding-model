@@ -13,12 +13,15 @@ let
   };
 in
 {
+  buildRemotePrefixFacts = remotePrefixes.buildFacts;
+
   apply =
     {
       topo,
       nodeName,
       node,
       routeContext,
+      remotePrefixFacts ? remotePrefixes.buildFacts topo,
     }:
     let
       inherit (routeContext) mkRoute4 mkRoute6;
@@ -28,11 +31,10 @@ in
           mode = helpers.aggregationMode topo;
           ownSet = helpers.ownConnectedPrefixes topo.nodes.${nodeName};
           remote = lib.filter (e: !(ownSet ? "${toString e.family}|${e.dst}")) (
-            (remotePrefixes.ofKind topo nodeName "p2p")
-            ++ (remotePrefixes.ofKind topo nodeName "tenant")
-            ++ (remotePrefixes.ofKind topo nodeName "overlay")
+            (remotePrefixes.ofKindWithFacts remotePrefixFacts topo nodeName "p2p")
+            ++ (remotePrefixes.ofKindWithFacts remotePrefixFacts topo nodeName "tenant")
+            ++ (remotePrefixes.ofKindWithFacts remotePrefixFacts topo nodeName "overlay")
           );
-
           resolved = builtins.concatLists (
             map (
               dstEntry:
@@ -55,27 +57,34 @@ in
             acc: e: acc // { "${perNextHopKey e}" = (acc.${perNextHopKey e} or [ ]) ++ [ e ]; }
           ) { } resolved;
         in
-        builtins.foldl' (
-          acc: entries:
-          let
-            built = routeGroups.build {
-              inherit
-                entries
-                mkRoute4
-                mkRoute6
-                mode
-                topo
-                ;
-            };
-          in
-          acc
-          // {
-            "${built.linkName}" = {
-              routes4 = helpers.dedupeRoutes ((acc.${built.linkName}.routes4 or [ ]) ++ built.routes4);
-              routes6 = helpers.dedupeRoutes ((acc.${built.linkName}.routes6 or [ ]) ++ built.routes6);
-            };
-          }
-        ) { } (builtins.attrValues grouped);
+        builtins.mapAttrs
+          (_linkName: routes: {
+            routes4 = helpers.dedupeRoutes routes.routes4;
+            routes6 = helpers.dedupeRoutes routes.routes6;
+          })
+          (
+            builtins.foldl' (
+              acc: entries:
+              let
+                built = routeGroups.build {
+                  inherit
+                    entries
+                    mkRoute4
+                    mkRoute6
+                    mode
+                    topo
+                    ;
+                };
+              in
+              acc
+              // {
+                "${built.linkName}" = {
+                  routes4 = (acc.${built.linkName}.routes4 or [ ]) ++ built.routes4;
+                  routes6 = (acc.${built.linkName}.routes6 or [ ]) ++ built.routes6;
+                };
+              }
+            ) { } (builtins.attrValues grouped)
+          );
 
       perLink = aggregatePrefixesForNode;
     in

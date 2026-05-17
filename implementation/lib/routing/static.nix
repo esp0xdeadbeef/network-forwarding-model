@@ -107,11 +107,17 @@ in
     topo:
     let
       nodes0 = topo.nodes or { };
+      remotePrefixFacts = internalRoutes.buildRemotePrefixFacts topo;
 
       nodes1 = lib.mapAttrs (
         n: node:
         let
-          withInternalRoutes = addInternalRoutes topo n node;
+          withInternalRoutes =
+            internalRoutes.apply {
+              inherit topo;
+              nodeName = n;
+              inherit node routeContext remotePrefixFacts;
+            };
 
           nearestUplinkDefaults = routeDefaultsForNode topo n withInternalRoutes;
           withNearestUplinkDefault = nearestUplinkDefaults.addDefaultTowardNearestUplinkCore;
