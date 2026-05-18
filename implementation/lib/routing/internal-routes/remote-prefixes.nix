@@ -7,6 +7,7 @@ let
   laneMetadata = import (self.outPath + "/implementation/lib/routing/lane-metadata.nix") {
     inherit lib self;
   };
+  byNode = import ./remote-prefixes/by-node.nix { inherit lib; };
   inherit (laneMetadata)
     laneAccessNodeName
     laneUplinkName
@@ -186,6 +187,8 @@ rec {
       lib.filter (entry: entry.owner != nodeName && overlayAllowedOnNode entry) (facts.overlayRouteEntries or [ ])
     else
       lib.filter (entry: entry.owner != nodeName) (facts.p2pEntries or [ ]);
+
+  byKindForNodeWithFacts = byNode.byKind;
 
   ofKind = topo: nodeName: kind: ofKindWithFacts (buildFacts topo) topo nodeName kind;
 }
