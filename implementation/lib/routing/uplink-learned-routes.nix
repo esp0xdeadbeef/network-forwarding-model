@@ -122,8 +122,8 @@ in
         acc
         // {
           "${e.linkName}" = {
-            routes4 = helpers.dedupeRoutes ((acc.${e.linkName}.routes4 or [ ]) ++ add4);
-            routes6 = helpers.dedupeRoutes ((acc.${e.linkName}.routes6 or [ ]) ++ add6);
+            routes4 = (acc.${e.linkName}.routes4 or [ ]) ++ add4;
+            routes6 = (acc.${e.linkName}.routes6 or [ ]) ++ add6;
           };
         }
       ) { } usable;
