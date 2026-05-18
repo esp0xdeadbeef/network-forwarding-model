@@ -1,8 +1,8 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
-  addr = import (self.outPath + "/lib/model/addressing.nix") { inherit lib self; };
-  ip = import (self.outPath + "/lib/net/ip-utils.nix") { inherit lib self; };
+  addr = import (self.outPath + "/implementation/lib/model/addressing.nix") { inherit lib self; };
+  ip = import (self.outPath + "/implementation/lib/net/ip-utils.nix") { inherit lib self; };
   linkSpecs = import ./link-specs.nix { inherit lib self; };
 
   v4ToInt = ip.ipv4ToInt;

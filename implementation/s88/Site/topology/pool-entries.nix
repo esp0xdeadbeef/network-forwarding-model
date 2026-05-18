@@ -1,7 +1,7 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
-  network = import (self.outPath + "/lib/model/network-utils.nix") { inherit lib self; };
+  network = import (self.outPath + "/implementation/lib/model/network-utils.nix") { inherit lib self; };
   common = import ./common.nix { inherit lib self; };
 in
 rec {

@@ -1,8 +1,8 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
-  coreUplinksPresent = import (self.outPath + "/lib/fabric/invariants/core-uplinks-present.nix") { inherit lib self; };
-  routes = import (self.outPath + "/lib/model/routes.nix") { inherit lib self; };
+  coreUplinksPresent = import (self.outPath + "/implementation/lib/fabric/invariants/core-uplinks-present.nix") { inherit lib self; };
+  routes = import (self.outPath + "/implementation/lib/model/routes.nix") { inherit lib self; };
 
   normalizeRouteList = routes.normalizeRouteDestinationList;
 

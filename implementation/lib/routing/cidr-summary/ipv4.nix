@@ -1,7 +1,7 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
-  ip = import (self.outPath + "/lib/net/ip-utils.nix") { inherit lib self; };
+  ip = import (self.outPath + "/implementation/lib/net/ip-utils.nix") { inherit lib self; };
   common = import (self.outPath + "/implementation/lib/routing/cidr-summary/common.nix") { inherit lib self; };
 
   inherit (common) floorLog2 mod pow2;

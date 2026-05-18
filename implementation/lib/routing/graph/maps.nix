@@ -1,7 +1,7 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
-  link = import (self.outPath + "/lib/topology/link-utils.nix") { inherit lib self; };
+  link = import (self.outPath + "/implementation/lib/topology/link-utils.nix") { inherit lib self; };
   pairKey = a: b: "${toString a}|${toString b}";
 in
 {

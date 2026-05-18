@@ -1,8 +1,8 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
-  helpers = import (self.outPath + "/lib/topology/resolve-helpers.nix") { inherit lib self; };
-  link = import (self.outPath + "/lib/topology/link-utils.nix") { inherit lib self; };
+  helpers = import (self.outPath + "/implementation/lib/topology/resolve-helpers.nix") { inherit lib self; };
+  link = import (self.outPath + "/implementation/lib/topology/link-utils.nix") { inherit lib self; };
 
 in
 {

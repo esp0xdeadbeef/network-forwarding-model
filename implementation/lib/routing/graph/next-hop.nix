@@ -1,8 +1,8 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
-  ip = import (self.outPath + "/lib/net/ip-utils.nix") { inherit lib self; };
-  link = import (self.outPath + "/lib/topology/link-utils.nix") { inherit lib self; };
+  ip = import (self.outPath + "/implementation/lib/net/ip-utils.nix") { inherit lib self; };
+  link = import (self.outPath + "/implementation/lib/topology/link-utils.nix") { inherit lib self; };
   linkSearch = import ./link-search.nix { inherit lib self; };
 in
 {

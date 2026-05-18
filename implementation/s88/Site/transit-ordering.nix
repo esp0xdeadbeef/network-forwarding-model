@@ -1,7 +1,7 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
-  roleStages = import (self.outPath + "/lib/fabric/transit-role-stages.nix") { inherit lib self; };
+  roleStages = import (self.outPath + "/implementation/lib/fabric/transit-role-stages.nix") { inherit lib self; };
 
   uniqueNodeNames =
     pairs:

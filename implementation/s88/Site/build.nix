@@ -8,7 +8,7 @@
 
 let
   trace = import (self.outPath + "/lib/trace.nix") { };
-  utils = import (self.outPath + "/lib/s88-support") { inherit lib self; };
+  utils = import (self.outPath + "/implementation/lib/s88-support") { inherit lib self; };
   rolesMod = import (self.outPath + "/s88/Unit/roles/build.nix") { inherit lib self; };
   wanMod = import (self.outPath + "/s88/Unit/core.nix") { inherit lib self; };
   topoMod = import ./topology { inherit lib self; };

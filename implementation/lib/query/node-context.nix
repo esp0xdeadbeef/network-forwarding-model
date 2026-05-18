@@ -10,7 +10,7 @@
 
 let
   sanitize = import ./sanitize.nix { inherit lib self; };
-  routes = import (self.outPath + "/lib/model/routes.nix") { inherit lib self; };
+  routes = import (self.outPath + "/implementation/lib/model/routes.nix") { inherit lib self; };
 
   ifaceRoutes = routes.ifaceRoutes;
 

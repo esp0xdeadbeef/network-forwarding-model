@@ -1,7 +1,7 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
-  routes = import (self.outPath + "/lib/model/routes.nix") { inherit lib self; };
+  routes = import (self.outPath + "/implementation/lib/model/routes.nix") { inherit lib self; };
 
   normalizeRouteList = routes.normalizeRouteDestinationList;
 

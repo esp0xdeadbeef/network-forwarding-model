@@ -1,7 +1,7 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
-  link = import (self.outPath + "/lib/topology/link-utils.nix") { inherit lib self; };
+  link = import (self.outPath + "/implementation/lib/topology/link-utils.nix") { inherit lib self; };
   routeFields = import (self.outPath + "/implementation/lib/routing/loopbacks/route-fields.nix") { inherit lib self; };
 
   laneMeta = link:
