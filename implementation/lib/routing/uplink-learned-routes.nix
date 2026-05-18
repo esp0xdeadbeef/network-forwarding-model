@@ -35,13 +35,14 @@ in
       nodeName,
       node,
       routeContext,
+      routeFacts ? routeContext.buildFacts topo,
       routeGraph ? graph.context (topo.links or { }),
     }:
     let
       inherit (routeContext) nextHopWithPreferredUplinks;
 
       selectorNode = topo.upstreamSelectorNodeName or null;
-      uplinkCores = helpers.uplinkCores topo;
+      uplinkCores = routeFacts.uplinkCores or [ ];
       routeExportCores = overlayCoreSelection.nonOverlayUplinkCores topo uplinkCores;
       ownSet = helpers.ownConnectedPrefixes (topo.nodes.${nodeName});
 

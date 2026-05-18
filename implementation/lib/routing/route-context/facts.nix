@@ -70,6 +70,31 @@ let
           acc;
     in
     builtins.foldl' addLink (builtins.foldl' addNode { } (builtins.attrNames nodes)) (builtins.attrNames links);
+
+  uplinkCoreNamesByUplink =
+    nodes: links: uplinkCores:
+    let
+      addCoreUplink = acc: uplinkName: coreName:
+        acc // { "${uplinkName}" = lib.unique ((acc.${uplinkName} or [ ]) ++ [ coreName ]); };
+      addNodeUplinks = acc: coreName:
+        builtins.foldl' (
+          nodeAcc: uplinkName: addCoreUplink nodeAcc uplinkName coreName
+        ) acc (builtins.attrNames (((nodes.${coreName} or { }).uplinks or { })));
+      addLinkUplinks = acc: linkName:
+        let
+          link = links.${linkName};
+          members = if builtins.isList (link.members or null) then map toString link.members else [ ];
+          uplinks = if builtins.isList (link.uplinks or null) then map toString link.uplinks else [ ];
+          memberCores = lib.filter (member: builtins.elem member uplinkCores) members;
+        in
+        builtins.foldl' (
+          linkAcc: uplinkName:
+          builtins.foldl' (
+            coreAcc: coreName: addCoreUplink coreAcc uplinkName coreName
+          ) linkAcc memberCores
+        ) acc uplinks;
+    in
+    builtins.foldl' addLinkUplinks (builtins.foldl' addNodeUplinks { } uplinkCores) (builtins.attrNames links);
 in
 {
   build =
@@ -92,6 +117,7 @@ in
         value = true;
       }) uplinkCores);
       uplinkHasDefaultSet = uplinkHasDefaultSet nodes links;
+      uplinkCoreNamesByUplink = uplinkCoreNamesByUplink nodes links uplinkCores;
       defaultReachabilityUplinkNames =
         if nonOverlayUplinkNames != [ ] then nonOverlayUplinkNames else topo.uplinkNames or [ ];
     };

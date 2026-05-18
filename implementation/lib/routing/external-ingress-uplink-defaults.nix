@@ -11,6 +11,7 @@ in
       nodeName,
       node,
       routeContext,
+      routeFacts ? routeContext.buildFacts topo,
       routeGraph ? graph.context (topo.links or { }),
     }:
     let
@@ -18,9 +19,6 @@ in
 
       selectorNodeName = topo.upstreamSelectorNodeName or null;
       role = node.role or null;
-      nodes = topo.nodes or { };
-      links = topo.links or { };
-      linkNames = builtins.attrNames links;
       contract = topo.communicationContract or { };
       relations =
         if builtins.isList (contract.allowedRelations or null) then
@@ -30,29 +28,9 @@ in
         else
           [ ];
 
-      coreHasUplink =
-        coreName: uplinkName:
-        let
-          core = nodes.${coreName} or { };
-          uplinks = core.uplinks or { };
-          linkHasUplink = lib.any (
-            linkName:
-            let
-              link = links.${linkName};
-              members = link.members or [ ];
-              linkUplinks = link.uplinks or [ ];
-            in
-            builtins.isList members
-            && builtins.elem coreName (map toString members)
-            && builtins.isList linkUplinks
-            && builtins.elem uplinkName (map toString linkUplinks)
-          ) linkNames;
-        in
-        builtins.hasAttr uplinkName uplinks || linkHasUplink;
-
       coresForUplink =
         uplinkName:
-        lib.filter (coreName: coreHasUplink coreName uplinkName) (helpers.uplinkCores topo);
+        (routeFacts.uplinkCoreNamesByUplink or { }).${uplinkName} or [ ];
 
       externalToUplinkRelations = lib.filter (
         relation:

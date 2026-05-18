@@ -34,9 +34,10 @@ in
         let
           mode = helpers.aggregationMode topo;
           ownSet = helpers.ownConnectedPrefixes topo.nodes.${nodeName};
-          p2pRemote = remotePrefixes.ofKindWithFacts remotePrefixFacts topo nodeName "p2p";
-          tenantRemote = remotePrefixes.ofKindWithFacts remotePrefixFacts topo nodeName "tenant";
-          overlayRemote = remotePrefixes.ofKindWithFacts remotePrefixFacts topo nodeName "overlay";
+          remoteByKind = remotePrefixes.byKindForNodeWithFacts remotePrefixFacts topo nodeName;
+          p2pRemote = remoteByKind.p2p;
+          tenantRemote = remoteByKind.tenant;
+          overlayRemote = remoteByKind.overlay;
           includeP2p = builtins.getEnv "S88_NFM_PROFILE_SKIP_INTERNAL_P2P" != "1";
           includeTenant = builtins.getEnv "S88_NFM_PROFILE_SKIP_INTERNAL_TENANT" != "1";
           includeOverlay = builtins.getEnv "S88_NFM_PROFILE_SKIP_INTERNAL_OVERLAY" != "1";
