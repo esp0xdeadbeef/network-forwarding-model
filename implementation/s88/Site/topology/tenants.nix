@@ -1,7 +1,7 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
-  utils = import (self.outPath + "/lib/s88-support") { inherit lib self; };
+  utils = import (self.outPath + "/implementation/lib/s88-support") { inherit lib self; };
 
   normalizeTenantsFromRaw =
     tenants0:

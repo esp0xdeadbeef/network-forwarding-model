@@ -2,7 +2,7 @@
 
 let
   trace = import (self.outPath + "/lib/trace.nix") { };
-  topoResolve = import (self.outPath + "/lib/topology-resolve.nix") { inherit lib self; };
+  topoResolve = import (self.outPath + "/implementation/lib/topology-resolve.nix") { inherit lib self; };
 
   domains = import ./domains.nix { inherit lib self; };
   tenants = import ./tenants.nix { inherit lib self; };

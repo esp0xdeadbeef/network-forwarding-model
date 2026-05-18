@@ -1,7 +1,7 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
-  p2pAlloc = import (self.outPath + "/lib/p2p/alloc.nix") { inherit lib self; };
+  p2pAlloc = import (self.outPath + "/implementation/lib/p2p/alloc.nix") { inherit lib self; };
   pools = import ./pools.nix { inherit lib self; };
 in
 {

@@ -1,8 +1,8 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
-  ip = import (self.outPath + "/lib/net/ip-utils.nix") { inherit lib self; };
-  cidr = import (self.outPath + "/lib/fabric/invariants/cidr-utils.nix") { inherit lib self; };
+  ip = import (self.outPath + "/implementation/lib/net/ip-utils.nix") { inherit lib self; };
+  cidr = import (self.outPath + "/implementation/lib/fabric/invariants/cidr-utils.nix") { inherit lib self; };
   entries = import ./pool-entries.nix { inherit lib self; };
 
   overlaps = a: b: a.family == b.family && !(a.end < b.start || b.end < a.start);

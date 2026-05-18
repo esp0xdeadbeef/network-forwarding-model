@@ -2,7 +2,7 @@
 
 let
   graphContext = import (self.outPath + "/implementation/lib/routing/graph/context.nix") { inherit lib self; };
-  helpers = import (self.outPath + "/lib/routing/static-helpers.nix") { inherit lib self; };
+  helpers = import (self.outPath + "/implementation/lib/routing/static-helpers.nix") { inherit lib self; };
   trace = import (self.outPath + "/lib/trace.nix") { };
   remotePrefixes = import (self.outPath + "/implementation/lib/routing/internal-routes/remote-prefixes.nix") {
     inherit lib self;

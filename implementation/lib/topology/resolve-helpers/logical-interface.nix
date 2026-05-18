@@ -1,7 +1,7 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
-  prefix = import (self.outPath + "/lib/model/prefix-utils.nix") { inherit lib self; };
+  prefix = import (self.outPath + "/implementation/lib/model/prefix-utils.nix") { inherit lib self; };
   inherit (prefix) canonicalCidr mkConnectedRoute;
 
 in

@@ -31,7 +31,7 @@ let
 
   flatSolvedSites = trace.emit "build:flatten-sites" (flatSites.flatten solvedSitesByEnterprise);
 
-  invariants = import (self.outPath + "/lib/fabric/invariants") { inherit lib self; };
+  invariants = import (self.outPath + "/implementation/lib/fabric/invariants") { inherit lib self; };
   skipInvariants = builtins.getEnv "S88_NFM_PROFILE_SKIP_INVARIANTS" == "1";
 
   _siteInvariantChecks =

@@ -1,7 +1,7 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
-  ip = import (self.outPath + "/lib/net/ip-utils.nix") { inherit lib self; };
+  ip = import (self.outPath + "/implementation/lib/net/ip-utils.nix") { inherit lib self; };
 
   mkEndpoint =
     nodeName: ep:

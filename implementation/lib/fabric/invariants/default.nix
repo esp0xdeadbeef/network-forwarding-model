@@ -2,7 +2,7 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
-  collect = import (self.outPath + "/lib/lib/collect-nix-files.nix") { inherit lib self; };
+  collect = import (self.outPath + "/implementation/lib/lib/collect-nix-files.nix") { inherit lib self; };
 
   modules =
     map

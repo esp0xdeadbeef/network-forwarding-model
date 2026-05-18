@@ -1,9 +1,9 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
-  cidr = import (self.outPath + "/lib/fabric/invariants/cidr-utils.nix") { inherit lib self; };
-  common = import (self.outPath + "/lib/fabric/invariants/common.nix") { inherit lib self; };
-  network = import (self.outPath + "/lib/model/network-utils.nix") { inherit lib self; };
+  cidr = import (self.outPath + "/implementation/lib/fabric/invariants/cidr-utils.nix") { inherit lib self; };
+  common = import (self.outPath + "/implementation/lib/fabric/invariants/common.nix") { inherit lib self; };
+  network = import (self.outPath + "/implementation/lib/model/network-utils.nix") { inherit lib self; };
 
   overlaps = a: b: a.family == b.family && !(a.end < b.start || b.end < a.start);
   networksOf = network.networksOfRaw { extraExcluded = [ ]; };

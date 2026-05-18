@@ -1,7 +1,7 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
-  addr = import (self.outPath + "/lib/model/addressing.nix") { inherit lib self; };
+  addr = import (self.outPath + "/implementation/lib/model/addressing.nix") { inherit lib self; };
   common = import (self.outPath + "/implementation/s88/Site/topology/common.nix") { inherit lib self; };
   pools = import (self.outPath + "/implementation/s88/Site/topology/pools.nix") { inherit lib self; };
   tenants = import (self.outPath + "/implementation/s88/Site/topology/tenants.nix") { inherit lib self; };

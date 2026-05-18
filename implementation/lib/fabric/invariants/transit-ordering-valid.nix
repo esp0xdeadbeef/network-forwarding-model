@@ -2,7 +2,7 @@
 
 let
   common = import ./common.nix { inherit lib self; };
-  roleStages = import (self.outPath + "/lib/fabric/transit-role-stages.nix") { inherit lib self; };
+  roleStages = import (self.outPath + "/implementation/lib/fabric/transit-role-stages.nix") { inherit lib self; };
 
   sorted = xs: lib.sort (a: b: a < b) xs;
 

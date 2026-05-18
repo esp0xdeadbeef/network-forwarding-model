@@ -2,8 +2,8 @@
 
 let
   graphContext = import (self.outPath + "/implementation/lib/routing/graph/context.nix") { inherit lib self; };
-  link = import (self.outPath + "/lib/topology/link-utils.nix") { inherit lib self; };
-  helpers = import (self.outPath + "/lib/routing/static-helpers.nix") { inherit lib self; };
+  link = import (self.outPath + "/implementation/lib/topology/link-utils.nix") { inherit lib self; };
+  helpers = import (self.outPath + "/implementation/lib/routing/static-helpers.nix") { inherit lib self; };
 
 in
 {

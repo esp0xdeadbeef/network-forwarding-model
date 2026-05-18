@@ -1,7 +1,7 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
-  helpers = import (self.outPath + "/lib/routing/static-helpers.nix") { inherit lib self; };
+  helpers = import (self.outPath + "/implementation/lib/routing/static-helpers.nix") { inherit lib self; };
 
 in
 {
