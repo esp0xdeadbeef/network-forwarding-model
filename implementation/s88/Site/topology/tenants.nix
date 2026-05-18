@@ -46,6 +46,43 @@ let
       }) (normalizeTenants site)
     );
 
+  siteContext =
+    site:
+    let
+      normalizedTenants = normalizeTenants site;
+      catalog = builtins.listToAttrs (
+        map (t: {
+          name = toString t.name;
+          value = {
+            kind = t.kind or "tenant";
+            name = toString t.name;
+            ipv4 = t.ipv4 or null;
+            ipv6 = t.ipv6 or null;
+            ra6Prefixes = t.ra6Prefixes or [ ];
+            routedPrefixes = t.routedPrefixes or [ ];
+          };
+        }) normalizedTenants
+      );
+      tenantNamesByUnit =
+        builtins.foldl' (
+          acc: attachment:
+          if !(builtins.isAttrs attachment) then
+            acc
+          else
+            let
+              unit = utils.unitRefOfAttachment attachment;
+              names = tenantNameFromValue attachment;
+            in
+            if unit == null || names == [ ] then
+              acc
+            else
+              acc // { "${unit}" = lib.unique ((acc.${unit} or [ ]) ++ names); }
+        ) { } (utils.attachmentsOf site);
+    in
+    {
+      inherit catalog normalizedTenants tenantNamesByUnit;
+    };
+
   tenantNameFromValue =
     x:
     if x == null then
@@ -78,18 +115,21 @@ let
 
   explicitTenantNamesForUnit =
     site: unitName:
-    let
-      attachments = utils.attachmentsOf site;
-      forUnit = lib.filter (a: (utils.unitRefOfAttachment a) == unitName) attachments;
-    in
-    lib.unique (lib.concatMap tenantNameFromValue forUnit);
+    explicitTenantNamesForUnitWithContext (siteContext site) unitName;
+
+  explicitTenantNamesForUnitWithContext =
+    context: unitName:
+    context.tenantNamesByUnit.${toString unitName} or [ ];
 
   tenantNetworksForUnit =
     site: unitName:
+    tenantNetworksForUnitWithContext (siteContext site) unitName;
+
+  tenantNetworksForUnitWithContext =
+    context: unitName:
     let
-      catalog = tenantCatalog site;
-      names = explicitTenantNamesForUnit site unitName;
-      unknown = lib.filter (name: !(catalog ? "${name}")) names;
+      names = explicitTenantNamesForUnitWithContext context unitName;
+      unknown = lib.filter (name: !(context.catalog ? "${name}")) names;
 
       _known =
         if unknown == [ ] then
@@ -106,76 +146,22 @@ let
       builtins.listToAttrs (
         map (name: {
           name = toString name;
-          value = catalog.${name};
+          value = context.catalog.${name};
         }) names
       )
     );
 
-  tenantPrefixesOfSite =
-    site:
-    let
-      tenants = normalizeTenants site;
-
-      ipv4 = lib.unique (
-        lib.filter (x: x != null) (
-          map (t: if (t.ipv4 or null) != null then toString t.ipv4 else null) tenants
-        )
-      );
-
-      ipv6 = lib.unique (
-        lib.filter (x: x != null) (
-          (map (t: if (t.ipv6 or null) != null then toString t.ipv6 else null) tenants)
-          ++ (lib.concatMap (t: map toString (t.ra6Prefixes or [ ])) tenants)
-          ++ (lib.concatMap (
-            t:
-            map (prefix: toString prefix.ipv6) (
-              lib.filter (prefix: builtins.isAttrs prefix && (prefix.ipv6 or null) != null) (t.routedPrefixes or [ ])
-            )
-          ) tenants)
-        )
-      );
-    in
-    {
-      inherit ipv4 ipv6;
-    };
-
-  tenantPrefixEntriesFromDomains =
-    domains:
-    let
-      tenants = lib.filter (t: builtins.isAttrs t && (t.name or null) != null) (
-        normalizeTenantsFromRaw (domains.tenants or [ ])
-      );
-    in
-    lib.concatMap (
-      t:
-      lib.flatten [
-        (lib.optional ((t.ipv4 or null) != null) {
-          family = 4;
-          cidr = toString t.ipv4;
-          label = "domains.tenants.${toString t.name}.ipv4";
-        })
-        (lib.optional ((t.ipv6 or null) != null) {
-          family = 6;
-          cidr = toString t.ipv6;
-          label = "domains.tenants.${toString t.name}.ipv6";
-        })
-        (map (prefix: {
-          family = 6;
-          cidr = toString prefix;
-          label = "domains.tenants.${toString t.name}.ra6Prefixes";
-        }) (t.ra6Prefixes or [ ]))
-      ]
-    ) tenants;
-
 in
 {
   inherit
+    normalizeTenantsFromRaw
     normalizeTenants
     tenantCatalog
+    siteContext
     tenantNameFromValue
     explicitTenantNamesForUnit
+    explicitTenantNamesForUnitWithContext
     tenantNetworksForUnit
-    tenantPrefixesOfSite
-    tenantPrefixEntriesFromDomains
+    tenantNetworksForUnitWithContext
     ;
 }

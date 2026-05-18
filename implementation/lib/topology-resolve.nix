@@ -9,6 +9,7 @@ let
   linkValidation = import ./topology/resolve/link-validation.nix { inherit lib self; };
   overlayResolution = import ./topology/resolve/overlays.nix { inherit lib self; };
   tenantOwnersMod = import ./routing/tenant-prefix-owners.nix { inherit lib self; };
+  graphContext = import ./routing/graph/context.nix { inherit lib self; };
 
   assert_ = cond: msg: if cond then true else throw msg;
 
@@ -143,8 +144,12 @@ let
   routingStatic = import ./routing/static/attach.nix { inherit lib self; };
 
   skipRouting = builtins.getEnv "S88_NFM_PROFILE_SKIP_ROUTING" == "1";
-  topo3 = if skipRouting then topo2 else resolveLoopbacks.attach topo2;
-  topo4 = if skipRouting then topo3 else routingStatic.attach topo3;
+  routeGraph =
+    graphContext.build (topo2.links or { }) {
+      nodeNames = builtins.attrNames (topo2.nodes or { });
+    };
+  topo3 = if skipRouting then topo2 else resolveLoopbacks.attachWith { topo = topo2; inherit routeGraph; };
+  topo4 = if skipRouting then topo3 else routingStatic.attachWith { topo = topo3; inherit routeGraph; };
 
 in
 builtins.seq _validatedLinks (builtins.seq _p2pLinkMembershipValidated topo4)

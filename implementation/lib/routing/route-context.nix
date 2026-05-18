@@ -34,7 +34,7 @@ let
       to,
       preferredUplinks ? [ ],
       preferredAccessNodes ? [ ],
-      routeGraph ? graphContext.build (topo.links or { }),
+      routeGraph ? graphContext.build (topo.links or { }) { },
     }:
     let
       links = topo.links or { };

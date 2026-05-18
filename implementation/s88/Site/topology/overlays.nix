@@ -3,7 +3,7 @@
 let
   domains = import ./domains.nix { inherit lib self; };
   peerSites = import ./overlay-peer-sites.nix { inherit lib self; };
-  tenants = import ./tenants.nix { inherit lib self; };
+  tenantPrefixes = import ./tenant-prefixes.nix { inherit lib self; };
 
   normalizeOverlay =
     x:
@@ -82,7 +82,7 @@ let
       overlayItemsFrom
       overlayTargetNamesFrom
       siteByRef
-      tenants
+      tenantPrefixes
       ;
     inherit (peerSites) overlayPeerSiteRefsOf;
   };

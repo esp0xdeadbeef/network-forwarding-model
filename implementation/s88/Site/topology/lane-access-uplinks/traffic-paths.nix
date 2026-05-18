@@ -9,22 +9,13 @@ in
     {
       site,
       accessUnitNames,
-      tenantsByAccessUnit,
-      accessUnitByTenant,
+      compilerIndexes,
     }:
     let
-      endpointTenantByName =
-        builtins.foldl' (
-          acc: endpoint:
-          if !(builtins.isAttrs endpoint) then
-            acc
-          else
-            let
-              name = toString (endpoint.name or "");
-              tenant = toString (endpoint.tenant or "");
-            in
-            if name == "" || tenant == "" then acc else acc // { "${name}" = tenant; }
-        ) { } (site.ownership.endpoints or [ ]);
+      inherit (compilerIndexes)
+        accessUnitByTenant
+        serviceProviderTenantsByName
+        ;
 
       sourceAccessUnits =
         source:
@@ -45,17 +36,7 @@ in
         else if kind == "service" then
           let
             serviceName = toString (source.name or "");
-            services = site.communicationContract.services or site.services or [ ];
-            providers = lib.concatMap (
-              service:
-              if builtins.isAttrs service && toString (service.name or "") == serviceName then
-                if builtins.isList (service.providers or null) then map toString service.providers else [ ]
-              else
-                [ ]
-            ) services;
-            providerTenants = lib.unique (lib.filter (tenant: tenant != "") (
-              map (provider: endpointTenantByName.${provider} or "") providers
-            ));
+            providerTenants = serviceProviderTenantsByName.${serviceName} or [ ];
           in
           lib.unique (lib.filter (x: x != null) (map (tenant: accessUnitByTenant.${tenant} or null) providerTenants))
         else

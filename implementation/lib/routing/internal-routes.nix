@@ -25,7 +25,7 @@ in
       routeContext,
       routeFacts ? routeContext.buildFacts topo,
       remotePrefixFacts ? remotePrefixes.buildFacts topo,
-      routeGraph ? graphContext.build (topo.links or { }),
+      routeGraph ? graphContext.build (topo.links or { }) { },
     }:
     let
       inherit (routeContext) mkRoute4 mkRoute6;

@@ -14,7 +14,7 @@ in
       dstEntry,
       routeContext,
       routeFacts ? routeContext.buildFacts topo,
-      routeGraph ? graphContext.build (topo.links or { }),
+      routeGraph ? graphContext.build (topo.links or { }) { },
     }:
     let
       inherit (routeContext) loopbackOwnerNodeForDstWithFacts nextHopWithPreferredUplinks;

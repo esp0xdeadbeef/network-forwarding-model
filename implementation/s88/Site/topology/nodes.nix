@@ -15,6 +15,7 @@ in
       unitNames,
       localPool,
       rolesResult,
+      tenantContext ? tenants.siteContext siteForTopology,
     }:
     let
       explicitLoopbackByUnit = builtins.listToAttrs (
@@ -31,7 +32,7 @@ in
           let
             unitName = toString rawUnitName;
             base = common.nodeFromSite site unitName;
-            attachedNetworks = tenants.tenantNetworksForUnit siteForTopology unitName;
+            attachedNetworks = tenants.tenantNetworksForUnitWithContext tenantContext unitName;
             explicitLoopback = explicitLoopbackByUnit.${unitName} or null;
 
             alloc4 =

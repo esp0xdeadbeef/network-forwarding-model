@@ -14,6 +14,7 @@ in
       topologyPairs,
       rolesResult,
       wanResult,
+      compilerIndexes,
     }:
     let
       firstUnitByRole =
@@ -49,7 +50,7 @@ in
 
       baseP2pPairs = lib.filter (p: builtins.isList p && builtins.length p == 2) topologyPairs;
 
-      allowedUplinksByAccessUnit = accessUplinks.derive { inherit site accessUnitNames; };
+      allowedUplinksByAccessUnit = accessUplinks.derive { inherit site accessUnitNames compilerIndexes; };
       overlayNameSet = overlayNameSetFor site;
       coreLaneResult = coreUplinks.derive {
         inherit

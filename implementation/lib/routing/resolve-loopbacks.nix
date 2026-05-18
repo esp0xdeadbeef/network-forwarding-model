@@ -1,7 +1,7 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
-  shortestPath = import ./graph/shortest-path.nix { inherit lib self; };
+  graphContext = import ./graph/context.nix { inherit lib self; };
   appendIfaceRoutes = import (self.outPath + "/implementation/lib/routing/loopbacks/append-routes.nix") {
     inherit lib self;
   };
@@ -15,9 +15,14 @@ let
   };
 
 in
-{
-  attach =
-    topo:
+rec {
+  attachWith =
+    {
+      topo,
+      routeGraph ? graphContext.build (topo.links or { }) {
+        nodeNames = builtins.attrNames (topo.nodes or { });
+      },
+    }:
     let
       links = topo.links or { };
       nodes0 = topo.nodes or { };
@@ -42,8 +47,7 @@ in
               acc
             else
               let
-                path = shortestPath.withLinks {
-                  inherit links;
+                path = routeGraph.shortestPath {
                   src = nodeName;
                   dst = dst;
                 };
@@ -57,6 +61,7 @@ in
                     inherit links;
                     from = nodeName;
                     to = hop;
+                    inherit routeGraph;
                     preferredUplinks =
                       if builtins.elem dst (topo.uplinkCoreNames or [ ]) then topo.uplinkNames or [ ] else [ ];
                     preferredAccessNodes = [ dst ];
@@ -126,4 +131,6 @@ in
 
     in
     topo // { nodes = nodes1; };
+
+  attach = topo: attachWith { inherit topo; };
 }
