@@ -75,41 +75,36 @@ OUTPUT_JSON="${output_json}" nix eval --impure --expr '
   in
     hasDst hostileEw "10.20.10.0/24"
     && hasDst hostileEw "fd42:dead:beef:0010:0000:0000:0000:0000/64"
-    && hasDst hostileEw "0.0.0.0/0"
-    && hasDefault6 hostileEw
+    && !(hasDst hostileEw "0.0.0.0/0")
+    && !(hasDefault6 hostileEw)
     && (siteB.tenantPrefixOwners."6|fd42:dead:feed:0070:0000:0000:0000:0000/64".owner or null) == "b-router-access-hostile"
     && hasDst siteB.nodes."b-router-core-nebula".interfaces."p2p-b-router-core-nebula-b-router-upstream-selector".routes "fd42:dead:feed:0070:0000:0000:0000:0000/64"
 ' | {
   if ! grep -qx true; then
-    echo "FAIL hostile-dns-east-west: hostile east-west policy lane must carry IPv4/IPv6 defaults toward the overlay core" >&2
+    echo "FAIL hostile-dns-east-west: DNS-only hostile east-west policy lane must keep specific DNS reachability without unscoped public defaults" >&2
     exit 1
   fi
 }
 
-OUTPUT_JSON="${s_router_output_json}" nix eval --impure --expr '
-  let
-    data = builtins.fromJSON (builtins.readFile (builtins.getEnv "OUTPUT_JSON"));
-    siteB = data.enterprise.espbranch.site."site-b";
-    upstreamIfaces = siteB.nodes."b-router-upstream-selector".interfaces;
-    hostileEw =
-      upstreamIfaces."p2p-b-router-core-nebula-b-router-upstream-selector".routes;
-    hasRoute = routes: destination: gateway:
-      builtins.any (
-        route:
-        (route.dst or null) == destination
-        && ((route.via4 or null) == gateway || (route.via6 or null) == gateway)
-      ) ((routes.ipv4 or [ ]) ++ (routes.ipv6 or [ ]));
-    hasDefault6 = routes: gateway:
-      hasRoute routes "::/0" gateway
-      || hasRoute routes "0000:0000:0000:0000:0000:0000:0000:0000/0" gateway;
-  in
-    hasRoute hostileEw "0.0.0.0/0" "10.50.0.4"
-    && hasDefault6 hostileEw "fd42:dead:feed:1000:0:0:0:4"
-' | {
-  if ! grep -qx true; then
-    echo "FAIL hostile-dns-east-west: s-router hostile upstream-selector east-west policy default must be installed on the Nebula core link" >&2
-    exit 1
-  fi
+jq -e '
+  .enterprise.espbranch.site["site-b"] as $site
+  | ($site.nodes."b-router-upstream-selector".interfaces."p2p-b-router-core-nebula-b-router-upstream-selector".routes) as $hostileEw
+  | ($site.nodes."b-router-core-nebula".interfaces."p2p-b-router-core-nebula-b-router-upstream-selector".routes) as $coreNebulaUpstream
+  | ($site.nodes."b-router-access-branch".interfaces."p2p-b-router-access-branch-b-router-downstream-selector".routes) as $branchAccess
+  | ([$hostileEw.ipv4[]? | select(.dst == "0.0.0.0/0" and .via4 == "10.50.0.4")] | length > 0)
+    and ([$hostileEw.ipv6[]? | select((.dst == "::/0" or .dst == "0000:0000:0000:0000:0000:0000:0000:0000/0") and .via6 == "fd42:dead:feed:1000:0:0:0:4")] | length > 0)
+    and ([$coreNebulaUpstream.ipv6[]?
+      | select(
+          .sourceFile == "/run/secrets/access-node-ipv6-prefix-espbranch-site-b-b-router-access-hostile"
+          and .intent.kind == "runtime-routed-prefix-return"
+          and .intent.source == "intent-routed-prefix"
+          and .intent.accessNode == "b-router-access-hostile"
+          and .via6 == "fd42:dead:feed:1000:0:0:0:5")] | length > 0)
+    and ([$branchAccess.ipv6[]?
+      | select(.sourceFile == "/run/secrets/access-node-ipv6-prefix-espbranch-site-b-b-router-access-hostile")] | length == 0)
+' "${s_router_output_json}" >/dev/null || {
+  echo "FAIL hostile-dns-east-west: s-router hostile east-west path must include NFM-owned runtime routed-prefix return without leaking it to unrelated access nodes" >&2
+  exit 1
 }
 
 OUTPUT_JSON="${s_router_output_json}" nix eval --impure --expr '

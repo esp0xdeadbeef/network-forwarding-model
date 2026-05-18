@@ -46,7 +46,13 @@ in
             ((if includeP2p then p2pRemote else [ ])
               ++ (if includeTenant then tenantRemote else [ ])
               ++ (if includeOverlay then overlayRemote else [ ]));
-          remote = lib.filter (e: !(ownSet ? "${toString e.family}|${e.dst}")) remote0;
+          remote = lib.filter (
+            e:
+            if e ? dst then
+              !(ownSet ? "${toString e.family}|${e.dst}")
+            else
+              true
+          ) remote0;
           _remoteCount = trace.emit "routing:internal:${nodeName}:remote-filtered=${toString (builtins.length remote)}" true;
           resolutionKey =
             e:
@@ -88,7 +94,7 @@ in
 
           perNextHopKey =
             e:
-            "${e.linkName}|${toString e.family}|${toString (e.via4 or "")}|${toString (e.via6 or "")}|${e.kind}|${toString (e.overlay or "")}|${toString (e.peerSite or "")}";
+            "${e.linkName}|${toString e.family}|${toString (e.via4 or "")}|${toString (e.via6 or "")}|${e.kind}|${toString (e.overlay or "")}|${toString (e.peerSite or "")}|${toString (e.sourceFile or "")}";
 
           grouped = builtins.groupBy perNextHopKey resolved;
         in

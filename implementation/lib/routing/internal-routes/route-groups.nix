@@ -15,9 +15,12 @@ in
     }:
     let
       sample = builtins.head entries;
-      entryDsts = lib.unique (map (e: e.dst) entries);
+      isRuntimeRoutedPrefix = sample.kind == "runtime-routed-prefix";
+      entryDsts = lib.unique (map (e: e.dst) (lib.filter (e: e ? dst) entries));
       aggDst =
-        if mode == "none" && sample.kind != "p2p" then
+        if isRuntimeRoutedPrefix then
+          null
+        else if mode == "none" && sample.kind != "p2p" then
           null
         else if sample.kind == "p2p" then
           helpers.buildP2pAggregate topo sample.family
@@ -34,10 +37,29 @@ in
           entryDsts
         else
           helpers.summarizeCidrs sample.family entryDsts;
-      intentKind = if sample.kind == "overlay" then "overlay-reachability" else "internal-reachability";
+      intentKind =
+        if isRuntimeRoutedPrefix then
+          "runtime-routed-prefix-return"
+        else if sample.kind == "overlay" then
+          "overlay-reachability"
+        else
+          "internal-reachability";
 
       rawRoutes =
-        if sample.family == 4 then
+        if isRuntimeRoutedPrefix then
+          map (entry: {
+            family = 6;
+            sourceFile = entry.sourceFile;
+            proto = if (entry.overlay or null) != null then "overlay" else "internal";
+            via6 = entry.via6;
+            intent = {
+              kind = intentKind;
+              source = "intent-routed-prefix";
+              accessNode = entry.owner;
+            };
+          } // lib.optionalAttrs ((entry.prefixName or null) != null) { prefixName = entry.prefixName; })
+            entries
+        else if sample.family == 4 then
           map (
             dst:
             mkRoute4 {

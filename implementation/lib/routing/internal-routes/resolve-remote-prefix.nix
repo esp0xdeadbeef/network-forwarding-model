@@ -39,7 +39,7 @@ in
         preferredAccessNodes = lib.unique (
           lib.filter (x: x != null) [
             (dstEntry.owner or null)
-            (loopbackOwnerNodeForDstWithFacts routeFacts dstEntry.family dstEntry.dst)
+            (if dstEntry ? dst then loopbackOwnerNodeForDstWithFacts routeFacts dstEntry.family dstEntry.dst else null)
           ]
         );
         baseNh = nextHopWithPreferredUplinks {

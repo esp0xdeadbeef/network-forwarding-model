@@ -18,6 +18,8 @@ let
   summarizeCidrs = cidrSummary.summarizeCidrs;
   routeBuilders = import ./route-builders.nix { inherit lib default6 canonicalCidr; };
   inherit (routeBuilders) mkRoute4 mkRoute6;
+  dynamicRoutes = import ./dynamic-routes.nix { inherit lib; };
+  inherit (dynamicRoutes) routeUsesDynamicSource dedupeDynamicRoutes;
 
   routeBase =
     r:
@@ -29,15 +31,18 @@ let
   detectRouteFamily = r: if lib.hasInfix ":" (stripMask r.dst) then 6 else 4;
 
   routePreservesDst = r: (r.preserveDst or false) == true;
-
   normalizeRouteList =
     family: rs:
     trace.emit "routing:normalizeRouteList:${toString family}:${toString (builtins.length rs)}" (
-    if rs == [ ] then
+    let
+      dynamicRoutes = dedupeDynamicRoutes (lib.filter routeUsesDynamicSource rs);
+      staticRoutes = lib.filter (r: !(routeUsesDynamicSource r)) rs;
+      normalizedStatic =
+    if staticRoutes == [ ] then
       [ ]
-    else if builtins.length rs == 1 then
+    else if builtins.length staticRoutes == 1 then
       let
-        route = builtins.head (rawDedupeRoutes rs);
+        route = builtins.head (rawDedupeRoutes staticRoutes);
         dst =
           if routePreservesDst route then
             route.dst
@@ -47,7 +52,7 @@ let
       [ (routeBase route // { inherit dst; }) ]
     else
     let
-      grouped = lib.groupBy (r: builtins.toJSON (routeBase r)) (rawDedupeRoutes rs);
+      grouped = lib.groupBy (r: builtins.toJSON (routeBase r)) (rawDedupeRoutes staticRoutes);
 
       normalizedGroups = lib.concatMap (
         key:
@@ -73,7 +78,9 @@ let
         map (dst: base // { dst = dst; }) renderedCidrs
       ) (builtins.attrNames grouped);
     in
-    lib.sort (a: b: (builtins.toJSON a) < (builtins.toJSON b)) normalizedGroups
+    lib.sort (a: b: (builtins.toJSON a) < (builtins.toJSON b)) normalizedGroups;
+    in
+    normalizedStatic ++ dynamicRoutes
     );
 
   dedupeRoutes =

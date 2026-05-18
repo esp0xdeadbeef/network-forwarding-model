@@ -146,7 +146,7 @@ validate_routes() {
 
     ([routes] | length) > 0
     and all(routes;
-      ((.dst // "") != "")
+      (((.dst // "") != "") or ((.sourceFile // "") != ""))
       and ((.proto // "") != "")
       and (((.intent // {}).kind // "") != "")
     )

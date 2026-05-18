@@ -23,8 +23,18 @@ let
       step =
         acc: e:
         let
-          k = "${toString e.family}|${e.dst}";
+          routeIdentity =
+            if e ? dst then
+              e.dst
+            else if e ? sourceFile then
+              "source:${e.sourceFile}"
+            else
+              null;
+          k = "${toString e.family}|${routeIdentity}";
         in
+        if routeIdentity == null then
+          acc
+        else
         if acc ? "${k}" then
           let
             prev = acc.${k};
@@ -38,10 +48,19 @@ let
           // {
             "${k}" = {
               family = e.family;
-              dst = e.dst;
               owner = e.owner;
               netName = e.netName or null;
-            };
+            }
+            // lib.optionalAttrs (e ? dst) { dst = e.dst; }
+            // lib.optionalAttrs (e ? sourceFile) {
+              sourceFile = e.sourceFile;
+              prefixName = e.prefixName or null;
+              kind = e.kind or "runtime-routed-prefix";
+              delegatedPrefixLength = e.delegatedPrefixLength or null;
+              perTenantPrefixLength = e.perTenantPrefixLength or null;
+              slot = e.slot or null;
+            }
+            // lib.optionalAttrs ((e.prefixPostfix or null) != null) { prefixPostfix = e.prefixPostfix; };
           };
 
     in

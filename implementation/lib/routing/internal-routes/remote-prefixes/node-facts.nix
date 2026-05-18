@@ -33,16 +33,28 @@
           tenant =
             lib.concatMap (
               entry:
-              if entry.owner == nodeName || !(tenantReachableFromNode entry) then
+              if
+                entry.owner == nodeName
+                || !(tenantReachableFromNode entry)
+                || ((entry.kind or null) == "runtime-routed-prefix" && nodeRole == "access")
+              then
                 [ ]
               else
                 [
-                  {
+                  ({
                     family = entry.family;
-                    dst = entry.dst;
                     owner = entry.owner;
-                    kind = "tenant";
+                    kind = entry.kind or "tenant";
                   }
+                  // lib.optionalAttrs (entry ? dst) { dst = entry.dst; }
+                  // lib.optionalAttrs (entry ? sourceFile) {
+                    sourceFile = entry.sourceFile;
+                    prefixName = entry.prefixName or null;
+                    delegatedPrefixLength = entry.delegatedPrefixLength or null;
+                    perTenantPrefixLength = entry.perTenantPrefixLength or null;
+                    slot = entry.slot or null;
+                  }
+                  // lib.optionalAttrs ((entry.prefixPostfix or null) != null) { prefixPostfix = entry.prefixPostfix; })
                 ]
             ) tenantOwnerEntries;
 

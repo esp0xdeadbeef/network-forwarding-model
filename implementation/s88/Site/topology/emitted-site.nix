@@ -85,6 +85,30 @@ in
           normalizedRouteSite.hostNatIngress
         else
           { };
+
+      overlayPool =
+        if builtins.isAttrs (normalizedRouteSite.overlayAddressPools or null) then
+          null
+        else if builtins.isAttrs ((normalizedRouteSite.pools or { }).overlay or null) then
+          (normalizedRouteSite.pools or { }).overlay
+        else if builtins.isAttrs ((normalizedRouteSite.addressPools or { }).overlay or null) then
+          (normalizedRouteSite.addressPools or { }).overlay
+        else
+          { };
+
+      overlayNames = builtins.attrNames overlayReachability;
+      overlayAddressPools =
+        if builtins.isAttrs (normalizedRouteSite.overlayAddressPools or null) then
+          normalizedRouteSite.overlayAddressPools
+        else if overlayPool == { } then
+          { }
+        else
+          builtins.listToAttrs (
+            map (overlayName: {
+              name = overlayName;
+              value = overlayPool;
+            }) overlayNames
+          );
     in
     builtins.removeAttrs normalizedRouteSite [
       "_enforcement"
@@ -102,6 +126,7 @@ in
       inherit enterprise siteId overlayReachability;
       siteName = normalizedRouteSite.siteName or siteName;
       inherit hostNatIngress;
+      overlayAddressPools = overlayAddressPools;
       coreNodeNames = finalCoreNodeNames;
       policyNodeName = finalPolicyNodeName;
       upstreamSelectorNodeName = builtins.seq validateUpstreamSelectorNodeName emittedUpstreamSelectorNodeName;

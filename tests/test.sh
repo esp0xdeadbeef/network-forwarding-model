@@ -33,6 +33,7 @@ tests=(
   test-compiler-traffic-path-propagation.sh
   test-overlay-core-access-p2p-contract.sh
   test-hostile-dedicated-east-west-lanes.sh
+  test-tri-site-hostile-forwarding-scope.sh
   test-overlay-peer-sites.sh
   test-external-ingress-uplink-defaults.sh
   test-service-source-uplink-lanes.sh
