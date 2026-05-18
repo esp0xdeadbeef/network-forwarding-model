@@ -1,7 +1,7 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
-  graph = import (self.outPath + "/lib/routing/graph.nix") { inherit lib self; };
+  graphContext = import (self.outPath + "/implementation/lib/routing/graph/context.nix") { inherit lib self; };
   helpers = import (self.outPath + "/lib/routing/static-helpers.nix") { inherit lib self; };
   trace = import (self.outPath + "/lib/trace.nix") { };
   remotePrefixes = import (self.outPath + "/implementation/lib/routing/internal-routes/remote-prefixes.nix") {
@@ -25,7 +25,7 @@ in
       routeContext,
       routeFacts ? routeContext.buildFacts topo,
       remotePrefixFacts ? remotePrefixes.buildFacts topo,
-      routeGraph ? graph.context (topo.links or { }),
+      routeGraph ? graphContext.build (topo.links or { }),
     }:
     let
       inherit (routeContext) mkRoute4 mkRoute6;

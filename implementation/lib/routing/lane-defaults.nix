@@ -1,7 +1,7 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
-  graph = import ./graph.nix { inherit lib self; };
+  link = import (self.outPath + "/lib/topology/link-utils.nix") { inherit lib self; };
   helpers = import ./static-helpers.nix { inherit lib self; };
   routeBuilder = import ./lane-default-route-builder.nix { inherit lib self; };
   laneMetadata = import ./lane-metadata.nix { inherit lib self; };
@@ -43,7 +43,7 @@ in
                 linkName:
                 let
                   linkObj = links.${linkName};
-                  members = graph.membersOf linkObj;
+                  members = link.membersOf linkObj;
                 in
                 lib.elem policyNodeName members
                 && lib.elem (topo.upstreamSelectorNodeName or null) members
@@ -61,7 +61,7 @@ in
             linkName:
             let
               linkObj = links.${linkName};
-              members = graph.membersOf linkObj;
+              members = link.membersOf linkObj;
             in
             lib.elem nodeName members
             && lib.elem policyNodeName members
@@ -117,7 +117,7 @@ in
             linkName:
             let
               linkObj = links.${linkName};
-              members = graph.membersOf linkObj;
+              members = link.membersOf linkObj;
             in
             lib.elem policyNodeName members
             && lib.elem selectorNodeName members

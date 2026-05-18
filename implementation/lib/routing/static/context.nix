@@ -2,7 +2,7 @@
 
 let
   routeContext = import (self.outPath + "/implementation/lib/routing/route-context.nix") { inherit lib self; };
-  graph = import (self.outPath + "/implementation/lib/routing/graph.nix") { inherit lib self; };
+  graphContext = import (self.outPath + "/implementation/lib/routing/graph/context.nix") { inherit lib self; };
   internalRoutes = import (self.outPath + "/implementation/lib/routing/internal-routes.nix") { inherit lib self; };
 in
 {
@@ -10,7 +10,7 @@ in
     topo:
     {
       inherit topo routeContext;
-      routeGraph = graph.context (topo.links or { });
+      routeGraph = graphContext.build (topo.links or { });
       routeFacts = routeContext.buildFacts topo;
       remotePrefixFacts = internalRoutes.buildRemotePrefixFacts topo;
       skipInternal = builtins.getEnv "S88_NFM_PROFILE_SKIP_INTERNAL_ROUTES" == "1";
