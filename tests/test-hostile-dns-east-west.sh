@@ -63,7 +63,7 @@ OUTPUT_JSON="${s_router_output_json}" nix eval --impure --expr '
     siteB = data.enterprise.espbranch.site."site-b";
     upstreamIfaces = siteB.nodes."b-router-upstream-selector".interfaces;
     hostileEw =
-      upstreamIfaces."p2p-b-router-policy-b-router-upstream-selector--access-b-router-access-hostile--uplink-east-west".routes;
+      upstreamIfaces."p2p-b-router-core-nebula-b-router-upstream-selector".routes;
     hasRoute = routes: destination: gateway:
       builtins.any (
         route:
@@ -78,7 +78,7 @@ OUTPUT_JSON="${s_router_output_json}" nix eval --impure --expr '
     && hasDefault6 hostileEw "fd42:dead:feed:1000:0:0:0:4"
 ' | {
   if ! grep -qx true; then
-    echo "FAIL hostile-dns-east-west: s-router hostile upstream-selector east-west lane must default to the Nebula core selected by policy" >&2
+    echo "FAIL hostile-dns-east-west: s-router hostile upstream-selector east-west policy default must be installed on the Nebula core link" >&2
     exit 1
   fi
 }
