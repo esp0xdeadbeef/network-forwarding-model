@@ -68,7 +68,7 @@ in
     in
     {
       linkName = sample.linkName;
-      routes4 = if sample.family == 4 then helpers.dedupeRoutes (rawRoutes ++ aggRoute) else [ ];
-      routes6 = if sample.family == 6 then helpers.dedupeRoutes (rawRoutes ++ aggRoute) else [ ];
+      routes4 = if sample.family == 4 then rawRoutes ++ aggRoute else [ ];
+      routes6 = if sample.family == 6 then rawRoutes ++ aggRoute else [ ];
     };
 }

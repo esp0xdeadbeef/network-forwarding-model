@@ -91,36 +91,29 @@ in
 
           grouped = builtins.groupBy perNextHopKey resolved;
         in
-        builtins.mapAttrs
-          (_linkName: routes: {
-            routes4 = helpers.dedupeRoutes routes.routes4;
-            routes6 = helpers.dedupeRoutes routes.routes6;
-          })
-          (
-            builtins.foldl' (
-              acc: entries:
-              let
-                built = routeGroups.build {
-                  inherit
-                    entries
-                    mkRoute4
-                    mkRoute6
-                    mode
-                    topo
-                    ;
-                };
-              in
-              trace.emit "routing:internal:${nodeName}:group:${built.linkName}:entries=${toString (builtins.length entries)}" (
-                acc
-              // {
-                "${built.linkName}" = {
-                  routes4 = (acc.${built.linkName}.routes4 or [ ]) ++ built.routes4;
-                  routes6 = (acc.${built.linkName}.routes6 or [ ]) ++ built.routes6;
-                };
-              }
-              )
-            ) { } (builtins.attrValues grouped)
-          );
+        builtins.foldl' (
+          acc: entries:
+          let
+            built = routeGroups.build {
+              inherit
+                entries
+                mkRoute4
+                mkRoute6
+                mode
+                topo
+                ;
+            };
+          in
+          trace.emit "routing:internal:${nodeName}:group:${built.linkName}:entries=${toString (builtins.length entries)}" (
+            acc
+            // {
+              "${built.linkName}" = {
+                routes4 = (acc.${built.linkName}.routes4 or [ ]) ++ built.routes4;
+                routes6 = (acc.${built.linkName}.routes6 or [ ]) ++ built.routes6;
+              };
+            }
+          )
+        ) { } (builtins.attrValues grouped);
 
       perLink = aggregatePrefixesForNode;
     in
