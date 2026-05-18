@@ -24,6 +24,8 @@ tests=(
   test-negative-forwarding.sh
   test-no-guessing.sh
   test-dedicated-lanes.sh
+  test-p2p-link-realization.sh
+  test-deterministic-input-order.sh
   test-lane-naming-contract.sh
   test-lane-preserving-default-route-contract.sh
   test-lane-default-routes-policy-only.sh

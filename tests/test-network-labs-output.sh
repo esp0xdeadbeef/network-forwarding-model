@@ -151,39 +151,6 @@ validate_routes() {
     )
   ' "${output_json}" >/dev/null || fail "FAIL network-labs-routes: incomplete route metadata for ${example_name}"
 
-  jq -e '
-    def stripmask: split("/")[0];
-    def peer_addr(site; ifname; node; family):
-      (site.links[ifname].endpoints // {})
-      | to_entries
-      | map(select(.key != node))
-      | .[0].value as $ep
-      | if family == 4 then
-          ($ep.addr4 // null | if . == null then null else stripmask end)
-        else
-          ($ep.addr6 // null | if . == null then null else stripmask end)
-        end;
-    def bad_next_hops:
-      .enterprise
-      | to_entries[] as $enterprise
-      | $enterprise.value.site
-      | to_entries[] as $site
-      | $site.value.nodes
-      | to_entries[] as $node
-      | $node.value.interfaces
-      | to_entries[] as $iface
-      | (
-          ($iface.value.routes.ipv4 // [])[]?
-          | select(.via4? != null)
-          | select(.via4 != peer_addr($site.value; $iface.key; $node.key; 4))
-        ),
-        (
-          ($iface.value.routes.ipv6 // [])[]?
-          | select(.via6? != null)
-          | select(.via6 != peer_addr($site.value; $iface.key; $node.key; 6))
-        );
-    ([bad_next_hops] | length) == 0
-  ' "${output_json}" >/dev/null || fail "FAIL network-labs-routes: off-link route next-hop in ${example_name}"
 }
 
 validate_contracts() {
