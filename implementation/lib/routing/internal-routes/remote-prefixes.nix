@@ -4,10 +4,10 @@ let
   helpers = import (self.outPath + "/implementation/lib/routing/static-helpers.nix") { inherit lib self; };
   link = import (self.outPath + "/implementation/lib/topology/link-utils.nix") { inherit lib self; };
   overlayScope = import ./overlay-scope.nix { inherit lib; };
+  nodeFacts = import ./remote-prefixes/node-facts.nix { inherit lib; };
   laneMetadata = import (self.outPath + "/implementation/lib/routing/lane-metadata.nix") {
     inherit lib self;
   };
-  byNode = import ./remote-prefixes/by-node.nix { inherit lib; };
   inherit (laneMetadata)
     laneAccessNodeName
     laneUplinkName
@@ -24,6 +24,8 @@ rec {
       linkNames = builtins.attrNames links;
       tenantOwnerEntries = builtins.attrValues (topo.tenantPrefixOwners or { });
       overlayScopeFacts = overlayScope.build topo tenantOwnerEntries;
+      overlayPolicyAllowedNodes = overlayScopeFacts.policyAllowedNodes;
+      overlayAllowedNodes = overlayScopeFacts.attachmentAllowedNodes;
 
       addUnique = acc: name: value:
         acc // { "${name}" = lib.unique ((acc.${name} or [ ]) ++ [ value ]); };
@@ -114,81 +116,49 @@ rec {
           ) prefixes
         ) owners
       ) (builtins.attrValues (topo.overlayReachability or { }));
+
+      ownConnectedPrefixSetByNode = builtins.listToAttrs (
+        map (nodeName: {
+          name = nodeName;
+          value = helpers.ownConnectedPrefixes nodes.${nodeName};
+        }) nodeNames
+      );
+
+      remoteByNode =
+        nodeFacts.build {
+          inherit
+            linkFacts
+            nodeNames
+            nodes
+            overlayAllowedNodes
+            overlayPolicyAllowedNodes
+            overlayRouteEntries
+            p2pEntries
+            tenantOwnerEntries
+            ;
+        };
     in
     {
-      inherit nodeNames p2pByOwner p2pEntries overlayRouteEntries;
+      inherit
+        nodeNames
+        ownConnectedPrefixSetByNode
+        p2pByOwner
+        p2pEntries
+        overlayRouteEntries
+        remoteByNode
+        ;
       inherit tenantOwnerEntries;
-      overlayPolicyAllowedNodes = overlayScopeFacts.policyAllowedNodes;
+      inherit overlayPolicyAllowedNodes;
       overlayEntries = builtins.attrValues (topo.overlayReachability or { });
-      overlayAllowedNodes = overlayScopeFacts.attachmentAllowedNodes;
+      inherit overlayAllowedNodes;
       inherit (linkFacts) uplinksByNode uplinksByAccess;
     };
 
-  ofKindWithFacts =
-    facts: topo: nodeName: kind:
-    let
-      nodes = topo.nodes or { };
-      node = nodes.${nodeName} or { };
-      nodeRole = node.role or null;
-
-      tenantOwnerEntries = if kind == "tenant" then facts.tenantOwnerEntries else [ ];
-
-      uplinksOnNode = facts.uplinksByNode.${nodeName} or [ ];
-
-      uplinksAllowedForAccess = accessNodeName: facts.uplinksByAccess.${accessNodeName} or [ ];
-
-      tenantReachableFromNode =
-        entry:
-        let
-          allowedUplinks = uplinksAllowedForAccess entry.owner;
-        in
-        nodeRole != "core"
-        || uplinksOnNode == [ ]
-        || lib.any (uplinkName: builtins.elem uplinkName allowedUplinks) uplinksOnNode;
-
-      perTenantOwner =
-        entry:
-        if entry.owner == nodeName then
-          [ ]
-        else if !(tenantReachableFromNode entry) then
-          [ ]
-        else
-          [
-            {
-              family = entry.family;
-              dst = entry.dst;
-              owner = entry.owner;
-              kind = "tenant";
-            }
-          ];
-
-      overlayAllowedOnNode =
-        entry:
-        let
-          overlayName = entry.overlay or null;
-          policyScoped =
-            overlayName != null
-            && builtins.hasAttr overlayName (facts.overlayPolicyAllowedNodes or { });
-          attachmentScoped =
-            overlayName != null
-            && builtins.hasAttr overlayName (facts.overlayAllowedNodes or { });
-        in
-        if policyScoped then
-          builtins.elem nodeName facts.overlayPolicyAllowedNodes.${overlayName}
-        else if attachmentScoped then
-          builtins.elem nodeName facts.overlayAllowedNodes.${overlayName}
-        else
-          true;
-
-    in
-    if kind == "tenant" then
-      lib.concatMap perTenantOwner tenantOwnerEntries
-    else if kind == "overlay" then
-      lib.filter (entry: entry.owner != nodeName && overlayAllowedOnNode entry) (facts.overlayRouteEntries or [ ])
-    else
-      lib.filter (entry: entry.owner != nodeName) (facts.p2pEntries or [ ]);
-
-  byKindForNodeWithFacts = byNode.byKind;
-
-  ofKind = topo: nodeName: kind: ofKindWithFacts (buildFacts topo) topo nodeName kind;
+  byKindForNodeWithFacts =
+    facts: _: nodeName:
+    facts.remoteByNode.${nodeName} or {
+      tenant = [ ];
+      overlay = [ ];
+      p2p = [ ];
+    };
 }

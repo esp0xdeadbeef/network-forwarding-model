@@ -33,7 +33,7 @@ in
       aggregatePrefixesForNode =
         let
           mode = helpers.aggregationMode topo;
-          ownSet = helpers.ownConnectedPrefixes topo.nodes.${nodeName};
+          ownSet = remotePrefixFacts.ownConnectedPrefixSetByNode.${nodeName} or { };
           remoteByKind = remotePrefixes.byKindForNodeWithFacts remotePrefixFacts topo nodeName;
           p2pRemote = remoteByKind.p2p;
           tenantRemote = remoteByKind.tenant;
