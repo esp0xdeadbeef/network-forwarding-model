@@ -103,6 +103,6 @@ in
               reason = "policy-derived-default";
             };
       in
-      helpers.addRoutesOnLink acc policyLinkName routes.routes4 routes.routes6
+      helpers.addRoutesOnLink acc (if coreLinkName == null then policyLinkName else coreLinkName) routes.routes4 routes.routes6
     ) node policyLaneLinks;
 }
