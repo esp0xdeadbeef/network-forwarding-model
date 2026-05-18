@@ -29,6 +29,8 @@ tests=(
   test-deterministic-input-order.sh
   test-lane-naming-contract.sh
   test-lane-preserving-default-route-contract.sh
+  test-ipv6-intent-preserved.sh
+  test-runtime-gua-return-routes.sh
   test-lane-default-routes-policy-only.sh
   test-compiler-traffic-path-propagation.sh
   test-overlay-core-access-p2p-contract.sh
