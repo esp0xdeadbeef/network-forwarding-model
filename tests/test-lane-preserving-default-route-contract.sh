@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
+source "${repo_root}/tests/lib/timing.sh"
 fixture_dir="${repo_root}/tests/fixtures/passing/lane-preserving-default-routes"
 input_path="${fixture_dir}/input.nix"
 expected_path="${fixture_dir}/expected-lane-defaults.json"
@@ -106,4 +107,4 @@ EOF
   exit 1
 }
 
-echo "PASS lane-preserving-default-route-contract"
+pass_timed "lane-preserving-default-route-contract"

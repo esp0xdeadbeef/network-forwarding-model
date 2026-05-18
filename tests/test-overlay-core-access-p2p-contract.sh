@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
+source "${repo_root}/tests/lib/timing.sh"
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "${tmpdir}"' EXIT
 
@@ -119,7 +120,7 @@ if jq -e '
       | not
     ))
 ' "${model_json}" >/dev/null; then
-  echo "PASS overlay-core-access-p2p-contract"
+  pass_timed "overlay-core-access-p2p-contract"
 else
   cat >&2 <<'EOF'
 FATAL network-forwarding-model overlay core/access p2p contract is not implemented yet.

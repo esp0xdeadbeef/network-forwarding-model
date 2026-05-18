@@ -20,6 +20,7 @@ in
       nodeName,
       node,
       routeContext,
+      routeFacts ? routeContext.buildFacts topo,
     }:
     let
       inherit (routeContext) mkRoute4 mkRoute6;
@@ -32,14 +33,7 @@ in
       linkNames = lib.sort (a: b: a < b) (builtins.attrNames links);
       uplinkHasDefault =
         uplinkName:
-        builtins.any (
-          coreName:
-          let
-            uplink = (((topo.nodes or { }).${coreName} or { }).uplinks or { }).${uplinkName} or { };
-          in
-          builtins.elem helpers.default4 (uplink.ipv4 or [ ])
-          || builtins.elem helpers.default6 (uplink.ipv6 or [ ])
-        ) (builtins.attrNames (topo.nodes or { }));
+        builtins.hasAttr uplinkName (routeFacts.uplinkHasDefaultSet or { });
 
       policyLaneLinks =
         if role != "upstream-selector" || selectorNodeName != nodeName || policyNodeName == null then

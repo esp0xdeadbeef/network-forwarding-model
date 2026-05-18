@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
+source "${repo_root}/tests/lib/timing.sh"
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "${tmp_dir}"' EXIT
 
@@ -80,7 +81,7 @@ scan_group \
   '\b(builtins\.match|builtins\.split|lib\.splitString|hasInfix|hasPrefix|hasSuffix|containsToken|suffixAfter|replaceStrings).*(link::|adj::|overlay::|access::|uplink::|--access-|--uplink-|p2p-|core-|policy-|access-|upstream-|downstream-|site[a-z0-9-]*-|enterprise[A-Za-z0-9-]*-)'
 
 if [[ ! -s "${matches_file}" ]]; then
-  echo "PASS s88-structure-keywords"
+  pass_timed "s88-structure-keywords"
   exit 0
 fi
 

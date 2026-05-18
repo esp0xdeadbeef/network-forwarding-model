@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
+source "${repo_root}/tests/lib/timing.sh"
 tmp_file="$(mktemp)"
 trap 'rm -f "${tmp_file}"' EXIT
 
@@ -18,7 +19,7 @@ rg \
   >"${tmp_file}" || true
 
 if [ ! -s "${tmp_file}" ]; then
-  echo "PASS no-parent-relative-imports"
+  pass_timed "no-parent-relative-imports"
   exit 0
 fi
 

@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
+source "${repo_root}/tests/lib/timing.sh"
 expected_sites="${repo_root}/tests/expected/network-labs-sites.tsv"
 expected_routes="${repo_root}/tests/expected/network-labs-routes.tsv"
 
@@ -212,12 +213,14 @@ run_example() {
   local intent="$1"
   local example_dir="${intent%/*}"
   local example_name="${example_dir##*/}"
+  local example_start_ms
   local work_dir="${tmp_dir}/${example_name}"
   local output_json="${work_dir}/output.jsonc"
   local stderr_log="${work_dir}/stderr.log"
   local site_summary="${work_dir}/sites.tsv"
   local route_summary="${work_dir}/routes.tsv"
 
+  example_start_ms="$(test_now_ms)"
   mkdir -p "${work_dir}"
   nix run "${repo_root}#compile-and-build-forwarding-model" -- "${intent}" 2>"${stderr_log}" | jq -c . > "${output_json}" \
     || {
@@ -231,7 +234,7 @@ run_example() {
   validate_contracts "${example_name}" "${output_json}"
   write_site_summary "${example_name}" "${output_json}" > "${site_summary}"
   write_route_summary "${example_name}" "${output_json}" > "${route_summary}"
-  echo "PASS network-labs-output:${example_name}"
+  pass_timed "network-labs-output:${example_name}" "${example_start_ms}"
 }
 
 pids=()
@@ -318,7 +321,7 @@ if ! diff -u "${expected_sites_sorted}" "${actual_sites_sorted}"; then
   fail "FAIL network-labs-output: site summary changed"
 fi
 
-echo "PASS network-labs-output"
+pass_timed "network-labs-output"
 
 {
   head -n 1 "${expected_routes}"
@@ -334,5 +337,5 @@ if ! diff -u "${expected_routes_sorted}" "${actual_routes_sorted}"; then
   fail "FAIL network-labs-routes: route summary changed"
 fi
 
-echo "PASS network-labs-routes"
-echo "PASS network-labs-contracts"
+pass_timed "network-labs-routes"
+pass_timed "network-labs-contracts"

@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
+source "${repo_root}/tests/lib/timing.sh"
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "${tmpdir}"' EXIT
 
@@ -92,4 +93,4 @@ if ! jq -e --arg needle "${needle}" '
   exit 1
 fi
 
-echo "PASS overlay-access-lane-warning"
+pass_timed "overlay-access-lane-warning"

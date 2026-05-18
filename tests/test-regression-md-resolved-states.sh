@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "${repo_root}/tests/lib/timing.sh"
 regression="${repo_root}/regression.md"
 
 if [[ ! -f "${regression}" ]]; then
@@ -28,4 +29,4 @@ if ((${#violations[@]} > 0)); then
   exit 1
 fi
 
-echo "PASS regression-md-resolved-states"
+pass_timed "regression-md-resolved-states"

@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
+source "${repo_root}/tests/lib/timing.sh"
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT
 
@@ -166,11 +167,13 @@ let
   hasDefaultBackToOverlay4 = builtins.any (route:
     (route.dst or null) == "0.0.0.0/0"
     && (route.proto or null) == "default"
+    && (route.policyOnly or false) != true
     && (route.via4 or null) == "10.0.1.4"
   ) (overlayIngress.ipv4 or [ ]);
   hasDefaultBackToOverlay6 = builtins.any (route:
     isDefault6 (route.dst or null)
     && (route.proto or null) == "default"
+    && (route.policyOnly or false) != true
     && (route.via6 or null) == "fd42:0:0:1000:0:0:0:4"
   ) (overlayIngress.ipv6 or [ ]);
   coreHasDefault4 = builtins.any (route:
@@ -205,4 +208,4 @@ EOF
 )"
 
 nix eval --impure --raw --expr "$expr" >/dev/null
-printf 'PASS external-ingress-uplink-defaults\n'
+pass_timed "external-ingress-uplink-defaults"

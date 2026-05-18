@@ -40,81 +40,63 @@
     },
     {
       "node": "upstream",
-      "interface": "p2p-policy-upstream--access-mgmt--uplink-wan",
+      "interface": "p2p-core-upstream",
       "family": 4,
       "destination": "0.0.0.0/0",
       "via": "10.42.1.2",
       "access": "mgmt",
       "uplink": "wan",
-      "mustNotShareWith": [
-        "client",
-        "streaming"
-      ]
+      "mustNotShareWith": []
     },
     {
       "node": "upstream",
-      "interface": "p2p-policy-upstream--access-mgmt--uplink-wan",
+      "interface": "p2p-core-upstream",
       "family": 6,
       "destination": "::/0",
       "via": "fd42:42:1:0:0:0:0:2",
       "access": "mgmt",
       "uplink": "wan",
-      "mustNotShareWith": [
-        "client",
-        "streaming"
-      ]
+      "mustNotShareWith": []
     },
     {
       "node": "upstream",
-      "interface": "p2p-policy-upstream--access-client--uplink-wan",
+      "interface": "p2p-core-upstream",
       "family": 4,
       "destination": "0.0.0.0/0",
       "via": "10.42.1.2",
       "access": "client",
       "uplink": "wan",
-      "mustNotShareWith": [
-        "mgmt",
-        "streaming"
-      ]
+      "mustNotShareWith": []
     },
     {
       "node": "upstream",
-      "interface": "p2p-policy-upstream--access-client--uplink-wan",
+      "interface": "p2p-core-upstream",
       "family": 6,
       "destination": "::/0",
       "via": "fd42:42:1:0:0:0:0:2",
       "access": "client",
       "uplink": "wan",
-      "mustNotShareWith": [
-        "mgmt",
-        "streaming"
-      ]
+      "mustNotShareWith": []
     },
     {
       "node": "upstream",
-      "interface": "p2p-policy-upstream--access-streaming--uplink-wan",
+      "interface": "p2p-core-upstream",
       "family": 4,
       "destination": "0.0.0.0/0",
       "via": "10.42.1.2",
       "access": "streaming",
       "uplink": "wan",
-      "mustNotShareWith": [
-        "mgmt",
-        "client"
-      ]
+      "mustNotShareWith": []
     },
     {
       "node": "upstream",
-      "interface": "p2p-policy-upstream--access-streaming--uplink-wan",
+      "interface": "p2p-core-upstream",
       "family": 6,
       "destination": "::/0",
       "via": "fd42:42:1:0:0:0:0:2",
       "access": "streaming",
       "uplink": "wan",
-      "mustNotShareWith": [
-        "mgmt",
-        "client"
-      ]
+      "mustNotShareWith": []
     }
   ]
 }

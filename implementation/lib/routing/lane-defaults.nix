@@ -15,15 +15,8 @@ let
     ;
 
   uplinkHasDefault =
-    topo: uplinkName:
-    builtins.any (
-      nodeName:
-      let
-        uplink = (((topo.nodes or { }).${nodeName} or { }).uplinks or { }).${uplinkName} or { };
-      in
-      builtins.elem helpers.default4 (uplink.ipv4 or [ ])
-      || builtins.elem helpers.default6 (uplink.ipv6 or [ ])
-    ) (builtins.attrNames (topo.nodes or { }));
+    routeFacts: uplinkName:
+    builtins.hasAttr uplinkName (routeFacts.uplinkHasDefaultSet or { });
 
 in
 {
@@ -33,6 +26,7 @@ in
       nodeName,
       node,
       routeContext,
+      routeFacts ? routeContext.buildFacts topo,
     }:
     let
       inherit (routeContext) mkRoute4 mkRoute6;
@@ -106,6 +100,7 @@ in
       nodeName,
       node,
       routeContext,
+      routeFacts ? routeContext.buildFacts topo,
     }:
     let
       inherit (routeContext) mkRoute4 mkRoute6;
@@ -135,7 +130,7 @@ in
       let
         uplinkName = laneUplinkName links.${linkName};
       in
-      if uplinkName == null || !(uplinkHasDefault topo uplinkName) then
+      if uplinkName == null || !(uplinkHasDefault routeFacts uplinkName) then
         acc
       else
         addDefaultsTowardPeer {

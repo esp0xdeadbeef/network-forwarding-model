@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
+source "${repo_root}/tests/lib/timing.sh"
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT
 
@@ -107,7 +108,7 @@ EOF
 nix eval --impure --raw --expr "$expr" | jq -r '.[]' >"$actual"
 
 if diff -u "$expected" "$actual"; then
-  echo "PASS lane-naming-contract"
+  pass_timed "lane-naming-contract"
 else
   echo "FAIL lane-naming-contract: emitted lane/link identities changed" >&2
   exit 1

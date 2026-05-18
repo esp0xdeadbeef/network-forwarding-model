@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
+source "${repo_root}/tests/lib/timing.sh"
 example_root="$(nix flake prefetch github:esp0xdeadbeef/network-labs --json | jq -r .storePath)/examples"
 
 fail() { echo "$1" >&2; exit 1; }
@@ -40,7 +41,7 @@ run_one() {
         policyIfacesB
   ' >/dev/null || fail "FAIL ${example_name}: forwarding validation failed"
 
-  echo "PASS ${example_name}"
+  pass_timed "${example_name}"
   rm -f "${output_json}"
   trap - RETURN
 }

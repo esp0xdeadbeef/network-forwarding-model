@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
+source "${repo_root}/tests/lib/timing.sh"
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "${tmpdir}"' EXIT
 
@@ -82,4 +83,4 @@ jq -e '
     and (p2p_links | map(.value.id) | length) == (p2p_links | map(.value.id) | unique | length)
 ' "${output_json}" >/dev/null
 
-echo "PASS p2p-link-realization"
+pass_timed "p2p-link-realization"

@@ -3,6 +3,7 @@
 let
   graph = import ./graph.nix { inherit lib self; };
   helpers = import ./static-helpers.nix { inherit lib self; };
+  facts = import ./route-context/facts.nix { inherit lib self; };
 
   laneMetaForLink = link:
     if builtins.isAttrs (link.laneMeta or null) then link.laneMeta else { };
@@ -23,49 +24,7 @@ let
     in
     facts.loopbackOwnerByKey.${key} or null;
 
-  buildFacts =
-    topo:
-    let
-      nodes = topo.nodes or { };
-      loopbackEntries = lib.concatMap (
-        nodeName:
-        let
-          loopback = nodes.${nodeName}.loopback or { };
-          entry =
-            family: raw:
-            if raw == null then
-              [ ]
-            else
-              [
-                {
-                  name = "${toString family}|${helpers.stripMask raw}";
-                  value = nodeName;
-                }
-              ];
-        in
-        (entry 4 (loopback.ipv4 or null)) ++ (entry 6 (loopback.ipv6 or null))
-      ) (builtins.attrNames nodes);
-
-      overlayReachabilityNames = builtins.attrNames (topo.overlayReachability or { });
-      linkOverlayNames = lib.filter (name: name != null) (
-        map (linkName: (topo.links.${linkName}.overlay or null)) (builtins.attrNames (topo.links or { }))
-      );
-      overlayUplinkNameSet = lib.listToAttrs (
-        map (name: {
-          inherit name;
-          value = true;
-        }) (lib.unique (overlayReachabilityNames ++ linkOverlayNames))
-      );
-      nonOverlayUplinkNames =
-        lib.filter (uplinkName: !(builtins.hasAttr uplinkName overlayUplinkNameSet)) (topo.uplinkNames or [ ]);
-    in
-    {
-      loopbackOwnerByKey = builtins.listToAttrs loopbackEntries;
-      uplinkCores = helpers.uplinkCores topo;
-      inherit overlayUplinkNameSet nonOverlayUplinkNames;
-      defaultReachabilityUplinkNames =
-        if nonOverlayUplinkNames != [ ] then nonOverlayUplinkNames else topo.uplinkNames or [ ];
-    };
+  buildFacts = facts.build;
 
   nextHopWithPreferredUplinks =
     {

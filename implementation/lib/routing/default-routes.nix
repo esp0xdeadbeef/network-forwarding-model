@@ -26,6 +26,7 @@ in
           nodeName
           node
           routeContext
+          routeFacts
           ;
       };
 
