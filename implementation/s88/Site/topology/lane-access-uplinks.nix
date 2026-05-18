@@ -9,67 +9,17 @@ in
     {
       site,
       accessUnitNames,
+      compilerIndexes,
     }:
     let
-      tenantsByAccessUnit =
-        let
-          attachments = site.attachments or [ ];
-          step =
-            acc: a:
-            if !(builtins.isAttrs a) then
-              acc
-            else
-              let
-                unit = toString (a.unit or "");
-                kind = toString (a.kind or "");
-                name = toString (a.name or "");
-              in
-              if unit == "" || kind != "tenant" || name == "" then
-                acc
-              else
-                acc // { "${unit}" = (acc.${unit} or [ ]) ++ [ name ]; };
-        in
-        builtins.foldl' step { } attachments;
-
-      accessUnitByTenant =
-        builtins.foldl' (
-          acc: accessUnit:
-          builtins.foldl' (
-            tenantAcc: tenant:
-            tenantAcc // { "${tenant}" = toString accessUnit; }
-          ) acc (tenantsByAccessUnit.${accessUnit} or [ ])
-        ) { } (builtins.attrNames tenantsByAccessUnit);
+      inherit (compilerIndexes)
+        allUplinkNames
+        serviceProviderTenantsByName
+        tenantsByAccessUnit
+        ;
 
       serviceProviderTenants =
-        serviceName:
-        let
-          endpointTenantByName =
-            builtins.foldl' (
-              acc: endpoint:
-              if !(builtins.isAttrs endpoint) then
-                acc
-              else
-                let
-                  name = toString (endpoint.name or "");
-                  tenant = toString (endpoint.tenant or "");
-                in
-                if name == "" || tenant == "" then acc else acc // { "${name}" = tenant; }
-            ) { } (site.ownership.endpoints or [ ]);
-          services = site.communicationContract.services or site.services or [ ];
-          matchingServices =
-            lib.filter (
-              service:
-              builtins.isAttrs service && toString (service.name or "") == serviceName
-            ) services;
-          providerNames =
-            lib.concatMap (
-              service:
-              if builtins.isList (service.providers or null) then map toString service.providers else [ ]
-            ) matchingServices;
-        in
-        lib.unique (lib.filter (tenant: tenant != "") (
-          map (provider: endpointTenantByName.${provider} or "") providerNames
-        ));
+        serviceName: serviceProviderTenantsByName.${serviceName} or [ ];
 
       relationToUplinkNames =
         rel:
@@ -91,10 +41,9 @@ in
       trafficPathUplinksByAccessUnit =
         trafficPaths.uplinksByAccessUnit {
           inherit
+            compilerIndexes
             site
             accessUnitNames
-            tenantsByAccessUnit
-            accessUnitByTenant
             ;
         };
 
@@ -119,15 +68,6 @@ in
           lib.any (tenant: builtins.elem tenant unitTenants) providerTenants
         else
           false;
-
-      allUplinkNames =
-        let
-          cores = site.upstreams.cores or { };
-          names = lib.concatMap (
-            coreName: map (u: toString (u.name or "")) (cores.${coreName} or [ ])
-          ) (builtins.attrNames cores);
-        in
-        lib.sort (a: b: a < b) (lib.unique (lib.filter (s: s != "") names));
 
       allowedUplinksFor =
         unit:

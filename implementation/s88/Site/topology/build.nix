@@ -9,6 +9,8 @@ let
   overlays = import ./overlays.nix { inherit lib self; };
   pools = import ./pools.nix { inherit lib self; };
   topologyNodes = import ./nodes.nix { inherit lib self; };
+  compilerIndexesMod = import ./compiler-indexes.nix { inherit lib; };
+  tenantPrefixes = import ./tenant-prefixes.nix { inherit lib self; };
   unitNamesMod = import ./unit-names.nix { inherit lib self; };
   semantics = import ./semantics.nix { inherit lib self; };
   laneLinks = import ./lane-links.nix { inherit lib self; };
@@ -49,6 +51,8 @@ in
       siteForTopology = site // {
         domains = siteDomains;
       };
+      compilerIndexes = compilerIndexesMod.build { inherit site; };
+      tenantContext = tenants.siteContext siteForTopology;
 
       unitNames = trace.emit "topology:${enterprise}.${siteId}:unit-names" (unitNamesMod.collect { inherit site topologyPairs rolesResult; });
 
@@ -56,6 +60,7 @@ in
         inherit
           rolesResult
           site
+          compilerIndexes
           topologyPairs
           unitNames
           wanResult
@@ -65,11 +70,20 @@ in
       p2pLinkSpecs = laneLinkResult.p2pLinkSpecs;
       annotateMergedLinkLane = laneLinkResult.annotateMergedLinkLane;
 
-      nodes = trace.emit "topology:${enterprise}.${siteId}:nodes" (topologyNodes.build { inherit site siteForTopology unitNames localPool rolesResult; });
+      nodes = trace.emit "topology:${enterprise}.${siteId}:nodes" (topologyNodes.build {
+        inherit
+          localPool
+          rolesResult
+          site
+          siteForTopology
+          tenantContext
+          unitNames
+          ;
+      });
 
       explicitLoopbackEntries = pools.explicitLoopbackEntriesFromUnits site unitNames;
       userPrefixes =
-        (pools.userPrefixEntriesFromNodes nodes) ++ (tenants.tenantPrefixEntriesFromDomains siteDomains);
+        (pools.userPrefixEntriesFromNodes nodes) ++ (tenantPrefixes.entriesFromDomains siteDomains);
 
       p2pLinks = trace.emit "topology:${enterprise}.${siteId}:p2p-links" (allocatedP2pLinks.allocate {
         inherit

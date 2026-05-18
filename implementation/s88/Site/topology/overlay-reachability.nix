@@ -5,7 +5,7 @@
   overlayPeerSiteRefsOf,
   overlayTargetNamesFrom,
   siteByRef,
-  tenants,
+  tenantPrefixes,
 }:
 
 let
@@ -52,7 +52,7 @@ let
             ipv6 = [ ];
           }
         else
-          tenants.tenantPrefixesOfSite peerSite;
+          tenantPrefixes.prefixesOfSite peerSite;
       terminateOn = lib.unique (overlayTargetNamesFrom overlay);
       explicitPrefixes = explicitPrefixesOf overlay;
     in

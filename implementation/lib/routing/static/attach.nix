@@ -7,12 +7,19 @@ let
     inherit lib self;
   };
 in
-{
-  attach =
-    topo:
+rec {
+  attachWith =
+    {
+      topo,
+      routeGraph ? null,
+    }:
     let
       nodes0 = topo.nodes or { };
-      ctx0 = context.build topo;
+      ctx0 =
+        if routeGraph == null then
+          context.build topo
+        else
+          context.buildWith { inherit topo routeGraph; };
       nodes1 = lib.mapAttrs (nodeRoutes.apply ctx0) nodes0;
 
       topo1 = topo // {
@@ -28,4 +35,6 @@ in
       nodes3 = lib.mapAttrs (overlayNearestDefaults.strip topo1) nodes2;
     in
     topo1 // { nodes = nodes3; };
+
+  attach = topo: attachWith { inherit topo; };
 }

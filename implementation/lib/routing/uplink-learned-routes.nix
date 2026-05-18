@@ -36,7 +36,7 @@ in
       node,
       routeContext,
       routeFacts ? routeContext.buildFacts topo,
-      routeGraph ? graphContext.build (topo.links or { }),
+      routeGraph ? graphContext.build (topo.links or { }) { },
     }:
     let
       inherit (routeContext) nextHopWithPreferredUplinks;

@@ -16,18 +16,23 @@ in
       to,
       preferredUplinks ? [ ],
       preferredAccessNodes ? [ ],
+      routeGraph ? null,
     }:
     let
-      candidates = lib.sort (a: b: a < b) (
-        lib.filter (
-          lname:
-          let
-            l = links.${lname};
-            members = link.membersOf l;
-          in
-          lib.elem from members && lib.elem to members
-        ) (builtins.attrNames links)
-      );
+      candidates =
+        if routeGraph != null then
+          routeGraph.linksBetween from to
+        else
+          lib.sort (a: b: a < b) (
+            lib.filter (
+              lname:
+              let
+                l = links.${lname};
+                members = link.membersOf l;
+              in
+              lib.elem from members && lib.elem to members
+            ) (builtins.attrNames links)
+          );
 
       preferredUplinkSet = lib.unique (map toString (lib.filter (x: x != null) preferredUplinks));
       preferredAccessSet = lib.unique (map toString (lib.filter (x: x != null) preferredAccessNodes));

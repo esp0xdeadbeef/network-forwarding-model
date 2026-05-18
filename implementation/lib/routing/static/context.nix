@@ -5,12 +5,17 @@ let
   graphContext = import (self.outPath + "/implementation/lib/routing/graph/context.nix") { inherit lib self; };
   internalRoutes = import (self.outPath + "/implementation/lib/routing/internal-routes.nix") { inherit lib self; };
 in
-{
-  build =
-    topo:
+rec {
+  buildWith =
+    {
+      topo,
+      routeGraph ? graphContext.build (topo.links or { }) {
+        nodeNames = builtins.attrNames (topo.nodes or { });
+      },
+    }:
     {
       inherit topo routeContext;
-      routeGraph = graphContext.build (topo.links or { });
+      inherit routeGraph;
       routeFacts = routeContext.buildFacts topo;
       remotePrefixFacts = internalRoutes.buildRemotePrefixFacts topo;
       skipInternal = builtins.getEnv "S88_NFM_PROFILE_SKIP_INTERNAL_ROUTES" == "1";
@@ -20,4 +25,6 @@ in
       skipDirectWan = builtins.getEnv "S88_NFM_PROFILE_SKIP_DIRECT_WAN_DEFAULTS" == "1";
       skipUplinkLearned = builtins.getEnv "S88_NFM_PROFILE_SKIP_UPLINK_LEARNED" == "1";
     };
+
+  build = topo: buildWith { inherit topo; };
 }
