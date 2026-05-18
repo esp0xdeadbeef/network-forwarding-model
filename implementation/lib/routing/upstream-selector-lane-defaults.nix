@@ -3,6 +3,7 @@
 let
   link = import (self.outPath + "/implementation/lib/topology/link-utils.nix") { inherit lib self; };
   helpers = import ./static-helpers.nix { inherit lib self; };
+  defaultRoutePolicy = import ./default-route-policy.nix { inherit lib; };
   routeBuilder = import ./lane-default-route-builder.nix { inherit lib self; };
   laneMetadata = import ./lane-metadata.nix { inherit lib self; };
   inherit (routeBuilder) mkDefaultRoutes;
@@ -76,7 +77,12 @@ in
           coreLinkName = coreLinkForUplink uplinkName;
           targetLinkName = if coreLinkName == null then policyLinkName else coreLinkName;
           routes =
-            if coreLinkName == null || uplinkName == null || !(uplinkHasDefault uplinkName) then
+            if
+              coreLinkName == null
+              || uplinkName == null
+              || !(uplinkHasDefault uplinkName)
+              || !(defaultRoutePolicy.accessMayUseDefault topo (laneAccessNodeName policyLink) uplinkName)
+            then
               { routes4 = [ ]; routes6 = [ ]; }
             else
               mkDefaultRoutes {

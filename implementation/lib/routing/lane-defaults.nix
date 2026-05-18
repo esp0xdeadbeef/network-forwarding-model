@@ -3,6 +3,7 @@
 let
   link = import (self.outPath + "/implementation/lib/topology/link-utils.nix") { inherit lib self; };
   helpers = import ./static-helpers.nix { inherit lib self; };
+  defaultRoutePolicy = import ./default-route-policy.nix { inherit lib; };
   routeBuilder = import ./lane-default-route-builder.nix { inherit lib self; };
   laneMetadata = import ./lane-metadata.nix { inherit lib self; };
   upstreamSelectorLaneDefaults = import ./upstream-selector-lane-defaults.nix { inherit lib self; };
@@ -34,25 +35,7 @@ in
       policyNodeName = topo.policyNodeName or null;
       links = topo.links or { };
       role = node.role or null;
-      uplinksForAccess =
-        accessName:
-        lib.unique (
-          lib.filter (uplinkName: uplinkName != null) (
-            map (linkName: laneUplinkName links.${linkName}) (
-              lib.filter (
-                linkName:
-                let
-                  linkObj = links.${linkName};
-                  members = link.membersOf linkObj;
-                in
-                lib.elem policyNodeName members
-                && lib.elem (topo.upstreamSelectorNodeName or null) members
-                && laneAccessNodeName linkObj == accessName
-                && hasUplinkLane linkObj
-              ) (builtins.attrNames links)
-            )
-          )
-        );
+      uplinksForAccess = defaultRoutePolicy.anyTrafficDefaultUplinksForAccess topo;
       laneLinks =
         if role != "downstream-selector" || policyNodeName == null then
           [ ]
@@ -130,7 +113,11 @@ in
       let
         uplinkName = laneUplinkName links.${linkName};
       in
-      if uplinkName == null || !(uplinkHasDefault routeFacts uplinkName) then
+      if
+        uplinkName == null
+        || !(uplinkHasDefault routeFacts uplinkName)
+        || !(defaultRoutePolicy.accessMayUseDefault topo (laneAccessNodeName links.${linkName}) uplinkName)
+      then
         acc
       else
         addDefaultsTowardPeer {

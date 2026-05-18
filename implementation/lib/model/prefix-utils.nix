@@ -81,12 +81,24 @@ let
           dst = canonicalCidr p;
           netName = netName;
         }) (net.ra6Prefixes or [ ]))
+        (map (p: {
+          family = 6;
+          sourceFile = p.sourceFile;
+          prefixName = p.name or null;
+          netName = netName;
+          kind = "runtime-routed-prefix";
+          delegatedPrefixLength = p.delegatedPrefixLength or 64;
+          perTenantPrefixLength = p.perTenantPrefixLength or 64;
+          slot = p.slot or 0;
+        } // lib.optionalAttrs ((p.prefixPostfix or null) != null) {
+          prefixPostfix = p.prefixPostfix;
+        }) (lib.filter (p: builtins.isAttrs p && (p.sourceFile or null) != null) (net.routedPrefixes or [ ])))
       ]
     ) netNames;
 
   ownConnectedPrefixes =
     node:
-    builtins.foldl' (acc: e: acc // { "${toString e.family}|${e.dst}" = true; }) { } (
+    builtins.foldl' (acc: e: if e ? dst then acc // { "${toString e.family}|${e.dst}" = true; } else acc) { } (
       prefixEntriesFromIfaces node ++ prefixEntriesFromNetworks node
     );
 
@@ -125,11 +137,11 @@ let
       acc: e:
       acc
       // {
-        "${toString e.family}|${e.dst}" = {
-          family = e.family;
-          dst = e.dst;
-          netName = e.netName or null;
-        };
+        "${toString e.family}|${if e ? dst then e.dst else "source:${e.sourceFile}"}" =
+          e // {
+            family = e.family;
+            netName = e.netName or null;
+          };
       }
     ) { } (prefixEntriesFromNetworks node);
 
