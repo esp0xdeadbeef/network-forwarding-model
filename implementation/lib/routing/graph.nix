@@ -113,10 +113,28 @@ let
     let
       neighbors = neighborMap links;
       pairs = linkPairMap links;
+      nodeNames = lib.sort (a: b: a < b) (builtins.attrNames neighbors);
+      pathCache = builtins.listToAttrs (
+        map (src: {
+          name = src;
+          value = builtins.listToAttrs (
+            map (dst: {
+              name = dst;
+              value = shortestPathWithNeighbors { inherit neighbors src dst; };
+            }) nodeNames
+          );
+        }) nodeNames
+      );
+      cachedPath =
+        { src, dst }:
+        if builtins.hasAttr src pathCache && builtins.hasAttr dst pathCache.${src} then
+          pathCache.${src}.${dst}
+        else
+          shortestPathWithNeighbors { inherit neighbors src dst; };
     in
     trace.emit "graph:context:links=${toString (builtins.length (builtins.attrNames links))}" {
       inherit neighbors pairs;
-      shortestPath = { src, dst }: shortestPathWithNeighbors { inherit neighbors src dst; };
+      shortestPath = cachedPath;
       linksBetween = from: to: linksBetween pairs from to;
       findLinkBetween =
         { a ? null, b ? null, from ? null, to ? null }:
