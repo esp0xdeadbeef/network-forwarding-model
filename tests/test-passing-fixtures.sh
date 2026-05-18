@@ -2,7 +2,12 @@
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
+source "${repo_root}/tests/lib/timing.sh"
 system="${NIX_SYSTEM:-$(nix eval --impure --raw --expr 'builtins.currentSystem')}"
+max_jobs="${TEST_JOBS:-$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN)}"
+if ! [[ "${max_jobs}" =~ ^[0-9]+$ ]] || [ "${max_jobs}" -lt 1 ]; then
+  max_jobs=1
+fi
 
 resolve_examples_root() {
   local archive_json
@@ -81,12 +86,13 @@ validate_output() {
       && siteNames != [ ]
   ' >/dev/null || fail "FAIL ${name}: validation failed"
 
-  echo "PASS ${name}"
 }
 
 run_direct_case() {
   local name="$1"
   local input_nix="$2"
+  local case_start_ms
+  case_start_ms="$(test_now_ms)"
 
   log "Running ${name}"
 
@@ -94,7 +100,6 @@ run_direct_case() {
   local expr
 
   tmp_dir="$(mktemp -d)"
-  trap 'rm -rf "'"${tmp_dir}"'"' RETURN
 
   expr="let
     flake = builtins.getFlake (toString ${repo_root});
@@ -110,8 +115,88 @@ run_direct_case() {
     }
 
   validate_output "${name}" "${tmp_dir}/out.json"
+  pass_timed "${name}" "${case_start_ms}"
   rm -rf "${tmp_dir}"
-  trap - RETURN
+}
+
+pids=()
+names=()
+logs=()
+
+cleanup_workers() {
+  local pid
+  for pid in "${pids[@]:-}"; do
+    if kill -0 "${pid}" 2>/dev/null; then
+      kill "${pid}" 2>/dev/null || true
+    fi
+  done
+}
+
+trap 'cleanup_workers' EXIT INT TERM
+
+running_jobs() {
+  local count=0
+  local pid
+  for pid in "${pids[@]:-}"; do
+    if kill -0 "${pid}" 2>/dev/null; then
+      count=$((count + 1))
+    fi
+  done
+  printf '%s\n' "${count}"
+}
+
+wait_for_slot() {
+  while [ "$(running_jobs)" -ge "${max_jobs}" ]; do
+    sleep 0.2
+  done
+}
+
+sanitize_name() {
+  printf '%s\n' "$1" | tr '/ :' '---'
+}
+
+queue_case() {
+  local name="$1"
+  local input_nix="$2"
+  local log_dir="$3"
+  local log_file
+
+  wait_for_slot
+  log_file="${log_dir}/$(sanitize_name "${name}").log"
+  run_direct_case "${name}" "${input_nix}" >"${log_file}" 2>&1 &
+  pids+=("$!")
+  names+=("${name}")
+  logs+=("${log_file}")
+}
+
+wait_for_cases() {
+  local failed=0
+  local idx
+  local pid
+  local name
+  local log_file
+
+  for idx in "${!pids[@]}"; do
+    pid="${pids[$idx]}"
+    name="${names[$idx]}"
+    log_file="${logs[$idx]}"
+
+    if wait "${pid}"; then
+      cat "${log_file}"
+    else
+      failed=$((failed + 1))
+      cat "${log_file}" >&2
+      echo "FAIL ${name}" >&2
+    fi
+  done
+
+  pids=()
+  names=()
+  logs=()
+
+  if [ "${failed}" -ne 0 ]; then
+    fail "FAIL passing-fixtures: ${failed} case(s) failed"
+  fi
 }
 
 run_local_passing_fixtures() {
@@ -121,6 +206,8 @@ run_local_passing_fixtures() {
   fi
 
   log "Running local passing fixtures from ${fixtures_root}"
+  local log_dir
+  log_dir="$(mktemp -d)"
 
   while read -r input; do
     local dir
@@ -135,8 +222,11 @@ run_local_passing_fixtures() {
       name="${dir##*/}"
     fi
 
-    run_direct_case "fixture:${name}" "${input}"
+    queue_case "fixture:${name}" "${input}" "${log_dir}"
   done < <(find "${fixtures_root}" -type f -name input.nix | sort)
+
+  wait_for_cases
+  rm -rf "${log_dir}"
 }
 
 run_external_examples() {
@@ -146,13 +236,12 @@ run_external_examples() {
   fi
 
   log "Running external examples from ${examples_root}"
+  local log_dir
+  log_dir="$(mktemp -d)"
 
   while read -r dir; do
     local name
     local intent
-    local tmp_dir
-    local stderr_file
-    local expr
 
     name="$(basename "${dir}")"
     intent="${dir}/intent.nix"
@@ -162,30 +251,58 @@ run_external_examples() {
       continue
     }
 
-    log "Example ${name}"
-
-    tmp_dir="$(mktemp -d)"
-    stderr_file="${tmp_dir}/stderr.log"
-    trap 'rm -rf "'"${tmp_dir}"'"' RETURN
-
-    expr="let
-      flake = builtins.getFlake (toString ${repo_root});
-    in
-      flake.libBySystem.\"${system}\".buildFromCompilerInputPath ${intent}"
-
-    nix eval --show-trace --impure --json --expr "${expr}" > "${tmp_dir}/out.json" 2>"${stderr_file}" \
-      || {
-        echo "--- INTENT (${name}) ---"
-        cat "${intent}"
-        echo "--- STDERR (${name}) ---"
-        cat "${stderr_file}"
-        fail "FAIL network-labs-example:${name}"
-      }
-
-    validate_output "network-labs-example:${name}" "${tmp_dir}/out.json"
-    rm -rf "${tmp_dir}"
-    trap - RETURN
+    queue_network_labs_example "${name}" "${intent}" "${log_dir}"
   done < <(find "${examples_root}" -mindepth 1 -maxdepth 1 -type d | sort)
+
+  wait_for_cases
+  rm -rf "${log_dir}"
+}
+
+run_network_labs_example() {
+  local name="$1"
+  local intent="$2"
+  local case_start_ms
+  local tmp_dir
+  local stderr_file
+  local expr
+
+  case_start_ms="$(test_now_ms)"
+  log "Example ${name}"
+
+  tmp_dir="$(mktemp -d)"
+  stderr_file="${tmp_dir}/stderr.log"
+  expr="let
+    flake = builtins.getFlake (toString ${repo_root});
+  in
+    flake.libBySystem.\"${system}\".buildFromCompilerInputPath ${intent}"
+
+  nix eval --show-trace --impure --json --expr "${expr}" > "${tmp_dir}/out.json" 2>"${stderr_file}" \
+    || {
+      echo "--- INTENT (${name}) ---"
+      cat "${intent}"
+      echo "--- STDERR (${name}) ---"
+      cat "${stderr_file}"
+      rm -rf "${tmp_dir}"
+      fail "FAIL network-labs-example:${name}"
+    }
+
+  validate_output "network-labs-example:${name}" "${tmp_dir}/out.json"
+  pass_timed "network-labs-example:${name}" "${case_start_ms}"
+  rm -rf "${tmp_dir}"
+}
+
+queue_network_labs_example() {
+  local name="$1"
+  local intent="$2"
+  local log_dir="$3"
+  local log_file
+
+  wait_for_slot
+  log_file="${log_dir}/$(sanitize_name "network-labs-example:${name}").log"
+  run_network_labs_example "${name}" "${intent}" >"${log_file}" 2>&1 &
+  pids+=("$!")
+  names+=("network-labs-example:${name}")
+  logs+=("${log_file}")
 }
 
 run_local_passing_fixtures

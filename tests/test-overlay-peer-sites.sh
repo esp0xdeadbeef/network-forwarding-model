@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
+source "${repo_root}/tests/lib/timing.sh"
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "${tmpdir}"' EXIT
 
@@ -117,7 +118,7 @@ if jq -e '
     and .peerSite == "acme.remote-b"
   ))
 ' "${model_json}" >/dev/null; then
-  echo "PASS overlay-peer-sites"
+  pass_timed "overlay-peer-sites"
 else
   echo "FAIL overlay-peer-sites: FWM did not emit complete multi-peer overlay reachability and logical overlay interface ownership" >&2
   exit 1

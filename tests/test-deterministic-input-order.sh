@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
+source "${repo_root}/tests/lib/timing.sh"
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "${tmpdir}"' EXIT
 
@@ -119,4 +120,4 @@ nix run "${repo_root}#compile-and-build-forwarding-model" -- "${input_b}" | jq -
 
 diff -u "${out_a}" "${out_b}"
 
-echo "PASS deterministic-input-order"
+pass_timed "deterministic-input-order"

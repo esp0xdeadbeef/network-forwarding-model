@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
+source "${repo_root}/tests/lib/timing.sh"
 
 archive_json="$(mktemp)"
 output_json="$(mktemp)"
@@ -106,4 +107,4 @@ OUTPUT_JSON="${output_json}" nix eval --impure --expr '
   fi
 }
 
-echo "PASS hostile-dedicated-east-west-lanes"
+pass_timed "hostile-dedicated-east-west-lanes"

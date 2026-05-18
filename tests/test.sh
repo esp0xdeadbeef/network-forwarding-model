@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
+source "${repo_root}/tests/lib/timing.sh"
 
 if [[ "${NETWORK_REPO_SWEEP:-0}" != "1" && "${NETWORK_REPO_DIRECT_TEST_OK:-0}" != "1" ]]; then
   echo "WARN: direct repo tests are partial; set NETWORK_REPO_DIRECT_TEST_OK=1 for intentional focused runs, or run network-codex-agent/scripts/s-router-full-lab-rebuild-loop.sh for the locked full network-* sweep plus live validation." >&2
@@ -45,6 +46,7 @@ tmpdir="$(mktemp -d)"
 pids=()
 names=()
 logs=()
+elapsed_files=()
 
 cleanup() {
   local pid
@@ -75,19 +77,27 @@ wait_for_slot() {
 }
 
 printf 'Running %s tests with TEST_JOBS=%s\n' "${#tests[@]}" "${max_jobs}"
+suite_start_ms="$(date +%s%3N)"
 
 for test_name in "${tests[@]}"; do
   wait_for_slot
 
   log="${tmpdir}/${test_name}.log"
+  elapsed_file="${tmpdir}/${test_name}.elapsed"
   (
+    child_start_ms="$(date +%s%3N)"
     cd "${repo_root}"
-    "tests/${test_name}"
+    status=0
+    "tests/${test_name}" || status=$?
+    child_end_ms="$(date +%s%3N)"
+    printf '%s\n' "$((child_end_ms - child_start_ms))" >"${elapsed_file}"
+    exit "${status}"
   ) >"${log}" 2>&1 &
 
   pids+=("$!")
   names+=("${test_name}")
   logs+=("${log}")
+  elapsed_files+=("${elapsed_file}")
 done
 
 failed=0
@@ -96,16 +106,26 @@ for idx in "${!pids[@]}"; do
   pid="${pids[$idx]}"
   name="${names[$idx]}"
   log="${logs[$idx]}"
+  elapsed_file="${elapsed_files[$idx]}"
 
   if wait "${pid}"; then
-    printf 'PASS %s\n' "${name}"
+    elapsed_ms="$(cat "${elapsed_file}")"
+    printf 'PASS %sms %s\n' "${elapsed_ms}" "${name}"
   else
     status=$?
+    if [[ -f "${elapsed_file}" ]]; then
+      elapsed_ms="$(cat "${elapsed_file}")"
+    else
+      elapsed_ms="unknown"
+    fi
     failed=$((failed + 1))
-    printf 'FAIL %s (exit %s)\n' "${name}" "${status}" >&2
+    printf 'FAIL %sms %s (exit %s)\n' "${elapsed_ms}" "${name}" "${status}" >&2
+    if [[ -f "${log}" ]]; then
+      sed "s/^/[${name}] /" "${log}"
+    else
+      printf '[%s] log unavailable\n' "${name}" >&2
+    fi
   fi
-
-  sed "s/^/[${name}] /" "${log}"
 done
 
 if [ "${failed}" -ne 0 ]; then
@@ -113,4 +133,5 @@ if [ "${failed}" -ne 0 ]; then
   exit 1
 fi
 
-printf 'PASS tests\n'
+suite_end_ms="$(date +%s%3N)"
+printf 'PASS %sms tests\n' "$((suite_end_ms - suite_start_ms))"

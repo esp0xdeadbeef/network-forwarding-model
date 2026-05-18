@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root="$(git -C "$(dirname "$0")/.." rev-parse --show-toplevel)"
+source "${repo_root}/tests/lib/timing.sh"
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
 
@@ -63,4 +64,4 @@ jq -e '
   ] | length == 1
 ' "$output_json" >/dev/null
 
-echo "PASS service-source-uplink-lanes"
+pass_timed "service-source-uplink-lanes"

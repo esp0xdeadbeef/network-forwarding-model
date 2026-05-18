@@ -31,7 +31,7 @@ in
         preferredUplinks =
           if dstEntry.kind == "overlay" && (dstEntry.overlay or null) != null then
             [ dstEntry.overlay ]
-          else if builtins.elem (dstEntry.owner or null) (helpers.uplinkCores topo) then
+          else if builtins.hasAttr (dstEntry.owner or "") (routeFacts.uplinkCoreSet or { }) then
             topo.uplinkNames or [ ]
           else
             [ ];

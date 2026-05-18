@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
+source "${repo_root}/tests/lib/timing.sh"
 
 archive_json="$(mktemp)"
 trap 'rm -f "'"${archive_json}"'"' EXIT
@@ -27,10 +28,38 @@ s_router_intent_path="${labs_path}/examples/s-router-overlay-dns-lane-policy/int
 
 output_json="$(mktemp)"
 s_router_output_json="$(mktemp)"
-trap 'rm -f "'"${archive_json}"'" "'"${output_json}"'" "'"${s_router_output_json}"'"' EXIT
+tri_site_stderr="$(mktemp)"
+s_router_stderr="$(mktemp)"
+trap 'rm -f "'"${archive_json}"'" "'"${output_json}"'" "'"${s_router_output_json}"'" "'"${tri_site_stderr}"'" "'"${s_router_stderr}"'"' EXIT
 
-nix run "${repo_root}#compile-and-build-forwarding-model" -- "${intent_path}" > "${output_json}"
-nix run "${repo_root}#compile-and-build-forwarding-model" -- "${s_router_intent_path}" > "${s_router_output_json}"
+tri_site_start_ms="$(test_now_ms)"
+nix run "${repo_root}#compile-and-build-forwarding-model" -- "${intent_path}" > "${output_json}" 2>"${tri_site_stderr}" &
+tri_site_pid="$!"
+
+s_router_start_ms="$(test_now_ms)"
+nix run "${repo_root}#compile-and-build-forwarding-model" -- "${s_router_intent_path}" > "${s_router_output_json}" 2>"${s_router_stderr}" &
+s_router_pid="$!"
+
+failed=0
+if wait "${tri_site_pid}"; then
+  pass_timed "hostile-dns-east-west:compile-tri-site" "${tri_site_start_ms}"
+else
+  failed=1
+  cat "${tri_site_stderr}" >&2
+  echo "FAIL hostile-dns-east-west:compile-tri-site" >&2
+fi
+
+if wait "${s_router_pid}"; then
+  pass_timed "hostile-dns-east-west:compile-s-router" "${s_router_start_ms}"
+else
+  failed=1
+  cat "${s_router_stderr}" >&2
+  echo "FAIL hostile-dns-east-west:compile-s-router" >&2
+fi
+
+if [ "${failed}" -ne 0 ]; then
+  exit 1
+fi
 
 OUTPUT_JSON="${output_json}" nix eval --impure --expr '
   let
@@ -108,4 +137,4 @@ OUTPUT_JSON="${s_router_output_json}" nix eval --impure --expr '
   fi
 }
 
-echo "PASS hostile-dns-east-west"
+pass_timed "hostile-dns-east-west"

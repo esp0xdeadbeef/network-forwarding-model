@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
+source "${repo_root}/tests/lib/timing.sh"
 
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "${tmp_dir}"' EXIT
@@ -63,4 +64,4 @@ intent="${labs_path}/examples/tri-site-dual-wan-overlay-integration-static/inten
   exit 1
 }
 
-echo "PASS preferred-access-lanes"
+pass_timed "preferred-access-lanes"

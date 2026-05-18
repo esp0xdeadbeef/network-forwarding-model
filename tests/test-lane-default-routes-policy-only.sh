@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
+source "${repo_root}/tests/lib/timing.sh"
 archive_json="$(mktemp)"
 out_dir="$(mktemp -d)"
 violations="$(mktemp)"
@@ -82,4 +83,4 @@ if [[ -s "${violations}" ]]; then
   exit 1
 fi
 
-echo "PASS lane-default-routes-policy-only"
+pass_timed "lane-default-routes-policy-only"

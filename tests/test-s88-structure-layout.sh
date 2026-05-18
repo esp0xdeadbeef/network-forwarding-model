@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
+source "${repo_root}/tests/lib/timing.sh"
 
 fail() {
   printf 'FAIL s88-structure-layout: %s\n' "$*" >&2
@@ -9,7 +10,7 @@ fail() {
 }
 
 pass() {
-  printf 'PASS s88-structure-layout\n'
+  pass_timed "s88-structure-layout"
 }
 
 required_dirs=(
