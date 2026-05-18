@@ -2,7 +2,7 @@
 
 let
   helpers = import (self.outPath + "/lib/routing/static-helpers.nix") { inherit lib self; };
-  graph = import (self.outPath + "/lib/routing/graph.nix") { inherit lib self; };
+  link = import (self.outPath + "/lib/topology/link-utils.nix") { inherit lib self; };
   overlayScope = import ./overlay-scope.nix { inherit lib; };
   laneMetadata = import (self.outPath + "/implementation/lib/routing/lane-metadata.nix") {
     inherit lib self;
@@ -35,7 +35,7 @@ rec {
             linkObj = links.${linkName};
             uplinkName = laneUplinkName linkObj;
             accessNodeName = laneAccessNodeName linkObj;
-            members = graph.membersOf linkObj;
+            members = link.membersOf linkObj;
             accWithNodeUplinks =
               if accessNodeName != null || uplinkName == null then
                 acc

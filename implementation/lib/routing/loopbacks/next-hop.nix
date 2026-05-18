@@ -1,7 +1,7 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
-  graph = import (self.outPath + "/lib/routing/graph.nix") { inherit lib self; };
+  link = import (self.outPath + "/lib/topology/link-utils.nix") { inherit lib self; };
   routeFields = import (self.outPath + "/implementation/lib/routing/loopbacks/route-fields.nix") { inherit lib self; };
 
   laneMeta = link:
@@ -23,7 +23,7 @@ in
           lname:
           let
             l = links.${lname};
-            members = graph.membersOf l;
+            members = link.membersOf l;
           in
           lib.elem from members && lib.elem to members
         ) (builtins.attrNames links)
@@ -62,7 +62,7 @@ in
           null;
 
       linkObj = if chosen == null then null else links.${chosen};
-      epTo = if linkObj == null then { } else graph.getEp chosen linkObj to;
+      epTo = if linkObj == null then { } else link.getEp chosen linkObj to;
     in
     {
       linkName = chosen;

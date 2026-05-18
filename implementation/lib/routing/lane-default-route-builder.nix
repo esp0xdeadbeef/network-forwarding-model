@@ -1,7 +1,7 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
-  graph = import ./graph.nix { inherit lib self; };
+  link = import (self.outPath + "/lib/topology/link-utils.nix") { inherit lib self; };
   helpers = import ./static-helpers.nix { inherit lib self; };
 in
 rec {
@@ -82,7 +82,7 @@ rec {
           mkRoute6
           reason
           ;
-        epTo = graph.getEp linkName linkObj peerNodeName;
+        epTo = link.getEp linkName linkObj peerNodeName;
       };
     in
     helpers.addRoutesOnLink node linkName routes.routes4 routes.routes6;

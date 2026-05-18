@@ -1,7 +1,8 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
-  graph = import ./graph.nix { inherit lib self; };
+  graphContext = import ./graph/context.nix { inherit lib self; };
+  link = import (self.outPath + "/lib/topology/link-utils.nix") { inherit lib self; };
   helpers = import ./static-helpers.nix { inherit lib self; };
   facts = import ./route-context/facts.nix { inherit lib self; };
 
@@ -33,7 +34,7 @@ let
       to,
       preferredUplinks ? [ ],
       preferredAccessNodes ? [ ],
-      routeGraph ? graph.context (topo.links or { }),
+      routeGraph ? graphContext.build (topo.links or { }),
     }:
     let
       links = topo.links or { };
@@ -85,7 +86,7 @@ let
           null;
 
       linkObj = if chosen == null then null else links.${chosen};
-      epTo = if linkObj == null then { } else graph.getEp chosen linkObj to;
+      epTo = if linkObj == null then { } else link.getEp chosen linkObj to;
     in
     {
       linkName = chosen;

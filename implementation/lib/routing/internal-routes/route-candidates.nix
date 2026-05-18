@@ -1,8 +1,8 @@
 {
   baseLinkName,
-  graph,
   hopNode,
   isOverlay,
+  link,
   nodeName,
   preferredUplinks,
   routeContext,
@@ -23,7 +23,7 @@ let
           lname:
           let
             l = links.${lname};
-            members = graph.membersOf l;
+            members = link.membersOf l;
           in
           builtins.elem nodeName members && builtins.elem hopNode members
         ) (builtins.attrNames links)

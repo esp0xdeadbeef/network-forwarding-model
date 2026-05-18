@@ -1,7 +1,7 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
-  graph = import ./graph.nix { inherit lib self; };
+  link = import (self.outPath + "/lib/topology/link-utils.nix") { inherit lib self; };
   helpers = import ./static-helpers.nix { inherit lib self; };
   routeBuilder = import ./lane-default-route-builder.nix { inherit lib self; };
   laneMetadata = import ./lane-metadata.nix { inherit lib self; };
@@ -43,7 +43,7 @@ in
             linkName:
             let
               linkObj = links.${linkName};
-              members = graph.membersOf linkObj;
+              members = link.membersOf linkObj;
             in
             lib.elem policyNodeName members
             && lib.elem selectorNodeName members
@@ -59,7 +59,7 @@ in
               linkName:
               let
                 linkObj = links.${linkName};
-                members = graph.membersOf linkObj;
+                members = link.membersOf linkObj;
               in
               lib.elem selectorNodeName members
               && laneAccessNodeName linkObj == null
@@ -81,11 +81,11 @@ in
           else
             mkDefaultRoutes {
               inherit mkRoute4 mkRoute6;
-              epTo = graph.getEp coreLinkName links.${coreLinkName} (
+              epTo = link.getEp coreLinkName links.${coreLinkName} (
                 builtins.head (
                   lib.filter
                     (memberName: memberName != selectorNodeName)
-                    (graph.membersOf links.${coreLinkName})
+                    (link.membersOf links.${coreLinkName})
                 )
               );
               lane = {

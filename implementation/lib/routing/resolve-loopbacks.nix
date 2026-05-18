@@ -1,7 +1,7 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
-  graph = import ./graph.nix { inherit lib self; };
+  shortestPath = import ./graph/shortest-path.nix { inherit lib self; };
   appendIfaceRoutes = import (self.outPath + "/implementation/lib/routing/loopbacks/append-routes.nix") {
     inherit lib self;
   };
@@ -42,7 +42,7 @@ in
               acc
             else
               let
-                path = graph.shortestPath {
+                path = shortestPath.withLinks {
                   inherit links;
                   src = nodeName;
                   dst = dst;

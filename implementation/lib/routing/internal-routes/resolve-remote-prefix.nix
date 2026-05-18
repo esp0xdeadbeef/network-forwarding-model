@@ -1,7 +1,8 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
-  graph = import (self.outPath + "/lib/routing/graph.nix") { inherit lib self; };
+  graphContext = import (self.outPath + "/implementation/lib/routing/graph/context.nix") { inherit lib self; };
+  link = import (self.outPath + "/lib/topology/link-utils.nix") { inherit lib self; };
   helpers = import (self.outPath + "/lib/routing/static-helpers.nix") { inherit lib self; };
 
 in
@@ -13,7 +14,7 @@ in
       dstEntry,
       routeContext,
       routeFacts ? routeContext.buildFacts topo,
-      routeGraph ? graph.context (topo.links or { }),
+      routeGraph ? graphContext.build (topo.links or { }),
     }:
     let
       inherit (routeContext) loopbackOwnerNodeForDstWithFacts nextHopWithPreferredUplinks;
@@ -50,7 +51,7 @@ in
         };
         candidateLinks = import (self.outPath + "/implementation/lib/routing/internal-routes/route-candidates.nix") {
           inherit
-            graph
+            link
             nodeName
             preferredUplinks
           routeContext
@@ -65,7 +66,7 @@ in
           linkName:
           let
             linkObj = (topo.links or { }).${linkName};
-            epTo = graph.getEp linkName linkObj hop;
+            epTo = link.getEp linkName linkObj hop;
           in
           {
             inherit linkName;

@@ -1,7 +1,7 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
-  graph = import ./graph.nix { inherit lib self; };
+  graphContext = import ./graph/context.nix { inherit lib self; };
   helpers = import ./static-helpers.nix { inherit lib self; };
   directWanDefaults = import ./direct-wan-defaults.nix { inherit lib self; };
   laneDefaults = import ./lane-defaults.nix { inherit lib self; };
@@ -15,7 +15,7 @@ in
       node,
       routeContext,
       routeFacts ? routeContext.buildFacts topo,
-      routeGraph ? graph.context (topo.links or { }),
+      routeGraph ? graphContext.build (topo.links or { }),
     }:
     let
       inherit (routeContext) nextHopWithPreferredUplinks;
