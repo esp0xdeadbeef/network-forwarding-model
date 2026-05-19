@@ -20,18 +20,16 @@ in
       aggDst =
         if isRuntimeRoutedPrefix then
           null
+        else if sample.kind == "p2p" then
+          null
         else if mode == "none" && sample.kind != "p2p" then
           null
-        else if sample.kind == "p2p" then
-          helpers.buildP2pAggregate topo sample.family
         else if sample.kind == "tenant" then
           helpers.buildTenantAggregate topo sample.family
         else
           null;
       summarizedDsts =
-        if sample.kind == "p2p" && aggDst != null then
-          [ ]
-        else if sample.kind == "overlay" || sample.kind == "p2p" then
+        if sample.kind == "overlay" || sample.kind == "p2p" then
           entryDsts
         else if builtins.length entryDsts <= 1 then
           entryDsts

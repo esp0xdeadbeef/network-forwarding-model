@@ -52,7 +52,7 @@ let
       [ (routeBase route // { inherit dst; }) ]
     else
     let
-      grouped = lib.groupBy (r: builtins.toJSON (routeBase r)) (rawDedupeRoutes staticRoutes);
+      grouped = lib.groupBy (r: builtins.toJSON (routeBase r)) staticRoutes;
 
       normalizedGroups = lib.concatMap (
         key:

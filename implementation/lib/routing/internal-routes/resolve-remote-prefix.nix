@@ -29,9 +29,17 @@ in
     else
       let
         hop = builtins.elemAt path 1;
+        uplinksForCore =
+          coreName:
+          lib.filter (
+            uplinkName:
+            builtins.elem coreName (routeFacts.uplinkCoreNamesByUplink.${uplinkName} or [ ])
+          ) (builtins.attrNames (routeFacts.uplinkCoreNamesByUplink or { }));
         preferredUplinks =
           if dstEntry.kind == "overlay" && (dstEntry.overlay or null) != null then
             [ dstEntry.overlay ]
+          else if dstEntry.kind == "p2p" && builtins.hasAttr (dstEntry.owner or "") (routeFacts.uplinkCoreSet or { }) then
+            uplinksForCore dstEntry.owner
           else if builtins.hasAttr (dstEntry.owner or "") (routeFacts.uplinkCoreSet or { }) then
             topo.uplinkNames or [ ]
           else
@@ -60,6 +68,7 @@ in
           inherit routeGraph;
           baseLinkName = baseNh.linkName;
           isOverlay = dstEntry.kind == "overlay";
+          isP2p = dstEntry.kind == "p2p";
           hopNode = hop;
         };
         nextHops = map (
