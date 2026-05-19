@@ -35,6 +35,18 @@ let
       inherit ipv4 ipv6;
     };
 
+  overlayNodePrefixesOf =
+    peerSite: overlayName:
+    let
+      overlay = (peerSite.overlays or { }).${overlayName} or { };
+      nodes = if builtins.isAttrs (overlay.nodes or null) then overlay.nodes else { };
+      values = builtins.attrValues nodes;
+    in
+    {
+      ipv4 = builtins.filter (value: builtins.isString value && value != "") (map (node: node.addr4 or null) values);
+      ipv6 = builtins.filter (value: builtins.isString value && value != "") (map (node: node.addr6 or null) values);
+    };
+
   overlayReachabilityForPeer =
     allSites: overlay: peerSiteRef:
     let
@@ -55,6 +67,14 @@ let
           tenantPrefixes.prefixesOfSite peerSite;
       terminateOn = lib.unique (overlayTargetNamesFrom overlay);
       explicitPrefixes = explicitPrefixesOf overlay;
+      overlayNodePrefixes =
+        if peerSite == null then
+          {
+            ipv4 = [ ];
+            ipv6 = [ ];
+          }
+        else
+          overlayNodePrefixesOf peerSite overlayName;
     in
     {
       name = overlayName;
@@ -65,12 +85,12 @@ let
         routes4 = normalizedPrefixRoutes {
           inherit overlayName peerSiteRef;
           family = 4;
-          prefixes = lib.unique (peerPrefixes.ipv4 ++ explicitPrefixes.ipv4);
+          prefixes = lib.unique (peerPrefixes.ipv4 ++ overlayNodePrefixes.ipv4 ++ explicitPrefixes.ipv4);
         };
         routes6 = normalizedPrefixRoutes {
           inherit overlayName peerSiteRef;
           family = 6;
-          prefixes = lib.unique (peerPrefixes.ipv6 ++ explicitPrefixes.ipv6);
+          prefixes = lib.unique (peerPrefixes.ipv6 ++ overlayNodePrefixes.ipv6 ++ explicitPrefixes.ipv6);
         };
       };
     };
