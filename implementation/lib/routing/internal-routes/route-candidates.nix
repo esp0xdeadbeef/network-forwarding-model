@@ -2,6 +2,7 @@
   baseLinkName,
   hopNode,
   isOverlay,
+  isP2p ? false,
   link,
   nodeName,
   preferredUplinks,
@@ -41,8 +42,10 @@ let
         uplinkName != null && builtins.elem uplinkName preferredUplinks
       ) candidates;
 in
-if isOverlay && preferredCandidates != [ ] then
+if (isOverlay || isP2p) && preferredCandidates != [ ] then
   preferredCandidates
+else if isP2p && candidates != [ ] then
+  candidates
 else if baseLinkName == null then
   [ ]
 else

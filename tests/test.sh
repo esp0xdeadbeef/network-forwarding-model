@@ -26,6 +26,7 @@ tests=(
   test-no-guessing.sh
   test-dedicated-lanes.sh
   test-p2p-link-realization.sh
+  test-p2p-specific-underlay-return-routes.sh
   test-deterministic-input-order.sh
   test-lane-naming-contract.sh
   test-lane-preserving-default-route-contract.sh

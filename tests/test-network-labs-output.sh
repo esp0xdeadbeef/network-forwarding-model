@@ -317,6 +317,10 @@ done < <(find "${examples_root}" -mindepth 2 -maxdepth 2 -type f -name intent.ni
   tail -n +2 "${actual_sites}" | LC_ALL=C sort
 } > "${actual_sites_sorted}"
 
+if [[ "${NETWORK_REPO_UPDATE_EXPECTED:-0}" == "1" ]]; then
+  cp "${actual_sites_sorted}" "${expected_sites}"
+fi
+
 if ! diff -u "${expected_sites_sorted}" "${actual_sites_sorted}"; then
   fail "FAIL network-labs-output: site summary changed"
 fi
@@ -332,6 +336,10 @@ pass_timed "network-labs-output"
   head -n 1 "${actual_routes}"
   tail -n +2 "${actual_routes}" | LC_ALL=C sort
 } > "${actual_routes_sorted}"
+
+if [[ "${NETWORK_REPO_UPDATE_EXPECTED:-0}" == "1" ]]; then
+  cp "${actual_routes_sorted}" "${expected_routes}"
+fi
 
 if ! diff -u "${expected_routes_sorted}" "${actual_routes_sorted}"; then
   fail "FAIL network-labs-routes: route summary changed"

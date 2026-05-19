@@ -61,26 +61,7 @@ rec {
             value =
               let
                 prefixes = builtins.attrValues (helpers.prefixSetFromP2pIfaces nodes.${owner});
-                aggregateEntry =
-                  family:
-                  let
-                    dst = helpers.buildP2pAggregate topo family;
-                  in
-                  if dst == null then
-                    [ ]
-                  else
-                    [
-                      {
-                        inherit family dst owner;
-                        kind = "p2p";
-                      }
-                    ];
-                aggregateEntries = (aggregateEntry 4) ++ (aggregateEntry 6);
-              in
-              if aggregateEntries != [ ] then
-                aggregateEntries
-              else
-                map (
+                concreteEntries = map (
                   x:
                   x
                   // {
@@ -88,6 +69,8 @@ rec {
                     kind = "p2p";
                   }
                 ) prefixes;
+              in
+              concreteEntries;
           })
           nodeNames
       );
