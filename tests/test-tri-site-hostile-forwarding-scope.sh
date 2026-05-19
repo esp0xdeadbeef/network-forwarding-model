@@ -180,7 +180,7 @@ assert_loopback "b-router-downstream-selector" "10.59.0.4/32" "fd42:dead:feed:19
 assert_loopback "b-router-policy" "10.59.0.5/32" "fd42:dead:feed:1900:0:0:0:5/128"
 assert_loopback "b-router-upstream-selector" "10.59.0.6/32" "fd42:dead:feed:1900:0:0:0:6/128"
 
-assert_iface_addr "b-router-access-hostile" "tenant-hostile" "10.70.10.0/24" "fd42:dead:feed:0070:0000:0000:0000:0000/64"
+assert_iface_addr "b-router-access-hostile" "tenant-hostile" "10.70.10.1/24" "fd42:dead:feed:70:0:0:0:1/64"
 assert_iface_addr "b-router-access-hostile" "p2p-b-router-access-hostile-b-router-downstream-selector" "10.50.0.2/31" "fd42:dead:feed:1000:0:0:0:2/127"
 assert_iface_addr "b-router-downstream-selector" "p2p-b-router-access-hostile-b-router-downstream-selector" "10.50.0.3/31" "fd42:dead:feed:1000:0:0:0:3/127"
 assert_iface_addr "b-router-downstream-selector" "p2p-b-router-downstream-selector-b-router-policy--access-b-router-access-hostile" "10.50.0.10/31" "fd42:dead:feed:1000:0:0:0:a/127"

@@ -1,6 +1,7 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
+  addressing = import (self.outPath + "/implementation/lib/model/addressing.nix") { inherit lib self; };
   prefix = import (self.outPath + "/implementation/lib/model/prefix-utils.nix") { inherit lib self; };
   inherit (prefix) canonicalCidr mkConnectedRoute;
 
@@ -18,6 +19,8 @@ in
     let
       subnet4 = if net ? ipv4 && net.ipv4 != null then canonicalCidr net.ipv4 else null;
       subnet6 = if net ? ipv6 && net.ipv6 != null then canonicalCidr net.ipv6 else null;
+      addr4 = if subnet4 != null then addressing.hostCidr 1 subnet4 else null;
+      addr6 = if subnet6 != null then addressing.hostCidr 1 subnet6 else null;
       tenantName = if net ? name && net.name != null then toString net.name else toString netName;
     in
     {
@@ -33,9 +36,9 @@ in
       tenant = tenantName;
       network = { name = tenantName; kind = net.kind or "tenant"; ipv4 = subnet4; ipv6 = subnet6; };
       gateway = false;
-      addr4 = subnet4;
+      addr4 = addr4;
       peerAddr4 = null;
-      addr6 = subnet6;
+      addr6 = addr6;
       peerAddr6 = null;
       addr6Public = null;
       subnet4 = subnet4;
