@@ -2,9 +2,9 @@
 
 {
   assertAny =
-    {
-      discoveredCoreNames,
-      expectedInputs,
+    { discoveredCoreNames
+    , expectedInputs
+    ,
     }:
     if discoveredCoreNames != [ ] then
       true

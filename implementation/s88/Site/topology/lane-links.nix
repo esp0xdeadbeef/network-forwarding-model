@@ -11,13 +11,13 @@ in
 
 {
   derive =
-    {
-      site,
-      unitNames,
-      topologyPairs,
-      rolesResult,
-      wanResult,
-      compilerIndexes,
+    { site
+    , unitNames
+    , topologyPairs
+    , rolesResult
+    , wanResult
+    , compilerIndexes
+    ,
     }:
     let
       downstreamSelectorUnit = names.firstUnitByRole { inherit unitNames rolesResult; role = "downstream-selector"; };

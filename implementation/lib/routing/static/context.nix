@@ -7,11 +7,11 @@ let
 in
 rec {
   buildWith =
-    {
-      topo,
-      routeGraph ? graphContext.build (topo.links or { }) {
+    { topo
+    , routeGraph ? graphContext.build (topo.links or { }) {
         nodeNames = builtins.attrNames (topo.nodes or { });
-      },
+      }
+    ,
     }:
     {
       inherit topo routeContext;

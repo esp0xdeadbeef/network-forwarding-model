@@ -2,8 +2,8 @@
 
 let
   isNetworkAttr =
-    {
-      extraExcluded ? [ ],
+    { extraExcluded ? [ ]
+    ,
     }:
     name: v:
     builtins.isAttrs v
@@ -19,8 +19,8 @@ let
     ));
 
   networksOfRaw =
-    {
-      extraExcluded ? [ ],
+    { extraExcluded ? [ ]
+    ,
     }:
     node:
     if node ? networks then
@@ -29,12 +29,12 @@ let
       lib.filterAttrs (isNetworkAttr { inherit extraExcluded; }) node;
 
   networksOfNode =
-    {
-      extraExcluded ? [
+    { extraExcluded ? [
         "containers"
         "uplinks"
         "loopback"
-      ],
+      ]
+    ,
     }:
     node:
     if node ? networks && builtins.isAttrs node.networks then

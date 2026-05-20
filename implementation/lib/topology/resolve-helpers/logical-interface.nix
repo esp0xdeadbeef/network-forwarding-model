@@ -10,11 +10,11 @@ in
   nameFor = netName: "tenant-${toString netName}";
 
   build =
-    {
-      nodeName,
-      ifName,
-      netName,
-      net,
+    { nodeName
+    , ifName
+    , netName
+    , net
+    ,
     }:
     let
       subnet4 = if net ? ipv4 && net.ipv4 != null then canonicalCidr net.ipv4 else null;

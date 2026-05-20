@@ -10,13 +10,13 @@ let
 in
 {
   withPreferences =
-    {
-      links,
-      from,
-      to,
-      preferredUplinks ? [ ],
-      preferredAccessNodes ? [ ],
-      routeGraph ? null,
+    { links
+    , from
+    , to
+    , preferredUplinks ? [ ]
+    , preferredAccessNodes ? [ ]
+    , routeGraph ? null
+    ,
     }:
     let
       candidates =
@@ -24,34 +24,40 @@ in
           routeGraph.linksBetween from to
         else
           lib.sort (a: b: a < b) (
-            lib.filter (
-              lname:
-              let
-                l = links.${lname};
-                members = link.membersOf l;
-              in
-              lib.elem from members && lib.elem to members
-            ) (builtins.attrNames links)
+            lib.filter
+              (
+                lname:
+                let
+                  l = links.${lname};
+                  members = link.membersOf l;
+                in
+                lib.elem from members && lib.elem to members
+              )
+              (builtins.attrNames links)
           );
 
       preferredUplinkSet = lib.unique (map toString (lib.filter (x: x != null) preferredUplinks));
       preferredAccessSet = lib.unique (map toString (lib.filter (x: x != null) preferredAccessNodes));
 
-      preferredUplinkCandidates = lib.filter (
-        lname:
-        let
-          uplinkName = (laneMeta links.${lname}).uplink or null;
-        in
-        preferredUplinkSet != [ ] && uplinkName != null && builtins.elem uplinkName preferredUplinkSet
-      ) candidates;
+      preferredUplinkCandidates = lib.filter
+        (
+          lname:
+          let
+            uplinkName = (laneMeta links.${lname}).uplink or null;
+          in
+          preferredUplinkSet != [ ] && uplinkName != null && builtins.elem uplinkName preferredUplinkSet
+        )
+        candidates;
 
-      preferredAccessCandidates = lib.filter (
-        lname:
-        let
-          accessNodeName = (laneMeta links.${lname}).access or null;
-        in
-        preferredAccessSet != [ ] && accessNodeName != null && builtins.elem accessNodeName preferredAccessSet
-      ) candidates;
+      preferredAccessCandidates = lib.filter
+        (
+          lname:
+          let
+            accessNodeName = (laneMeta links.${lname}).access or null;
+          in
+          preferredAccessSet != [ ] && accessNodeName != null && builtins.elem accessNodeName preferredAccessSet
+        )
+        candidates;
 
       chosen =
         if preferredUplinkCandidates != [ ] && preferredAccessCandidates != [ ] then

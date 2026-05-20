@@ -2,15 +2,15 @@
 
 {
   build =
-    {
-      linkFacts,
-      nodeNames,
-      nodes,
-      overlayAllowedNodes,
-      overlayPolicyAllowedNodes,
-      overlayRouteEntries,
-      p2pEntries,
-      tenantOwnerEntries,
+    { linkFacts
+    , nodeNames
+    , nodes
+    , overlayAllowedNodes
+    , overlayPolicyAllowedNodes
+    , overlayRouteEntries
+    , p2pEntries
+    , tenantOwnerEntries
+    ,
     }:
     let
       nodeRemote =
@@ -31,32 +31,34 @@
             || lib.any (uplinkName: builtins.elem uplinkName allowedUplinks) uplinksOnNode;
 
           tenant =
-            lib.concatMap (
-              entry:
-              if
-                entry.owner == nodeName
-                || !(tenantReachableFromNode entry)
-                || ((entry.kind or null) == "runtime-routed-prefix" && nodeRole == "access")
-              then
-                [ ]
-              else
-                [
-                  ({
-                    family = entry.family;
-                    owner = entry.owner;
-                    kind = entry.kind or "tenant";
-                  }
-                  // lib.optionalAttrs (entry ? dst) { dst = entry.dst; }
-                  // lib.optionalAttrs (entry ? sourceFile) {
-                    sourceFile = entry.sourceFile;
-                    prefixName = entry.prefixName or null;
-                    delegatedPrefixLength = entry.delegatedPrefixLength or null;
-                    perTenantPrefixLength = entry.perTenantPrefixLength or null;
-                    slot = entry.slot or null;
-                  }
-                  // lib.optionalAttrs ((entry.prefixPostfix or null) != null) { prefixPostfix = entry.prefixPostfix; })
-                ]
-            ) tenantOwnerEntries;
+            lib.concatMap
+              (
+                entry:
+                if
+                  entry.owner == nodeName
+                  || !(tenantReachableFromNode entry)
+                  || ((entry.kind or null) == "runtime-routed-prefix" && nodeRole == "access")
+                then
+                  [ ]
+                else
+                  [
+                    ({
+                      family = entry.family;
+                      owner = entry.owner;
+                      kind = entry.kind or "tenant";
+                    }
+                    // lib.optionalAttrs (entry ? dst) { dst = entry.dst; }
+                    // lib.optionalAttrs (entry ? sourceFile) {
+                      sourceFile = entry.sourceFile;
+                      prefixName = entry.prefixName or null;
+                      delegatedPrefixLength = entry.delegatedPrefixLength or null;
+                      perTenantPrefixLength = entry.perTenantPrefixLength or null;
+                      slot = entry.slot or null;
+                    }
+                    // lib.optionalAttrs ((entry.prefixPostfix or null) != null) { prefixPostfix = entry.prefixPostfix; })
+                  ]
+              )
+              tenantOwnerEntries;
 
           overlayAllowedOnNode =
             entry:
@@ -79,9 +81,11 @@
         };
     in
     builtins.listToAttrs (
-      map (nodeName: {
-        name = nodeName;
-        value = nodeRemote nodeName;
-      }) nodeNames
+      map
+        (nodeName: {
+          name = nodeName;
+          value = nodeRemote nodeName;
+        })
+        nodeNames
     );
 }

@@ -6,14 +6,14 @@ let
 in
 rec {
   mkDefaultRoutes =
-    {
-      epTo,
-      mkRoute4,
-      mkRoute6,
-      metric ? null,
-      lane ? null,
-      policyOnly ? false,
-      reason ? null,
+    { epTo
+    , mkRoute4
+    , mkRoute6
+    , metric ? null
+    , lane ? null
+    , policyOnly ? false
+    , reason ? null
+    ,
     }:
     let
       via4 = if epTo ? addr4 && epTo.addr4 != null then helpers.stripMask epTo.addr4 else null;
@@ -59,17 +59,17 @@ rec {
     };
 
   addDefaultsTowardPeer =
-    {
-      links,
-      node,
-      linkName,
-      peerNodeName,
-      mkRoute4,
-      mkRoute6,
-      metric ? null,
-      lane ? null,
-      policyOnly ? false,
-      reason ? null,
+    { links
+    , node
+    , linkName
+    , peerNodeName
+    , mkRoute4
+    , mkRoute6
+    , metric ? null
+    , lane ? null
+    , policyOnly ? false
+    , reason ? null
+    ,
     }:
     let
       linkObj = links.${linkName};

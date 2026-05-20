@@ -10,40 +10,44 @@ let
 
   userPrefixEntries =
     nodes:
-    lib.concatMap (
-      name:
-      let
-        n = nodes.${name};
-        nets = networksOf n;
-      in
-      lib.concatMap (
-        netName:
+    lib.concatMap
+      (
+        name:
         let
-          net = nets.${netName};
+          n = nodes.${name};
+          nets = networksOf n;
         in
-        lib.flatten [
-          (lib.optional (net ? ipv4 && net.ipv4 != null) {
-            family = 4;
-            cidr = toString net.ipv4;
-            label = "node '${name}' network '${netName}' ipv4";
-            range = cidr.cidrRange net.ipv4;
-          })
-          (lib.optional (net ? ipv6 && net.ipv6 != null) {
-            family = 6;
-            cidr = toString net.ipv6;
-            label = "node '${name}' network '${netName}' ipv6";
-            range = cidr.cidrRange net.ipv6;
-          })
-        ]
-      ) (builtins.attrNames nets)
-    ) (builtins.attrNames nodes);
+        lib.concatMap
+          (
+            netName:
+            let
+              net = nets.${netName};
+            in
+            lib.flatten [
+              (lib.optional (net ? ipv4 && net.ipv4 != null) {
+                family = 4;
+                cidr = toString net.ipv4;
+                label = "node '${name}' network '${netName}' ipv4";
+                range = cidr.cidrRange net.ipv4;
+              })
+              (lib.optional (net ? ipv6 && net.ipv6 != null) {
+                family = 6;
+                cidr = toString net.ipv6;
+                label = "node '${name}' network '${netName}' ipv6";
+                range = cidr.cidrRange net.ipv6;
+              })
+            ]
+          )
+          (builtins.attrNames nets)
+      )
+      (builtins.attrNames nodes);
 
   checkPool =
-    {
-      siteName,
-      label,
-      poolCidr,
-      entries,
+    { siteName
+    , label
+    , poolCidr
+    , entries
+    ,
     }:
     if poolCidr == null then
       true
@@ -51,18 +55,20 @@ let
       let
         poolRange = cidr.cidrRange poolCidr;
       in
-      lib.all (
-        entry:
-        common.assert_ (!(overlaps poolRange entry.range)) ''
-          invariants(p2p-pool):
+      lib.all
+        (
+          entry:
+          common.assert_ (!(overlaps poolRange entry.range)) ''
+            invariants(p2p-pool):
 
-          p2p pool overlaps user prefix
+            p2p pool overlaps user prefix
 
-          site: ${siteName}
-          pool: ${label} (${toString poolCidr})
-          prefix: ${entry.label} (${entry.cidr})
-        ''
-      ) entries;
+            site: ${siteName}
+            pool: ${label} (${toString poolCidr})
+            prefix: ${entry.label} (${entry.cidr})
+          ''
+        )
+        entries;
 
 in
 {

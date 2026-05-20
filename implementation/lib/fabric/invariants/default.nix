@@ -16,14 +16,15 @@ let
   runSite =
     site:
     lib.forEach modules (m:
-      if !(m ? check) then
-        true
+    if !(m ? check) then
+      true
+    else
+      let args = builtins.functionArgs m.check;
+      in
+      if args ? site then m.check { inherit site; }
+      else if args ? nodes then m.check { nodes = site.nodes or { }; }
       else
-        let args = builtins.functionArgs m.check;
-        in
-        if args ? site then m.check { inherit site; }
-        else if args ? nodes then m.check { nodes = site.nodes or { }; }
-        else throw ''
+        throw ''
           invariant loader error:
 
           The invariant '${toString m}' defines `check` but does not accept

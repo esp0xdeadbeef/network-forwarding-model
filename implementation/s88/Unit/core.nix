@@ -2,14 +2,13 @@
 
 {
   build =
-    {
-      lib,
-      site,
-      localPool,
-
-      rolesResult ? null,
-      roleFromInput ? (if rolesResult != null then rolesResult.roleFromInput else (_: null)),
-      nodesBase ? (site.nodes or site.units or { }),
+    { lib
+    , site
+    , localPool
+    , rolesResult ? null
+    , roleFromInput ? (if rolesResult != null then rolesResult.roleFromInput else (_: null))
+    , nodesBase ? (site.nodes or site.units or { })
+    ,
     }:
 
     let
@@ -26,19 +25,21 @@
       explicitInputs = uplinkSpecs.explicitInputs site;
 
       specsByUnit = lib.listToAttrs (
-        map (
-          unitName:
-          {
-            name = unitName;
-            value = uplinkSpecs.mergeForUnit {
-              inherit
-                explicitInputs
-                unitName
-                ;
-              nodeInputs = uplinkSpecs.nodeInputs nodesBase unitName;
-            };
-          }
-        ) coreUnits
+        map
+          (
+            unitName:
+            {
+              name = unitName;
+              value = uplinkSpecs.mergeForUnit {
+                inherit
+                  explicitInputs
+                  unitName
+                  ;
+                nodeInputs = uplinkSpecs.nodeInputs nodesBase unitName;
+              };
+            }
+          )
+          coreUnits
       );
 
       specsForUnit = unitName: specsByUnit.${unitName} or [ ];
@@ -56,21 +57,29 @@
       forwardingUnits =
         lib.filter (unitName: builtins.length (forwardingSpecsForUnit unitName) > 0) coreUnits;
 
-      nameEntries = lib.concatMap (
-        unitName:
-        map (uplinkSpec: {
-          name = uplinkSpec.name;
-          value = toString unitName;
-        }) (forwardingSpecsForUnit unitName)
-      ) forwardingUnits;
+      nameEntries = lib.concatMap
+        (
+          unitName:
+          map
+            (uplinkSpec: {
+              name = uplinkSpec.name;
+              value = toString unitName;
+            })
+            (forwardingSpecsForUnit unitName)
+        )
+        forwardingUnits;
 
-      forwardingSpecs = lib.concatMap (
-        unitName:
-        map (uplink: {
-          unitName = toString unitName;
-          inherit uplink;
-        }) (forwardingSpecsForUnit unitName)
-      ) forwardingUnits;
+      forwardingSpecs = lib.concatMap
+        (
+          unitName:
+          map
+            (uplink: {
+              unitName = toString unitName;
+              inherit uplink;
+            })
+            (forwardingSpecsForUnit unitName)
+        )
+        forwardingUnits;
 
       _haveCore = invariants.requireCoreUnits coreUnits;
 

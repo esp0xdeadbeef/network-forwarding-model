@@ -6,10 +6,10 @@ in
 
 {
   derive =
-    {
-      site,
-      accessUnitNames,
-      compilerIndexes,
+    { site
+    , accessUnitNames
+    , compilerIndexes
+    ,
     }:
     let
       inherit (compilerIndexes)
@@ -81,20 +81,24 @@ in
             else if !hasAnyAllowRelation then
               allUplinkNames
             else
-              lib.concatMap (
-                rel:
-                if (rel.action or null) == "allow" && relationAppliesToAccessUnit unit rel then
-                  relationToUplinkNames rel
-                else
-                  [ ]
-              ) relations;
+              lib.concatMap
+                (
+                  rel:
+                  if (rel.action or null) == "allow" && relationAppliesToAccessUnit unit rel then
+                    relationToUplinkNames rel
+                  else
+                    [ ]
+                )
+                relations;
         in
         lib.sort (a: b: a < b) (lib.unique (lib.filter (s: s != "") (map toString uplinks)));
     in
     builtins.listToAttrs (
-      map (unit: {
-        name = unit;
-        value = allowedUplinksFor unit;
-      }) accessUnitNames
+      map
+        (unit: {
+          name = unit;
+          value = allowedUplinksFor unit;
+        })
+        accessUnitNames
     );
 }

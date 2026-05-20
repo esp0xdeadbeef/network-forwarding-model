@@ -157,11 +157,11 @@ in
   mkTenantV6 = { ulaPrefix, vlanId }: hostCidr 1 "${ulaPrefix}:${toString vlanId}::/64";
 
   mkP2P4 =
-    {
-      v4Base,
-      vlanId,
-      node,
-      members,
+    { v4Base
+    , vlanId
+    , node
+    , members
+    ,
     }:
     let
       idx = nodeIndex node members;
@@ -172,11 +172,11 @@ in
       hostCidr (idx + 1) "${v4Base}.${toString vlanId}.0/31";
 
   mkP2P6 =
-    {
-      ulaPrefix,
-      vlanId,
-      node,
-      members,
+    { ulaPrefix
+    , vlanId
+    , node
+    , members
+    ,
     }:
     let
       idx = nodeIndex node members;

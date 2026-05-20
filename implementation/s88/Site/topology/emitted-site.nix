@@ -15,28 +15,30 @@ let
 in
 {
   materialize =
-    {
-      enterprise,
-      siteId,
-      siteName,
-      topologyPairs,
-      rolesResult,
-      wanResult,
-      policyNodeName,
-      upstreamSelectorNodeName,
-      coreNodeNames,
-      overlayReachability,
-      routedSite,
+    { enterprise
+    , siteId
+    , siteName
+    , topologyPairs
+    , rolesResult
+    , wanResult
+    , policyNodeName
+    , upstreamSelectorNodeName
+    , coreNodeNames
+    , overlayReachability
+    , routedSite
+    ,
     }:
     let
       normalizedRouteSite = routedSite // {
-        nodes = lib.mapAttrs (
-          _: node:
-          node
-          // {
-            interfaces = lib.mapAttrs (_: common.normalizeRoutes) (node.interfaces or { });
-          }
-        ) (routedSite.nodes or { });
+        nodes = lib.mapAttrs
+          (
+            _: node:
+              node
+                // {
+                interfaces = lib.mapAttrs (_: common.normalizeRoutes) (node.interfaces or { });
+              }
+          )
+          (routedSite.nodes or { });
       };
 
       finalPolicyNodeName = roleNames.finalPolicyNodeName { inherit normalizedRouteSite policyNodeName; };
@@ -104,10 +106,12 @@ in
           { }
         else
           builtins.listToAttrs (
-            map (overlayName: {
-              name = overlayName;
-              value = overlayPool;
-            }) overlayNames
+            map
+              (overlayName: {
+                name = overlayName;
+                value = overlayPool;
+              })
+              overlayNames
           );
     in
     builtins.removeAttrs normalizedRouteSite [

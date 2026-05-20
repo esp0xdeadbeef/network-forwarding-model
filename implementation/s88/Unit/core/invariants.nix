@@ -63,10 +63,12 @@ in
     nameEntries:
     let
       duplicateNames =
-        lib.filter (
-          uplinkName:
-          builtins.length (lib.filter (entry: entry.name == uplinkName) nameEntries) > 1
-        ) (lib.unique (map (entry: entry.name) nameEntries));
+        lib.filter
+          (
+            uplinkName:
+            builtins.length (lib.filter (entry: entry.name == uplinkName) nameEntries) > 1
+          )
+          (lib.unique (map (entry: entry.name) nameEntries));
     in
     if duplicateNames == [ ] then
       true
@@ -79,8 +81,11 @@ in
 
   requireCompleteEndpoints =
     specs:
-    builtins.foldl' (
-      acc: spec:
-      builtins.seq acc (validateEndpoint spec.unitName spec.uplink)
-    ) true specs;
+    builtins.foldl'
+      (
+        acc: spec:
+        builtins.seq acc (validateEndpoint spec.unitName spec.uplink)
+      )
+      true
+      specs;
 }

@@ -57,18 +57,22 @@ in
           domains = site.domains or { };
           tenants = domains.tenants or [ ];
 
-          fromNodes = lib.concatMap (
-            name:
-            let
-              n = nodes.${name};
-              nets = n.networks or null;
-            in
-            if nets == null || !(nets ? ipv4) then [ ] else [ (rangeV4 nets.ipv4) ]
-          ) (builtins.attrNames nodes);
+          fromNodes = lib.concatMap
+            (
+              name:
+              let
+                n = nodes.${name};
+                nets = n.networks or null;
+              in
+              if nets == null || !(nets ? ipv4) then [ ] else [ (rangeV4 nets.ipv4) ]
+            )
+            (builtins.attrNames nodes);
 
-          fromTenants = lib.concatMap (
-            t: if !(builtins.isAttrs t) || !(t ? ipv4) then [ ] else [ (rangeV4 t.ipv4) ]
-          ) tenants;
+          fromTenants = lib.concatMap
+            (
+              t: if !(builtins.isAttrs t) || !(t ? ipv4) then [ ] else [ (rangeV4 t.ipv4) ]
+            )
+            tenants;
         in
         fromNodes ++ fromTenants;
 
@@ -162,11 +166,13 @@ in
           ];
         };
 
-      res = builtins.foldl' step {
-        idx = 0;
-        used = [ ];
-        attrs = [ ];
-      } ps;
+      res = builtins.foldl' step
+        {
+          idx = 0;
+          used = [ ];
+          attrs = [ ];
+        }
+        ps;
 
     in
     lib.listToAttrs res.attrs;

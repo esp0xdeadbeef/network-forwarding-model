@@ -212,18 +212,23 @@ assert_connected "b-router-core-nebula" "p2p-b-router-core-nebula-b-router-upstr
 assert_connected "b-router-core-nebula" "p2p-b-router-core-nebula-b-router-upstream-selector" "fd42:dead:feed:1000:0000:0000:0000:0004/127"
 
 # Hypothetical hostile traceroute toward a public IPv4/IPv6 destination:
-# hostile client -> access-hostile -> downstream -> policy -> upstream -> local WAN core.
+# hostile client -> access-hostile -> downstream -> policy -> upstream.
+# DNS-only east-west policy must still have executable defaults on the east-west
+# lane; nft/CPM restricts the protocol while NFM preserves the lane route.
 assert_route "b-router-access-hostile" "p2p-b-router-access-hostile-b-router-downstream-selector" "0.0.0.0/0" "10.50.0.3"
 assert_route "b-router-access-hostile" "p2p-b-router-access-hostile-b-router-downstream-selector" "::/0" "fd42:dead:feed:1000:0:0:0:3"
 assert_route "b-router-downstream-selector" "p2p-b-router-downstream-selector-b-router-policy--access-b-router-access-hostile" "0.0.0.0/0" "10.50.0.11"
 assert_route "b-router-downstream-selector" "p2p-b-router-downstream-selector-b-router-policy--access-b-router-access-hostile" "::/0" "fd42:dead:feed:1000:0:0:0:b"
+assert_route "b-router-policy" "p2p-b-router-policy-b-router-upstream-selector--access-b-router-access-hostile--uplink-east-west" "0.0.0.0/0" "10.50.0.17"
+assert_route "b-router-policy" "p2p-b-router-policy-b-router-upstream-selector--access-b-router-access-hostile--uplink-east-west" "::/0" "fd42:dead:feed:1000:0:0:0:11"
 assert_route "b-router-policy" "p2p-b-router-policy-b-router-upstream-selector--access-b-router-access-hostile--uplink-wan" "0.0.0.0/0" "10.50.0.19"
 assert_route "b-router-policy" "p2p-b-router-policy-b-router-upstream-selector--access-b-router-access-hostile--uplink-wan" "::/0" "fd42:dead:feed:1000:0:0:0:13"
+assert_route "b-router-upstream-selector" "p2p-b-router-core-nebula-b-router-upstream-selector" "0.0.0.0/0" "10.50.0.4"
+assert_route "b-router-upstream-selector" "p2p-b-router-core-nebula-b-router-upstream-selector" "::/0" "fd42:dead:feed:1000:0:0:0:4"
 assert_route "b-router-upstream-selector" "p2p-b-router-core-simulated-isp-b-router-upstream-selector" "0.0.0.0/0" "10.50.0.6"
 assert_route "b-router-upstream-selector" "p2p-b-router-core-simulated-isp-b-router-upstream-selector" "::/0" "fd42:dead:feed:1000:0:0:0:6"
 
-# Return routes to the hostile tenant must exist on both WAN and overlay cores,
-# but public defaults must not leak onto hostile east-west lanes.
+# Return routes to the hostile tenant must exist on both WAN and overlay cores.
 assert_route "b-router-core-simulated-isp" "p2p-b-router-core-simulated-isp-b-router-upstream-selector" "10.70.10.0/24" "10.50.0.7"
 assert_route "b-router-core-simulated-isp" "p2p-b-router-core-simulated-isp-b-router-upstream-selector" "fd42:dead:feed:0070:0000:0000:0000:0000/64" "fd42:dead:feed:1000:0:0:0:7"
 assert_route "b-router-core-nebula" "p2p-b-router-core-nebula-b-router-upstream-selector" "10.70.10.0/24" "10.50.0.5"
@@ -277,16 +282,20 @@ jq -r "${site_jq}
   | .[]" "${output_json}" >"${actual_defaults}"
 
 cat >"${expected_defaults}" <<'EOF'
-b-router-downstream-selector|p2p-b-router-downstream-selector-b-router-policy--access-b-router-access-hostile|0.0.0.0/0|wan|0|10.50.0.11
-b-router-downstream-selector|p2p-b-router-downstream-selector-b-router-policy--access-b-router-access-hostile|::/0|wan|0|fd42:dead:feed:1000:0:0:0:b
+b-router-downstream-selector|p2p-b-router-downstream-selector-b-router-policy--access-b-router-access-hostile|0.0.0.0/0|east-west|0|10.50.0.11
+b-router-downstream-selector|p2p-b-router-downstream-selector-b-router-policy--access-b-router-access-hostile|::/0|east-west|0|fd42:dead:feed:1000:0:0:0:b
+b-router-policy|p2p-b-router-policy-b-router-upstream-selector--access-b-router-access-hostile--uplink-east-west|0.0.0.0/0|east-west|2000|10.50.0.17
+b-router-policy|p2p-b-router-policy-b-router-upstream-selector--access-b-router-access-hostile--uplink-east-west|::/0|east-west|2000|fd42:dead:feed:1000:0:0:0:11
 b-router-policy|p2p-b-router-policy-b-router-upstream-selector--access-b-router-access-hostile--uplink-wan|0.0.0.0/0|wan|1000|10.50.0.19
 b-router-policy|p2p-b-router-policy-b-router-upstream-selector--access-b-router-access-hostile--uplink-wan|::/0|wan|1000|fd42:dead:feed:1000:0:0:0:13
+b-router-upstream-selector|p2p-b-router-core-nebula-b-router-upstream-selector|0.0.0.0/0|east-west|2000|10.50.0.4
+b-router-upstream-selector|p2p-b-router-core-nebula-b-router-upstream-selector|::/0|east-west|2000|fd42:dead:feed:1000:0:0:0:4
 b-router-upstream-selector|p2p-b-router-core-simulated-isp-b-router-upstream-selector|0.0.0.0/0|wan|1000|10.50.0.6
 b-router-upstream-selector|p2p-b-router-core-simulated-isp-b-router-upstream-selector|::/0|wan|1000|fd42:dead:feed:1000:0:0:0:6
 EOF
 
 if ! diff -u "${expected_defaults}" "${actual_defaults}" >&2; then
-  fail "hostile public defaults are over-permissive or choose an illogical lane"
+  fail "hostile public defaults do not preserve the modeled east-west and WAN lanes"
 fi
 
 pass_timed "tri-site-hostile-forwarding-scope"

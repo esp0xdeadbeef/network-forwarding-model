@@ -23,54 +23,62 @@ in
           entSites = byEnt.${entName};
           siteNames = builtins.attrNames entSites;
 
-          entries = lib.concatMap (
-            siteKey:
-            let
-              site = entSites.${siteKey};
-              nodes = site.nodes or { };
-            in
-            lib.concatMap (
-              nodeName:
+          entries = lib.concatMap
+            (
+              siteKey:
               let
-                n = nodes.${nodeName};
-                nets = networksOf n;
+                site = entSites.${siteKey};
+                nodes = site.nodes or { };
               in
-              lib.concatMap (
-                netName:
-                let
-                  net = nets.${netName};
-                in
-                lib.flatten [
-                  (lib.optional (net ? ipv4) {
-                    cidr = toString net.ipv4;
-                    owner = "${siteKey}: node '${nodeName}' network '${netName}' ipv4";
-                    range = cidr.cidrRange net.ipv4;
-                  })
-                  (lib.optional (net ? ipv6) {
-                    cidr = toString net.ipv6;
-                    owner = "${siteKey}: node '${nodeName}' network '${netName}' ipv6";
-                    range = cidr.cidrRange net.ipv6;
-                  })
-                ]
-              ) (builtins.attrNames nets)
-            ) (builtins.attrNames nodes)
-          ) siteNames;
+              lib.concatMap
+                (
+                  nodeName:
+                  let
+                    n = nodes.${nodeName};
+                    nets = networksOf n;
+                  in
+                  lib.concatMap
+                    (
+                      netName:
+                      let
+                        net = nets.${netName};
+                      in
+                      lib.flatten [
+                        (lib.optional (net ? ipv4) {
+                          cidr = toString net.ipv4;
+                          owner = "${siteKey}: node '${nodeName}' network '${netName}' ipv4";
+                          range = cidr.cidrRange net.ipv4;
+                        })
+                        (lib.optional (net ? ipv6) {
+                          cidr = toString net.ipv6;
+                          owner = "${siteKey}: node '${nodeName}' network '${netName}' ipv6";
+                          range = cidr.cidrRange net.ipv6;
+                        })
+                      ]
+                    )
+                    (builtins.attrNames nets)
+                )
+                (builtins.attrNames nodes)
+            )
+            siteNames;
 
           ps = common.pairs entries;
 
-          _ = lib.all (
-            p:
-            common.assert_ (!(overlaps p.a.range p.b.range)) ''
-              invariants(global-user-space):
+          _ = lib.all
+            (
+              p:
+              common.assert_ (!(overlaps p.a.range p.b.range)) ''
+                invariants(global-user-space):
 
-              (enterprise: ${entName})
+                (enterprise: ${entName})
 
-              overlapping user prefixes detected:
+                overlapping user prefixes detected:
 
-                ${p.a.cidr}  (${p.a.owner})
-                ${p.b.cidr}  (${p.b.owner})
-            ''
-          ) ps;
+                  ${p.a.cidr}  (${p.a.owner})
+                  ${p.b.cidr}  (${p.b.owner})
+              ''
+            )
+            ps;
         in
         true;
 

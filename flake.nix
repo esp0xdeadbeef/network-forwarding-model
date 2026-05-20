@@ -13,12 +13,12 @@
   };
 
   outputs =
-    {
-      self,
-      nixpkgs,
-      nixpkgs-network,
-      network-compiler,
-      network-labs,
+    { self
+    , nixpkgs
+    , nixpkgs-network
+    , network-compiler
+    , network-labs
+    ,
     }:
     let
       systems = [
@@ -108,9 +108,9 @@
             };
 
           writeJSON =
-            {
-              input,
-              name ? "output-network-forwarding-model.json",
+            { input
+            , name ? "output-network-forwarding-model.json"
+            ,
             }:
             pkgs.writeText name (
               builtins.toJSON (build {
@@ -119,9 +119,9 @@
             );
 
           writeFromCompilerInputPath =
-            {
-              path,
-              name ? "output-network-forwarding-model.json",
+            { path
+            , name ? "output-network-forwarding-model.json"
+            ,
             }:
             pkgs.writeText name (builtins.toJSON (buildFromCompilerInputPath path));
         };

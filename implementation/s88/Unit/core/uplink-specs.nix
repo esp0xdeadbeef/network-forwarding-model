@@ -72,10 +72,10 @@ in
       { };
 
   mergeForUnit =
-    {
-      explicitInputs,
-      nodeInputs,
-      unitName,
+    { explicitInputs
+    , nodeInputs
+    , unitName
+    ,
     }:
     let
       explicitSpecs =
@@ -110,15 +110,17 @@ in
         };
 
       nodeOnly =
-        map (
-          name:
-          let
-            v = nodeInputs.${name};
-          in
-          normalizeUplinkSpec (
-            if builtins.isAttrs v then v // { name = toString name; } else { name = toString name; }
+        map
+          (
+            name:
+            let
+              v = nodeInputs.${name};
+            in
+            normalizeUplinkSpec (
+              if builtins.isAttrs v then v // { name = toString name; } else { name = toString name; }
+            )
           )
-        ) (lib.sort (a: b: a < b) (builtins.attrNames nodeInputs));
+          (lib.sort (a: b: a < b) (builtins.attrNames nodeInputs));
     in
     lib.sort (a: b: a.name < b.name) (
       dedupeByName ((map mergeExplicit explicitSpecs) ++ (lib.filter (spec: !(lib.elem spec.name explicitNames)) nodeOnly))

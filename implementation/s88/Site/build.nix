@@ -1,9 +1,9 @@
 { lib, self ? { outPath = ./.; }, ... }:
-{
-  enterprise,
-  siteId,
-  site,
-  sites ? { },
+{ enterprise
+, siteId
+, site
+, sites ? { }
+,
 }:
 
 let
@@ -58,10 +58,12 @@ let
   );
 
   rawOrderingPairs =
-    trace.emit "site:${enterprise}.${siteId}:normalize-ordering" ((transitMod.normalizeInputOrdering {
-      siteName = "${enterprise}.${siteId}";
-      ordering = rawOrdering;
-    }).pairs);
+    trace.emit "site:${enterprise}.${siteId}:normalize-ordering" (
+      (transitMod.normalizeInputOrdering {
+        siteName = "${enterprise}.${siteId}";
+        ordering = rawOrdering;
+      }).pairs
+    );
 
   canonicalOrdering = trace.emit "site:${enterprise}.${siteId}:canonical-ordering" (transitOrderingMod.canonicalize {
     siteName = "${enterprise}.${siteId}";
@@ -81,13 +83,15 @@ let
   );
 
   orderedUnits = lib.unique (
-    lib.concatMap (
-      p:
-      if builtins.isList p && builtins.length p == 2 then
-        p
-      else
-        throw "network-forwarding-model: transit.ordering must contain 2-element pairs"
-    ) rawOrderingPairs
+    lib.concatMap
+      (
+        p:
+        if builtins.isList p && builtins.length p == 2 then
+          p
+        else
+          throw "network-forwarding-model: transit.ordering must contain 2-element pairs"
+      )
+      rawOrderingPairs
   );
 
   allUnits = lib.unique (

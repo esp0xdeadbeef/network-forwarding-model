@@ -9,15 +9,17 @@ let
       [ ];
 
   mkEntries =
-    {
-      siteName,
-      nodeName,
-      node,
+    { siteName
+    , nodeName
+    , node
+    ,
     }:
-    map (k: {
-      ifname = k;
-      where = "${siteName}:${nodeName}.interfaces";
-    }) (ifaceKeys node);
+    map
+      (k: {
+        ifname = k;
+        where = "${siteName}:${nodeName}.interfaces";
+      })
+      (ifaceKeys node);
 
   addOne =
     acc: e:

@@ -20,21 +20,26 @@
 
   flatten =
     solvedSitesByEnterprise:
-    builtins.foldl' (
-      acc: enterpriseName:
-      let
-        enterpriseSites = solvedSitesByEnterprise.${enterpriseName} or { };
-      in
-      acc
-      // builtins.listToAttrs (
-        map (siteId: {
-          name = "${enterpriseName}.${siteId}";
-          value = (enterpriseSites.${siteId}) // {
-            enterprise = enterpriseSites.${siteId}.enterprise or enterpriseName;
-            siteId = enterpriseSites.${siteId}.siteId or siteId;
-            siteName = enterpriseSites.${siteId}.siteName or "${enterpriseName}.${siteId}";
-          };
-        }) (builtins.attrNames enterpriseSites)
+    builtins.foldl'
+      (
+        acc: enterpriseName:
+        let
+          enterpriseSites = solvedSitesByEnterprise.${enterpriseName} or { };
+        in
+        acc
+        // builtins.listToAttrs (
+          map
+            (siteId: {
+              name = "${enterpriseName}.${siteId}";
+              value = (enterpriseSites.${siteId}) // {
+                enterprise = enterpriseSites.${siteId}.enterprise or enterpriseName;
+                siteId = enterpriseSites.${siteId}.siteId or siteId;
+                siteName = enterpriseSites.${siteId}.siteName or "${enterpriseName}.${siteId}";
+              };
+            })
+            (builtins.attrNames enterpriseSites)
+        )
       )
-    ) { } (builtins.attrNames solvedSitesByEnterprise);
+      { }
+      (builtins.attrNames solvedSitesByEnterprise);
 }

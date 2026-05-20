@@ -42,17 +42,19 @@ let
       singlePeer = overlayPeerSiteRefOf enterprise overlay;
       peerRefs =
         if explicitPeers != [ ] then
-          map (
-            peer:
-            overlayPeerSiteRefOf enterprise (
-              overlay
-              // {
-                peerSite = peer;
-                peerSites = null;
-                peers = null;
-              }
+          map
+            (
+              peer:
+              overlayPeerSiteRefOf enterprise (
+                overlay
+                // {
+                  peerSite = peer;
+                  peerSites = null;
+                  peers = null;
+                }
+              )
             )
-          ) explicitPeers
+            explicitPeers
         else if singlePeer != null then
           [ singlePeer ]
         else

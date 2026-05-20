@@ -4,10 +4,12 @@ let
   overlayUplinkNameSet =
     topo:
     lib.listToAttrs (
-      map (name: {
-        inherit name;
-        value = true;
-      }) (builtins.attrNames (topo.overlayReachability or { }))
+      map
+        (name: {
+          inherit name;
+          value = true;
+        })
+        (builtins.attrNames (topo.overlayReachability or { }))
     );
 in
 rec {

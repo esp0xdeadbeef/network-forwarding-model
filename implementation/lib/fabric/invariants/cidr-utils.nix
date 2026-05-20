@@ -35,40 +35,41 @@ let
     let
       apply =
         { isLast }:
-        builtins.genList (
-          i:
-          let
-            rem0 = prefix - (i * 16);
-            rem =
-              if rem0 < 0 then
-                0
-              else if rem0 > 16 then
-                16
-              else
-                rem0;
+        builtins.genList
+          (
+            i:
+            let
+              rem0 = prefix - (i * 16);
+              rem =
+                if rem0 < 0 then
+                  0
+                else if rem0 > 16 then
+                  16
+                else
+                  rem0;
 
-            v = builtins.elemAt segs i;
+              v = builtins.elemAt segs i;
 
-            ones = if rem == 0 then 0 else (pow2Small rem) - 1;
+              ones = if rem == 0 then 0 else (pow2Small rem) - 1;
 
-            maskNet = if rem == 0 then 0 else ones * (pow2Small (16 - rem));
+              maskNet = if rem == 0 then 0 else ones * (pow2Small (16 - rem));
 
-            base = builtins.bitAnd v maskNet;
+              base = builtins.bitAnd v maskNet;
 
-            hostMask = if rem == 16 then 0 else (pow2Small (16 - rem)) - 1;
+              hostMask = if rem == 16 then 0 else (pow2Small (16 - rem)) - 1;
 
-            withHost = if isLast then builtins.bitOr base hostMask else base;
+              withHost = if isLast then builtins.bitOr base hostMask else base;
 
-            fillAll =
-              if rem == 16 then
-                v
-              else if rem == 0 then
-                (if isLast then 65535 else 0)
-              else
-                withHost;
-          in
-          fillAll
-        ) 8;
+              fillAll =
+                if rem == 16 then
+                  v
+                else if rem == 0 then
+                  (if isLast then 65535 else 0)
+                else
+                  withHost;
+            in
+            fillAll
+          ) 8;
 
       firstSegs = apply { isLast = false; };
       lastSegs = apply { isLast = true; };

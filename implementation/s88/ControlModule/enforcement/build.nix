@@ -56,14 +56,19 @@
       mergeTagSets =
         left: right:
         left
-        // builtins.mapAttrs (
-          name: value:
-          mergeTag (left.${name} or {
-            attachments = [ ];
-            domains = [ ];
-          }
-          ) value
-        ) right;
+        // builtins.mapAttrs
+          (
+            name: value:
+            mergeTag
+              (
+                left.${name} or {
+                  attachments = [ ];
+                  domains = [ ];
+                }
+              )
+              value
+          )
+          right;
 
       tagsFromList =
         items: builtins.foldl' (acc: item: mergeTagSets acc { "${item.name}" = item.value; }) { } items;

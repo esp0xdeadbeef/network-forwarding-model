@@ -6,10 +6,10 @@ let
   iface = import ./interface-utils.nix { inherit lib self; };
 
   loopbackEntriesFrom =
-    {
-      whereBase,
-      lb,
-      extra ? { },
+    { whereBase
+    , lb
+    , extra ? { }
+    ,
     }:
     if !(builtins.isAttrs lb) then
       [ ]
@@ -38,38 +38,42 @@ let
     let
       nodes = site.nodes or { };
 
-      nodeEntries = lib.concatMap (
-        nodeName:
-        let
-          node = nodes.${nodeName};
+      nodeEntries = lib.concatMap
+        (
+          nodeName:
+          let
+            node = nodes.${nodeName};
 
-          nodeIfaces = iface.ifaceEntriesFrom {
-            whereBase = "${siteKey}:nodes.${nodeName}.interfaces";
-            ifaces = node.interfaces or { };
-          };
+            nodeIfaces = iface.ifaceEntriesFrom {
+              whereBase = "${siteKey}:nodes.${nodeName}.interfaces";
+              ifaces = node.interfaces or { };
+            };
 
-          nodeLoopback = loopbackEntriesFrom {
-            whereBase = "${siteKey}:nodes.${nodeName}.loopback";
-            lb = node.loopback or { };
-          };
+            nodeLoopback = loopbackEntriesFrom {
+              whereBase = "${siteKey}:nodes.${nodeName}.loopback";
+              lb = node.loopback or { };
+            };
 
-          contEntries = lib.concatMap (
-            cname:
-            let
-              c = node.${cname} or { };
-            in
-            (iface.ifaceEntriesFrom {
-              whereBase = "${siteKey}:nodes.${nodeName}.${cname}.interfaces";
-              ifaces = c.interfaces or { };
-            })
-            ++ (loopbackEntriesFrom {
-              whereBase = "${siteKey}:nodes.${nodeName}.${cname}.loopback";
-              lb = c.loopback or { };
-            })
-          ) (common.containersOf node);
-        in
-        nodeIfaces ++ nodeLoopback ++ contEntries
-      ) (builtins.attrNames nodes);
+            contEntries = lib.concatMap
+              (
+                cname:
+                let
+                  c = node.${cname} or { };
+                in
+                (iface.ifaceEntriesFrom {
+                  whereBase = "${siteKey}:nodes.${nodeName}.${cname}.interfaces";
+                  ifaces = c.interfaces or { };
+                })
+                ++ (loopbackEntriesFrom {
+                  whereBase = "${siteKey}:nodes.${nodeName}.${cname}.loopback";
+                  lb = c.loopback or { };
+                })
+              )
+              (common.containersOf node);
+          in
+          nodeIfaces ++ nodeLoopback ++ contEntries
+        )
+        (builtins.attrNames nodes);
     in
     iface.nonEmptyEntries nodeEntries;
 

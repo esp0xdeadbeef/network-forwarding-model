@@ -1,28 +1,30 @@
-{
-  domains,
-  lib,
-  overlayItemsFrom,
-  overlayPeerSiteRefsOf,
-  overlayTargetNamesFrom,
-  siteByRef,
-  tenantPrefixes,
+{ domains
+, lib
+, overlayItemsFrom
+, overlayPeerSiteRefsOf
+, overlayTargetNamesFrom
+, siteByRef
+, tenantPrefixes
+,
 }:
 
 let
   normalizedPrefixRoutes =
-    {
-      overlayName,
-      peerSiteRef,
-      family,
-      prefixes,
+    { overlayName
+    , peerSiteRef
+    , family
+    , prefixes
+    ,
     }:
-    map (dst: {
-      inherit dst family;
-      proto = "overlay";
-      overlay = overlayName;
-      peerSite = peerSiteRef;
-      intent.kind = "overlay-reachability";
-    }) (map toString prefixes);
+    map
+      (dst: {
+        inherit dst family;
+        proto = "overlay";
+        overlay = overlayName;
+        peerSite = peerSiteRef;
+        intent.kind = "overlay-reachability";
+      })
+      (map toString prefixes);
 
   explicitPrefixesOf =
     overlay:
@@ -96,9 +98,9 @@ let
     };
 
   overlayReachabilityForOverlay =
-    {
-      enterprise,
-      allSites,
+    { enterprise
+    , allSites
+    ,
     }:
     overlay:
     let
@@ -145,10 +147,10 @@ let
 in
 {
   overlayReachabilityForSite =
-    {
-      enterprise,
-      site,
-      allSites,
+    { enterprise
+    , site
+    , allSites
+    ,
     }:
     builtins.foldl' mergeReachability { } (
       map (entry: entry.value) (

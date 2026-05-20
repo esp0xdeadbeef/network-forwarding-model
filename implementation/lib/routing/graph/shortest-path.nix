@@ -6,10 +6,10 @@ let
 in
 {
   withLinks =
-    {
-      links,
-      src,
-      dst,
+    { links
+    , src
+    , dst
+    ,
     }:
     paths.shortestPathWithNeighbors {
       neighbors = maps.neighborMap links;

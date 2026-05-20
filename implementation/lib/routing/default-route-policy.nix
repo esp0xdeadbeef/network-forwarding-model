@@ -4,10 +4,12 @@ let
   pathNodes =
     path:
     lib.unique (
-      lib.concatMap (
-        nodePath:
-        if builtins.isList nodePath then map toString nodePath else [ ]
-      ) ((path.nodePathAlternatives or [ ]) ++ [ (path.nodePath or [ ]) ])
+      lib.concatMap
+        (
+          nodePath:
+          if builtins.isList nodePath then map toString nodePath else [ ]
+        )
+        ((path.nodePathAlternatives or [ ]) ++ [ (path.nodePath or [ ]) ])
     );
 
   pathDestinationUplinks =
@@ -28,13 +30,13 @@ let
     in
     builtins.foldl'
       (acc: attachment:
-        if (attachment.kind or null) != "tenant" || (attachment.name or null) == null || (attachment.unit or null) == null then
-          acc
-        else
-          let
-            tenant = toString attachment.name;
-          in
-          acc // { "${tenant}" = (acc.${tenant} or [ ]) ++ [ (toString attachment.unit) ]; })
+      if (attachment.kind or null) != "tenant" || (attachment.name or null) == null || (attachment.unit or null) == null then
+        acc
+      else
+        let
+          tenant = toString attachment.name;
+        in
+        acc // { "${tenant}" = (acc.${tenant} or [ ]) ++ [ (toString attachment.unit) ]; })
       { }
       attachments;
 
@@ -52,31 +54,35 @@ let
 
   relationDefaultUplinksForAccess =
     topo: accessName:
-    lib.concatMap (
-      relation:
-      if
-        (relation.action or null) == "allow"
-        && builtins.elem accessName (relationAccessUnits topo (relation.from or { }))
-      then
-        pathDestinationUplinks (relation.to or { })
-      else
-        [ ]
-    ) ((topo.communicationContract or { }).allowedRelations or [ ]);
+    lib.concatMap
+      (
+        relation:
+        if
+          (relation.action or null) == "allow"
+          && builtins.elem accessName (relationAccessUnits topo (relation.from or { }))
+        then
+          pathDestinationUplinks (relation.to or { })
+        else
+          [ ]
+      )
+      ((topo.communicationContract or { }).allowedRelations or [ ]);
 
   anyTrafficDefaultUplinksForAccess =
     topo: accessName:
     lib.sort (a: b: a < b) (
       lib.unique (
-        lib.concatMap (
-          path:
-          if
-            (path.action or null) == "allow"
-            && builtins.elem accessName (pathNodes path)
-          then
-            pathDestinationUplinks (path.destination or { })
-          else
-            [ ]
-        ) (topo.trafficPaths or [ ])
+        lib.concatMap
+          (
+            path:
+            if
+              (path.action or null) == "allow"
+              && builtins.elem accessName (pathNodes path)
+            then
+              pathDestinationUplinks (path.destination or { })
+            else
+              [ ]
+          )
+          (topo.trafficPaths or [ ])
         ++ relationDefaultUplinksForAccess topo accessName
       )
     );

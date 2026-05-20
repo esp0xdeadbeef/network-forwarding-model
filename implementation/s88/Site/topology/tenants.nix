@@ -8,17 +8,20 @@ let
     if builtins.isList tenants0 then
       tenants0
     else if builtins.isAttrs tenants0 then
-      builtins.attrValues (
-        lib.mapAttrs (
-          name: v:
-          if builtins.isAttrs v then
-            v // { name = toString (v.name or name); }
-          else
-            {
-              name = toString name;
-            }
-        ) tenants0
-      )
+      builtins.attrValues
+        (
+          lib.mapAttrs
+            (
+              name: v:
+              if builtins.isAttrs v then
+                v // { name = toString (v.name or name); }
+              else
+                {
+                  name = toString name;
+                }
+            )
+            tenants0
+        )
     else
       [ ];
 
@@ -33,25 +36,8 @@ let
   tenantCatalog =
     site:
     builtins.listToAttrs (
-      map (t: {
-        name = toString t.name;
-        value = {
-          kind = t.kind or "tenant";
-          name = toString t.name;
-          ipv4 = t.ipv4 or null;
-          ipv6 = t.ipv6 or null;
-          ra6Prefixes = t.ra6Prefixes or [ ];
-          routedPrefixes = t.routedPrefixes or [ ];
-        };
-      }) (normalizeTenants site)
-    );
-
-  siteContext =
-    site:
-    let
-      normalizedTenants = normalizeTenants site;
-      catalog = builtins.listToAttrs (
-        map (t: {
+      map
+        (t: {
           name = toString t.name;
           value = {
             kind = t.kind or "tenant";
@@ -61,23 +47,47 @@ let
             ra6Prefixes = t.ra6Prefixes or [ ];
             routedPrefixes = t.routedPrefixes or [ ];
           };
-        }) normalizedTenants
+        })
+        (normalizeTenants site)
+    );
+
+  siteContext =
+    site:
+    let
+      normalizedTenants = normalizeTenants site;
+      catalog = builtins.listToAttrs (
+        map
+          (t: {
+            name = toString t.name;
+            value = {
+              kind = t.kind or "tenant";
+              name = toString t.name;
+              ipv4 = t.ipv4 or null;
+              ipv6 = t.ipv6 or null;
+              ra6Prefixes = t.ra6Prefixes or [ ];
+              routedPrefixes = t.routedPrefixes or [ ];
+            };
+          })
+          normalizedTenants
       );
       tenantNamesByUnit =
-        builtins.foldl' (
-          acc: attachment:
-          if !(builtins.isAttrs attachment) then
-            acc
-          else
-            let
-              unit = utils.unitRefOfAttachment attachment;
-              names = tenantNameFromValue attachment;
-            in
-            if unit == null || names == [ ] then
-              acc
-            else
-              acc // { "${unit}" = lib.unique ((acc.${unit} or [ ]) ++ names); }
-        ) { } (utils.attachmentsOf site);
+        builtins.foldl'
+          (
+            acc: attachment:
+              if !(builtins.isAttrs attachment) then
+                acc
+              else
+                let
+                  unit = utils.unitRefOfAttachment attachment;
+                  names = tenantNameFromValue attachment;
+                in
+                if unit == null || names == [ ] then
+                  acc
+                else
+                  acc // { "${unit}" = lib.unique ((acc.${unit} or [ ]) ++ names); }
+          )
+          { }
+          (utils.attachmentsOf site);
     in
     {
       inherit catalog normalizedTenants tenantNamesByUnit;
@@ -119,7 +129,7 @@ let
 
   explicitTenantNamesForUnitWithContext =
     context: unitName:
-    context.tenantNamesByUnit.${toString unitName} or [ ];
+      context.tenantNamesByUnit.${toString unitName} or [ ];
 
   tenantNetworksForUnit =
     site: unitName:
@@ -144,10 +154,12 @@ let
     in
     builtins.seq _known (
       builtins.listToAttrs (
-        map (name: {
-          name = toString name;
-          value = context.catalog.${name};
-        }) names
+        map
+          (name: {
+            name = toString name;
+            value = context.catalog.${name};
+          })
+          names
       )
     );
 

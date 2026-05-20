@@ -14,12 +14,12 @@ let
     && hostRange.end <= poolRange.end;
 
   checkOne =
-    {
-      siteName,
-      nodeName,
-      fam,
-      addr,
-      pool,
+    { siteName
+    , nodeName
+    , fam
+    , addr
+    , pool
+    ,
     }:
     let
       poolRange = cidr.cidrRange pool;
@@ -50,14 +50,17 @@ in
       pool4 = local.ipv4 or null;
       pool6 = local.ipv6 or null;
 
-      lbs = builtins.foldl' (
-        acc: nodeName:
-        let
-          node = (site.nodes or { }).${nodeName};
-          lb = node.loopback or null;
-        in
-        if lb == null || !(builtins.isAttrs lb) then acc else acc // { "${nodeName}" = lb; }
-      ) { } (builtins.attrNames (site.nodes or { }));
+      lbs = builtins.foldl'
+        (
+          acc: nodeName:
+            let
+              node = (site.nodes or { }).${nodeName};
+              lb = node.loopback or null;
+            in
+            if lb == null || !(builtins.isAttrs lb) then acc else acc // { "${nodeName}" = lb; }
+        )
+        { }
+        (builtins.attrNames (site.nodes or { }));
 
       nodes = builtins.attrNames lbs;
 

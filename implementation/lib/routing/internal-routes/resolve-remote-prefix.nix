@@ -8,13 +8,13 @@ let
 in
 {
   resolve =
-    {
-      topo,
-      nodeName,
-      dstEntry,
-      routeContext,
-      routeFacts ? routeContext.buildFacts topo,
-      routeGraph ? graphContext.build (topo.links or { }) { },
+    { topo
+    , nodeName
+    , dstEntry
+    , routeContext
+    , routeFacts ? routeContext.buildFacts topo
+    , routeGraph ? graphContext.build (topo.links or { }) { }
+    ,
     }:
     let
       inherit (routeContext) loopbackOwnerNodeForDstWithFacts nextHopWithPreferredUplinks;
@@ -31,10 +31,12 @@ in
         hop = builtins.elemAt path 1;
         uplinksForCore =
           coreName:
-          lib.filter (
-            uplinkName:
-            builtins.elem coreName (routeFacts.uplinkCoreNamesByUplink.${uplinkName} or [ ])
-          ) (builtins.attrNames (routeFacts.uplinkCoreNamesByUplink or { }));
+          lib.filter
+            (
+              uplinkName:
+              builtins.elem coreName (routeFacts.uplinkCoreNamesByUplink.${uplinkName} or [ ])
+            )
+            (builtins.attrNames (routeFacts.uplinkCoreNamesByUplink or { }));
         preferredUplinks =
           if dstEntry.kind == "overlay" && (dstEntry.overlay or null) != null then
             [ dstEntry.overlay ]
@@ -62,45 +64,49 @@ in
             link
             nodeName
             preferredUplinks
-          routeContext
-          topo
-          ;
+            routeContext
+            topo
+            ;
           inherit routeGraph;
           baseLinkName = baseNh.linkName;
           isOverlay = dstEntry.kind == "overlay";
           isP2p = dstEntry.kind == "p2p";
           hopNode = hop;
         };
-        nextHops = map (
-          linkName:
-          let
-            linkObj = (topo.links or { }).${linkName};
-            epTo = link.getEp linkName linkObj hop;
-          in
-          {
-            inherit linkName;
-            via4 = if epTo ? addr4 && epTo.addr4 != null then helpers.stripMask epTo.addr4 else null;
-            via6 = if epTo ? addr6 && epTo.addr6 != null then helpers.stripMask epTo.addr6 else null;
-          }
-        ) candidateLinks;
+        nextHops = map
+          (
+            linkName:
+            let
+              linkObj = (topo.links or { }).${linkName};
+              epTo = link.getEp linkName linkObj hop;
+            in
+            {
+              inherit linkName;
+              via4 = if epTo ? addr4 && epTo.addr4 != null then helpers.stripMask epTo.addr4 else null;
+              via6 = if epTo ? addr6 && epTo.addr6 != null then helpers.stripMask epTo.addr6 else null;
+            }
+          )
+          candidateLinks;
       in
       builtins.filter (entry: entry != null) (
-        map (
-          nh:
-          if nh.linkName == null then
-            null
-          else if dstEntry.family == 4 && nh.via4 == null then
-            null
-          else if dstEntry.family == 6 && nh.via6 == null then
-            null
-          else
-            dstEntry
-            // {
-              hopNode = hop;
-              linkName = nh.linkName;
-              via4 = nh.via4;
-              via6 = nh.via6;
-            }
-        ) nextHops
+        map
+          (
+            nh:
+            if nh.linkName == null then
+              null
+            else if dstEntry.family == 4 && nh.via4 == null then
+              null
+            else if dstEntry.family == 6 && nh.via6 == null then
+              null
+            else
+              dstEntry
+              // {
+                hopNode = hop;
+                linkName = nh.linkName;
+                via4 = nh.via4;
+                via6 = nh.via6;
+              }
+          )
+          nextHops
       );
 }

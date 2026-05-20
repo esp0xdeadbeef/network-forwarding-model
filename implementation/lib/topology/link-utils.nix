@@ -40,24 +40,26 @@ let
     if k == null then { } else (eps.${k} or { });
 
   resolveEndpointNodeName =
-    {
-      linkName,
-      link,
-      epKey,
-      nodeNames,
+    { linkName
+    , link
+    , epKey
+    , nodeNames
+    ,
     }:
     let
-      candidates = lib.filter (
-        nodeName:
-        epKey == nodeName
-        || epKey == "${nodeName}-${linkName}"
-        || (
-          let
-            nm = link.name or null;
-          in
-          nm != null && epKey == "${nodeName}-${nm}"
+      candidates = lib.filter
+        (
+          nodeName:
+          epKey == nodeName
+          || epKey == "${nodeName}-${linkName}"
+          || (
+            let
+              nm = link.name or null;
+            in
+            nm != null && epKey == "${nodeName}-${nm}"
+          )
         )
-      ) nodeNames;
+        nodeNames;
     in
     if builtins.length candidates == 1 then
       builtins.elemAt candidates 0
@@ -67,34 +69,36 @@ let
       throw "topology-resolve: endpoint '${epKey}' on link '${linkName}' is ambiguous across nodes: ${lib.concatStringsSep ", " candidates}";
 
   resolvedMemberNodes =
-    {
-      linkName,
-      link,
-      nodeNames,
+    { linkName
+    , link
+    , nodeNames
+    ,
     }:
     let
       explicitMembers = link.members or [ ];
       endpointKeys = builtins.attrNames (endpointsOf link);
-      resolvedEndpointNodes = map (
-        epKey:
-        resolveEndpointNodeName {
-          inherit
-            linkName
-            link
-            epKey
-            nodeNames
-            ;
-        }
-      ) endpointKeys;
+      resolvedEndpointNodes = map
+        (
+          epKey:
+          resolveEndpointNodeName {
+            inherit
+              linkName
+              link
+              epKey
+              nodeNames
+              ;
+          }
+        )
+        endpointKeys;
     in
     lib.unique (explicitMembers ++ resolvedEndpointNodes);
 
   getEpStrict =
-    {
-      linkName,
-      link,
-      nodeName,
-      nodeNames,
+    { linkName
+    , link
+    , nodeName
+    , nodeNames
+    ,
     }:
     let
       ep = getEp linkName link nodeName;

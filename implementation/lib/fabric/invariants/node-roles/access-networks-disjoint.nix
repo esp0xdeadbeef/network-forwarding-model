@@ -24,30 +24,34 @@ in
       else
         let
           entries = lib.flatten (
-            lib.mapAttrsToList (
-              netName: net:
-              lib.flatten [
-                (lib.optional (net ? ipv4) {
-                  cidr = net.ipv4;
-                  owner = "node '${name}' network '${netName}' ipv4";
-                })
-                (lib.optional (net ? ipv6) {
-                  cidr = net.ipv6;
-                  owner = "node '${name}' network '${netName}' ipv6";
-                })
-              ]
-            ) nets
+            lib.mapAttrsToList
+              (
+                netName: net:
+                  lib.flatten [
+                    (lib.optional (net ? ipv4) {
+                      cidr = net.ipv4;
+                      owner = "node '${name}' network '${netName}' ipv4";
+                    })
+                    (lib.optional (net ? ipv6) {
+                      cidr = net.ipv6;
+                      owner = "node '${name}' network '${netName}' ipv6";
+                    })
+                  ]
+              )
+              nets
           );
 
           withRanges = map (e: e // { range = cidr.cidrRange e.cidr; }) entries;
 
           ps = common.pairs withRanges;
 
-          _ = lib.all (
-            p:
-            common.assert_ (!(overlaps p.a.range p.b.range))
-              "invariants(node-roles): overlapping access networks on node '${name}': '${p.a.cidr}' (${p.a.owner}) and '${p.b.cidr}' (${p.b.owner})"
-          ) ps;
+          _ = lib.all
+            (
+              p:
+              common.assert_ (!(overlaps p.a.range p.b.range))
+                "invariants(node-roles): overlapping access networks on node '${name}': '${p.a.cidr}' (${p.a.owner}) and '${p.b.cidr}' (${p.b.owner})"
+            )
+            ps;
         in
         true
     );

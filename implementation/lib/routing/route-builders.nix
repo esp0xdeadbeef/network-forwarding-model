@@ -14,13 +14,13 @@ let
 in
 {
   mkRoute4 =
-    {
-      dst,
-      via4,
-      proto,
-      intent ? null,
-      extra ? { },
-      routeExtra ? { },
+    { dst
+    , via4
+    , proto
+    , intent ? null
+    , extra ? { }
+    , routeExtra ? { }
+    ,
     }:
     {
       dst = canonicalCidr dst;
@@ -33,13 +33,13 @@ in
     // routeExtra;
 
   mkRoute6 =
-    {
-      dst,
-      via6,
-      proto,
-      intent ? null,
-      extra ? { },
-      routeExtra ? { },
+    { dst
+    , via6
+    , proto
+    , intent ? null
+    , extra ? { }
+    , routeExtra ? { }
+    ,
     }:
     {
       dst = if dst == default6 then default6 else canonicalCidr dst;

@@ -1,4 +1,4 @@
-{ }:
+{}:
 
 let
   enabled = builtins.getEnv "S88_NFM_TRACE" == "1";

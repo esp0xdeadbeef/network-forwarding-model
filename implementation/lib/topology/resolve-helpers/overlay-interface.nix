@@ -4,26 +4,28 @@
   nameFor = overlayName: "overlay-${toString overlayName}";
 
   build =
-    {
-      nodeName,
-      ifName,
-      overlayName,
-      overlay ? { },
-      node ? { },
-      reachability ? null,
+    { nodeName
+    , ifName
+    , overlayName
+    , overlay ? { }
+    , node ? { }
+    , reachability ? null
+    ,
     }:
     let
       reach0 = if reachability != null && builtins.isAttrs reachability then reachability else { };
       uplink = (node.uplinks or { }).${overlayName} or { };
       localRoutes =
         family: prefixes:
-        map (dst: {
-          inherit dst family;
-          proto = "overlay";
-          overlay = overlayName;
-          peerSite = null;
-          intent.kind = "overlay-reachability";
-        }) prefixes;
+        map
+          (dst: {
+            inherit dst family;
+            proto = "overlay";
+            overlay = overlayName;
+            peerSite = null;
+            intent.kind = "overlay-reachability";
+          })
+          prefixes;
     in
     {
       name = ifName;

@@ -7,16 +7,16 @@
     rs:
     (builtins.foldl'
       (acc: route:
-        let
-          key = builtins.toJSON route;
-        in
-        if acc.seen ? "${key}" then
-          acc
-        else
-          {
-            seen = acc.seen // { "${key}" = true; };
-            values = acc.values ++ [ route ];
-          })
+      let
+        key = builtins.toJSON route;
+      in
+      if acc.seen ? "${key}" then
+        acc
+      else
+        {
+          seen = acc.seen // { "${key}" = true; };
+          values = acc.values ++ [ route ];
+        })
       {
         seen = { };
         values = [ ];

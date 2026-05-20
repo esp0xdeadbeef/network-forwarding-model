@@ -50,9 +50,10 @@ let
     if builtins.isList overlays0 then
       lib.filter (x: x != null) (map normalizeOverlay overlays0)
     else if builtins.isAttrs overlays0 then
-      lib.filter (x: x != null) (
-        lib.mapAttrsToList (name: v: normalizeOverlay (v // { inherit name; })) overlays0
-      )
+      lib.filter (x: x != null)
+        (
+          lib.mapAttrsToList (name: v: normalizeOverlay (v // { inherit name; })) overlays0
+        )
     else
       [ ];
 

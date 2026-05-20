@@ -22,12 +22,12 @@ let
 in
 {
   addDownstreamSelectorPolicyDefaults =
-    {
-      topo,
-      nodeName,
-      node,
-      routeContext,
-      routeFacts ? routeContext.buildFacts topo,
+    { topo
+    , nodeName
+    , node
+    , routeContext
+    , routeFacts ? routeContext.buildFacts topo
+    ,
     }:
     let
       inherit (routeContext) mkRoute4 mkRoute6;
@@ -40,50 +40,55 @@ in
         if role != "downstream-selector" || policyNodeName == null then
           [ ]
         else
-          lib.filter (
-            linkName:
-            let
-              linkObj = links.${linkName};
-              members = link.membersOf linkObj;
-            in
-            lib.elem nodeName members
-            && lib.elem policyNodeName members
-            && laneAccessNodeName linkObj != null
-          ) (lib.sort (a: b: a < b) (builtins.attrNames links));
+          lib.filter
+            (
+              linkName:
+              let
+                linkObj = links.${linkName};
+                members = link.membersOf linkObj;
+              in
+              lib.elem nodeName members
+              && lib.elem policyNodeName members
+              && laneAccessNodeName linkObj != null
+            )
+            (lib.sort (a: b: a < b) (builtins.attrNames links));
     in
-    builtins.foldl' (
-      acc: linkName:
-      let
-        linkObj = links.${linkName};
-        accessName = laneAccessNodeName linkObj;
-        uplinks = uplinksForAccess accessName;
-        uplinkName = if uplinks == [ ] then null else builtins.head (lib.sort (a: b: a < b) uplinks);
-      in
-      addDefaultsTowardPeer {
-        inherit
-          links
-          linkName
-          mkRoute4
-          mkRoute6
-          ;
-        lane = {
-          access = accessName;
-          uplink = uplinkName;
-        };
-        node = acc;
-        peerNodeName = policyNodeName;
-        policyOnly = true;
-        reason = "policy-derived-default";
-      }
-    ) node laneLinks;
+    builtins.foldl'
+      (
+        acc: linkName:
+        let
+          linkObj = links.${linkName};
+          accessName = laneAccessNodeName linkObj;
+          uplinks = uplinksForAccess accessName;
+          uplinkName = if uplinks == [ ] then null else builtins.head (lib.sort (a: b: a < b) uplinks);
+        in
+        addDefaultsTowardPeer {
+          inherit
+            links
+            linkName
+            mkRoute4
+            mkRoute6
+            ;
+          lane = {
+            access = accessName;
+            uplink = uplinkName;
+          };
+          node = acc;
+          peerNodeName = policyNodeName;
+          policyOnly = true;
+          reason = "policy-derived-default";
+        }
+      )
+      node
+      laneLinks;
 
   addPolicyUpstreamSelectorDefaults =
-    {
-      topo,
-      nodeName,
-      node,
-      routeContext,
-      routeFacts ? routeContext.buildFacts topo,
+    { topo
+    , nodeName
+    , node
+    , routeContext
+    , routeFacts ? routeContext.buildFacts topo
+    ,
     }:
     let
       inherit (routeContext) mkRoute4 mkRoute6;
@@ -96,48 +101,53 @@ in
         if role != "policy" || policyNodeName != nodeName || selectorNodeName == null then
           [ ]
         else
-          lib.filter (
-            linkName:
-            let
-              linkObj = links.${linkName};
-              members = link.membersOf linkObj;
-            in
-            lib.elem policyNodeName members
-            && lib.elem selectorNodeName members
-            && laneAccessNodeName linkObj != null
-            && hasUplinkLane linkObj
-          ) (lib.sort (a: b: a < b) (builtins.attrNames links));
+          lib.filter
+            (
+              linkName:
+              let
+                linkObj = links.${linkName};
+                members = link.membersOf linkObj;
+              in
+              lib.elem policyNodeName members
+              && lib.elem selectorNodeName members
+              && laneAccessNodeName linkObj != null
+              && hasUplinkLane linkObj
+            )
+            (lib.sort (a: b: a < b) (builtins.attrNames links));
     in
-    builtins.foldl' (
-      acc: linkName:
-      let
-        uplinkName = laneUplinkName links.${linkName};
-      in
-      if
-        uplinkName == null
-        || !(uplinkHasDefault routeFacts uplinkName)
-        || !(defaultRoutePolicy.accessMayUseDefault topo (laneAccessNodeName links.${linkName}) uplinkName)
-      then
-        acc
-      else
-        addDefaultsTowardPeer {
-          inherit
-            links
-            linkName
-            mkRoute4
-            mkRoute6
-            ;
-          lane = {
-            access = laneAccessNodeName links.${linkName};
-            uplink = uplinkName;
-          };
-          metric = defaultMetricForLane topo links.${linkName};
-          node = acc;
-          peerNodeName = selectorNodeName;
-          policyOnly = true;
-          reason = "policy-derived-default";
-        }
-    ) node laneLinks;
+    builtins.foldl'
+      (
+        acc: linkName:
+        let
+          uplinkName = laneUplinkName links.${linkName};
+        in
+        if
+          uplinkName == null
+          || !(uplinkHasDefault routeFacts uplinkName)
+          || !(defaultRoutePolicy.accessMayUseDefault topo (laneAccessNodeName links.${linkName}) uplinkName)
+        then
+          acc
+        else
+          addDefaultsTowardPeer {
+            inherit
+              links
+              linkName
+              mkRoute4
+              mkRoute6
+              ;
+            lane = {
+              access = laneAccessNodeName links.${linkName};
+              uplink = uplinkName;
+            };
+            metric = defaultMetricForLane topo links.${linkName};
+            node = acc;
+            peerNodeName = selectorNodeName;
+            policyOnly = true;
+            reason = "policy-derived-default";
+          }
+      )
+      node
+      laneLinks;
 
   addUpstreamSelectorPolicyLaneCoreDefaults =
     upstreamSelectorLaneDefaults.addPolicyLaneCoreDefaults;

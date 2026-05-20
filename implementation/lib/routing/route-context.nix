@@ -23,18 +23,18 @@ let
       wanted = helpers.stripMask dst;
       key = "${toString family}|${wanted}";
     in
-    facts.loopbackOwnerByKey.${key} or null;
+      facts.loopbackOwnerByKey.${key} or null;
 
   buildFacts = facts.build;
 
   nextHopWithPreferredUplinks =
-    {
-      topo,
-      from,
-      to,
-      preferredUplinks ? [ ],
-      preferredAccessNodes ? [ ],
-      routeGraph ? graphContext.build (topo.links or { }) { },
+    { topo
+    , from
+    , to
+    , preferredUplinks ? [ ]
+    , preferredAccessNodes ? [ ]
+    , routeGraph ? graphContext.build (topo.links or { }) { }
+    ,
     }:
     let
       links = topo.links or { };
@@ -48,32 +48,38 @@ let
         if preferredUplinkSet == [ ] then
           [ ]
         else
-          lib.filter (
-            linkName:
-            let
-              uplinkName = laneUplinkNameFromLink links.${linkName};
-            in
-            uplinkName != null && builtins.elem uplinkName preferredUplinkSet
-          ) candidates;
+          lib.filter
+            (
+              linkName:
+              let
+                uplinkName = laneUplinkNameFromLink links.${linkName};
+              in
+              uplinkName != null && builtins.elem uplinkName preferredUplinkSet
+            )
+            candidates;
 
       preferredAccessCandidates =
         if preferredAccessSet == [ ] then
           [ ]
         else
-          lib.filter (
-            linkName:
-            let
-              accessNodeName = laneAccessNodeNameFromLink links.${linkName};
-            in
-            accessNodeName != null && builtins.elem accessNodeName preferredAccessSet
-          ) candidates;
+          lib.filter
+            (
+              linkName:
+              let
+                accessNodeName = laneAccessNodeNameFromLink links.${linkName};
+              in
+              accessNodeName != null && builtins.elem accessNodeName preferredAccessSet
+            )
+            candidates;
 
       chosen =
         if preferredUplinkCandidates != [ ] && preferredAccessCandidates != [ ] then
           let
-            overlap = lib.filter (
-              linkName: builtins.elem linkName preferredAccessCandidates
-            ) preferredUplinkCandidates;
+            overlap = lib.filter
+              (
+                linkName: builtins.elem linkName preferredAccessCandidates
+              )
+              preferredUplinkCandidates;
           in
           if overlap != [ ] then builtins.head overlap else builtins.head preferredUplinkCandidates
         else if preferredUplinkCandidates != [ ] then
@@ -112,16 +118,16 @@ in
     ;
 
   mkRoute4 =
-    {
-      dst,
-      via4 ? null,
-      proto,
-      intentKind,
-      metric ? null,
-      lane ? null,
-      policyOnly ? false,
-      reason ? null,
-      preserveDst ? false,
+    { dst
+    , via4 ? null
+    , proto
+    , intentKind
+    , metric ? null
+    , lane ? null
+    , policyOnly ? false
+    , reason ? null
+    , preserveDst ? false
+    ,
     }:
     {
       dst = if dst == helpers.default6 then helpers.default6 else helpers.canonicalCidr dst;
@@ -136,16 +142,16 @@ in
     // lib.optionalAttrs preserveDst { inherit preserveDst; };
 
   mkRoute6 =
-    {
-      dst,
-      via6 ? null,
-      proto,
-      intentKind,
-      metric ? null,
-      lane ? null,
-      policyOnly ? false,
-      reason ? null,
-      preserveDst ? false,
+    { dst
+    , via6 ? null
+    , proto
+    , intentKind
+    , metric ? null
+    , lane ? null
+    , policyOnly ? false
+    , reason ? null
+    , preserveDst ? false
+    ,
     }:
     {
       dst = if dst == helpers.default6 then helpers.default6 else helpers.canonicalCidr dst;

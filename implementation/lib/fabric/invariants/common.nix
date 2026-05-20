@@ -54,21 +54,25 @@ let
 
   pairs =
     xs:
-    lib.concatMap (
-      i:
-      let
-        a = builtins.elemAt xs i;
-      in
-      map (
-        j:
+    lib.concatMap
+      (
+        i:
         let
-          b = builtins.elemAt xs j;
+          a = builtins.elemAt xs i;
         in
-        {
-          inherit a b;
-        }
-      ) (lib.range (i + 1) (builtins.length xs - 1))
-    ) (lib.range 0 (builtins.length xs - 2));
+        map
+          (
+            j:
+            let
+              b = builtins.elemAt xs j;
+            in
+            {
+              inherit a b;
+            }
+          )
+          (lib.range (i + 1) (builtins.length xs - 1))
+      )
+      (lib.range 0 (builtins.length xs - 2));
 
   stripMask =
     s:

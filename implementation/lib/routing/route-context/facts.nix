@@ -31,10 +31,12 @@ let
       );
     in
     lib.listToAttrs (
-      map (name: {
-        inherit name;
-        value = true;
-      }) (lib.unique (overlayReachabilityNames ++ linkOverlayNames))
+      map
+        (name: {
+          inherit name;
+          value = true;
+        })
+        (lib.unique (overlayReachabilityNames ++ linkOverlayNames))
     );
 
   uplinkHasDefaultSet =
@@ -42,16 +44,19 @@ let
     let
       addDefault = acc: uplinkName: acc // { "${uplinkName}" = true; };
       addNode = acc: nodeName:
-        builtins.foldl' (
-          nodeAcc: uplinkName:
-          let
-            uplink = ((nodes.${nodeName} or { }).uplinks or { }).${uplinkName} or { };
-          in
-          if builtins.elem helpers.default4 (uplink.ipv4 or [ ]) || builtins.elem helpers.default6 (uplink.ipv6 or [ ]) then
-            addDefault nodeAcc uplinkName
-          else
-            nodeAcc
-        ) acc (builtins.attrNames ((nodes.${nodeName} or { }).uplinks or { }));
+        builtins.foldl'
+          (
+            nodeAcc: uplinkName:
+              let
+                uplink = ((nodes.${nodeName} or { }).uplinks or { }).${uplinkName} or { };
+              in
+              if builtins.elem helpers.default4 (uplink.ipv4 or [ ]) || builtins.elem helpers.default6 (uplink.ipv6 or [ ]) then
+                addDefault nodeAcc uplinkName
+              else
+                nodeAcc
+          )
+          acc
+          (builtins.attrNames ((nodes.${nodeName} or { }).uplinks or { }));
       endpointHasDefault =
         ep:
         let
@@ -77,9 +82,12 @@ let
       addCoreUplink = acc: uplinkName: coreName:
         acc // { "${uplinkName}" = lib.unique ((acc.${uplinkName} or [ ]) ++ [ coreName ]); };
       addNodeUplinks = acc: coreName:
-        builtins.foldl' (
-          nodeAcc: uplinkName: addCoreUplink nodeAcc uplinkName coreName
-        ) acc (builtins.attrNames (((nodes.${coreName} or { }).uplinks or { })));
+        builtins.foldl'
+          (
+            nodeAcc: uplinkName: addCoreUplink nodeAcc uplinkName coreName
+          )
+          acc
+          (builtins.attrNames (((nodes.${coreName} or { }).uplinks or { })));
       addLinkUplinks = acc: linkName:
         let
           link = links.${linkName};
@@ -87,12 +95,18 @@ let
           uplinks = if builtins.isList (link.uplinks or null) then map toString link.uplinks else [ ];
           memberCores = lib.filter (member: builtins.elem member uplinkCores) members;
         in
-        builtins.foldl' (
-          linkAcc: uplinkName:
-          builtins.foldl' (
-            coreAcc: coreName: addCoreUplink coreAcc uplinkName coreName
-          ) linkAcc memberCores
-        ) acc uplinks;
+        builtins.foldl'
+          (
+            linkAcc: uplinkName:
+              builtins.foldl'
+                (
+                  coreAcc: coreName: addCoreUplink coreAcc uplinkName coreName
+                )
+                linkAcc
+                memberCores
+          )
+          acc
+          uplinks;
     in
     builtins.foldl' addLinkUplinks (builtins.foldl' addNodeUplinks { } uplinkCores) (builtins.attrNames links);
 in
@@ -112,10 +126,12 @@ in
         lib.concatMap (loopbackEntriesFor nodes) (builtins.attrNames nodes)
       );
       inherit overlayUplinkNameSet nonOverlayUplinkNames uplinkCores;
-      uplinkCoreSet = lib.listToAttrs (map (name: {
-        inherit name;
-        value = true;
-      }) uplinkCores);
+      uplinkCoreSet = lib.listToAttrs (map
+        (name: {
+          inherit name;
+          value = true;
+        })
+        uplinkCores);
       uplinkHasDefaultSet = uplinkHasDefaultSet nodes links;
       uplinkCoreNamesByUplink = uplinkCoreNamesByUplink nodes links uplinkCores;
       defaultReachabilityUplinkNames =

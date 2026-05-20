@@ -22,10 +22,10 @@ let
 in
 {
   firstUnitByRole =
-    {
-      unitNames,
-      rolesResult,
-      role,
+    { unitNames
+    , rolesResult
+    , role
+    ,
     }:
     let
       hits = lib.filter (n: rolesResult.roleFromInput (toString n) == role) (sortedUnitNames unitNames);
@@ -33,10 +33,10 @@ in
     if hits == [ ] then null else toString (builtins.head hits);
 
   unitsByRole =
-    {
-      unitNames,
-      rolesResult,
-      role,
+    { unitNames
+    , rolesResult
+    , role
+    ,
     }:
     map toString (lib.filter (n: rolesResult.roleFromInput (toString n) == role) (sortedUnitNames unitNames));
 

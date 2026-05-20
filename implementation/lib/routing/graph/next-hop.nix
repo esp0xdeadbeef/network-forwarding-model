@@ -7,11 +7,11 @@ let
 in
 {
   between =
-    {
-      links,
-      from,
-      to,
-      stripMask ? ip.stripMask,
+    { links
+    , from
+    , to
+    , stripMask ? ip.stripMask
+    ,
     }:
     let
       lname = linkSearch.findLinkBetween { inherit links from to; };

@@ -1,18 +1,20 @@
 { lib, self ? { outPath = ./.; }, ... }:
-{
-  siteName,
-  nodes,
-  roleFromInput,
+{ siteName
+, nodes
+, roleFromInput
+,
 }:
 
 let
-  missing = lib.filter (
-    n:
-    let
-      r = roleFromInput n;
-    in
-    r == null || r == ""
-  ) (builtins.attrNames nodes);
+  missing = lib.filter
+    (
+      n:
+      let
+        r = roleFromInput n;
+      in
+      r == null || r == ""
+    )
+    (builtins.attrNames nodes);
 in
 if missing == [ ] then
   true

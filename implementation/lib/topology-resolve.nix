@@ -93,9 +93,11 @@ let
 
   stripLinuxSpecific = node: builtins.removeAttrs node [ "routingDomain" ];
 
-  nodes' = lib.mapAttrs (
-    n: node: (stripLinuxSpecific node) // { interfaces = interfacesForNode n; }
-  ) nodes0;
+  nodes' = lib.mapAttrs
+    (
+      n: node: (stripLinuxSpecific node) // { interfaces = interfacesForNode n; }
+    )
+    nodes0;
 
   normalizeLink =
     linkName: l:
@@ -103,19 +105,21 @@ let
       members = linkMembersFor linkName l;
 
       normEndpoints = lib.listToAttrs (
-        map (
-          nodeName:
-          let
-            ep = getEpStrict linkName l nodeName;
-          in
-          {
-            name = nodeName;
-            value = ep // {
-              node = nodeName;
-              interface = linkName;
-            };
-          }
-        ) members
+        map
+          (
+            nodeName:
+            let
+              ep = getEpStrict linkName l nodeName;
+            in
+            {
+              name = nodeName;
+              value = ep // {
+                node = nodeName;
+                interface = linkName;
+              };
+            }
+          )
+          members
       );
     in
     l

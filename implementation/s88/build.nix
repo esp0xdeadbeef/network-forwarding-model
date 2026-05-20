@@ -11,20 +11,24 @@ let
 
   flatSites = import (self.outPath + "/implementation/s88/build/flat-sites.nix") { inherit lib self; };
   contracts = import (self.outPath + "/implementation/s88/build/contracts.nix") { inherit lib self; };
-  overlayTraversalWarnings = import (self.outPath + "/implementation/s88/build/overlay-traversal-warnings.nix") {
-    inherit lib self;
-  } flatSolvedSites;
+  overlayTraversalWarnings = import (self.outPath + "/implementation/s88/build/overlay-traversal-warnings.nix")
+    {
+      inherit lib self;
+    }
+    flatSolvedSites;
 
   solver = import ./Enterprise/build.nix { inherit lib self; };
 
-  solverResultByEnterprise = trace.emit "build:solve-enterprises" (builtins.mapAttrs (
-    enterpriseName: sites:
-    solver {
-      enterprise = enterpriseName;
-      inherit sites;
-      allSites = normalizedSitesByEnterprise;
-    }
-  ) normalizedSitesByEnterprise);
+  solverResultByEnterprise = trace.emit "build:solve-enterprises" (builtins.mapAttrs
+    (
+      enterpriseName: sites:
+        solver {
+          enterprise = enterpriseName;
+          inherit sites;
+          allSites = normalizedSitesByEnterprise;
+        }
+    )
+    normalizedSitesByEnterprise);
 
   solvedSitesByEnterprise =
     trace.emit "build:extract-solved-sites" (builtins.mapAttrs flatSites.extractSolvedSites solverResultByEnterprise);
@@ -38,9 +42,11 @@ let
     if skipInvariants then
       true
     else
-      trace.emit "build:site-invariants" (builtins.deepSeq (builtins.attrValues (
-        builtins.mapAttrs (_: site: invariants.checkSite { inherit site; }) flatSolvedSites
-      )) true);
+      trace.emit "build:site-invariants" (builtins.deepSeq
+        (builtins.attrValues (
+          builtins.mapAttrs (_: site: invariants.checkSite { inherit site; }) flatSolvedSites
+        ))
+        true);
 
   _globalInvariantChecks =
     if skipInvariants then

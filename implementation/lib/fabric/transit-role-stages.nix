@@ -28,10 +28,10 @@ rec {
     if ranks ? "${roleName}" then ranks.${roleName} else fallback;
 
   nextTransitRole =
-    {
-      hasDownstreamSelector,
-      hasUpstreamSelector,
-      role,
+    { hasDownstreamSelector
+    , hasUpstreamSelector
+    , role
+    ,
     }:
     if role == "access" then
       if hasDownstreamSelector then "downstream-selector" else "policy"
@@ -45,12 +45,12 @@ rec {
       null;
 
   expectedTransitAdjacencies =
-    {
-      accessNodes,
-      coreNodes,
-      downstreamNode,
-      policyNode,
-      upstreamSelectorNode,
+    { accessNodes
+    , coreNodes
+    , downstreamNode
+    , policyNode
+    , upstreamSelectorNode
+    ,
     }:
     let
       nodesForRole =
@@ -83,16 +83,22 @@ rec {
           role = sourceRole;
         };
     in
-    builtins.concatMap (
-      sourceRole:
-      let
-        targetRole = nextRoleFor sourceRole;
-      in
-      builtins.concatMap (
-        source:
-        map (target: {
-          inherit source sourceRole target targetRole;
-        }) (nodesForRole targetRole)
-      ) (nodesForRole sourceRole)
-    ) rolesWithSources;
+    builtins.concatMap
+      (
+        sourceRole:
+        let
+          targetRole = nextRoleFor sourceRole;
+        in
+        builtins.concatMap
+          (
+            source:
+            map
+              (target: {
+                inherit source sourceRole target targetRole;
+              })
+              (nodesForRole targetRole)
+          )
+          (nodesForRole sourceRole)
+      )
+      rolesWithSources;
 }

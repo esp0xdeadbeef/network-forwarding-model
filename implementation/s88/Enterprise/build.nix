@@ -1,10 +1,10 @@
 { lib, self ? { outPath = ./.; }, ... }:
-{
-  enterprise,
-  sites,
-  allSites ? {
+{ enterprise
+, sites
+, allSites ? {
     "${enterprise}" = sites;
-  },
+  }
+,
 }:
 let
   trace = import (self.outPath + "/lib/trace.nix") { };
@@ -13,10 +13,12 @@ in
 if !builtins.isAttrs sites then
   throw "network-forwarding-model: sites.${enterprise} must be an attrset"
 else
-  trace.emit "enterprise:${enterprise}:sites" (builtins.mapAttrs (
-    siteId: site:
-    buildSiteForwardingModel {
-      inherit enterprise siteId site;
-      sites = allSites;
-    }
-  ) sites)
+  trace.emit "enterprise:${enterprise}:sites" (builtins.mapAttrs
+    (
+      siteId: site:
+      buildSiteForwardingModel {
+        inherit enterprise siteId site;
+        sites = allSites;
+      }
+    )
+    sites)

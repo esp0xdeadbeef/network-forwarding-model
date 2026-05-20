@@ -2,14 +2,14 @@
 
 {
   derive =
-    {
-      accessUnitNames,
-      allowedUplinksByAccessUnit,
-      canonicalP2pLinkNameForEndpointsWithSuffix,
-      downstreamSelectorUnit,
-      overlayNameSet,
-      policyUnit,
-      upstreamSelectorUnit,
+    { accessUnitNames
+    , allowedUplinksByAccessUnit
+    , canonicalP2pLinkNameForEndpointsWithSuffix
+    , downstreamSelectorUnit
+    , overlayNameSet
+    , policyUnit
+    , upstreamSelectorUnit
+    ,
     }:
     if policyUnit == null then
       [ ]
@@ -45,26 +45,28 @@
           if upstreamSelectorUnit == null then
             [ ]
           else
-            map (
-              uplinkName:
-              {
-                a = policyUnit;
-                b = upstreamSelectorUnit;
-                lane = "access::${toString accessUnit}::uplink::${toString uplinkName}";
-                laneMeta = {
-                  kind = "access-uplink";
-                  access = toString accessUnit;
-                  uplink = toString uplinkName;
-                  uplinks = [ (toString uplinkName) ];
-                };
-                name =
-                  canonicalP2pLinkNameForEndpointsWithSuffix policyUnit upstreamSelectorUnit
-                    "access-${toString accessUnit}--uplink-${toString uplinkName}";
-              }
-              // lib.optionalAttrs (builtins.hasAttr (toString uplinkName) overlayNameSet) {
-                overlay = toString uplinkName;
-              }
-            ) uplinks;
+            map
+              (
+                uplinkName:
+                {
+                  a = policyUnit;
+                  b = upstreamSelectorUnit;
+                  lane = "access::${toString accessUnit}::uplink::${toString uplinkName}";
+                  laneMeta = {
+                    kind = "access-uplink";
+                    access = toString accessUnit;
+                    uplink = toString uplinkName;
+                    uplinks = [ (toString uplinkName) ];
+                  };
+                  name =
+                    canonicalP2pLinkNameForEndpointsWithSuffix policyUnit upstreamSelectorUnit
+                      "access-${toString accessUnit}--uplink-${toString uplinkName}";
+                }
+                // lib.optionalAttrs (builtins.hasAttr (toString uplinkName) overlayNameSet) {
+                  overlay = toString uplinkName;
+                }
+              )
+              uplinks;
       in
       (lib.concatMap downstreamPolicyLane accessUnitNames)
       ++ (lib.concatMap policyUpstreamLanes accessUnitNames);

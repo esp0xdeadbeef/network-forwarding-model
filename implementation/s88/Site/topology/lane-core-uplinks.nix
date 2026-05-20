@@ -2,11 +2,11 @@
 
 {
   derive =
-    {
-      site,
-      wanResult,
-      upstreamSelectorUnit,
-      canonicalP2pLinkNameForEndpoints,
+    { site
+    , wanResult
+    , upstreamSelectorUnit
+    , canonicalP2pLinkNameForEndpoints
+    ,
     }:
     let
       linkSpecEndpointA =
@@ -30,9 +30,11 @@
         coreName:
         let
           wanResultNames =
-            lib.filter (
-              uplinkName: toString (wanResult.uplinkCoreByName.${uplinkName} or "") == coreName
-            ) (builtins.attrNames (wanResult.uplinkCoreByName or { }));
+            lib.filter
+              (
+                uplinkName: toString (wanResult.uplinkCoreByName.${uplinkName} or "") == coreName
+              )
+              (builtins.attrNames (wanResult.uplinkCoreByName or { }));
           nodeUplinkNames =
             if builtins.isAttrs (site.nodes.${coreName}.uplinks or null) then
               builtins.attrNames site.nodes.${coreName}.uplinks

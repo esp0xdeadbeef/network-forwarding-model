@@ -6,10 +6,10 @@ in
 
 {
   uplinksByAccessUnit =
-    {
-      site,
-      accessUnitNames,
-      compilerIndexes,
+    { site
+    , accessUnitNames
+    , compilerIndexes
+    ,
     }:
     let
       inherit (compilerIndexes)
@@ -44,24 +44,30 @@ in
 
       pathAccessUnits =
         path:
-        lib.filter (
-          nodeName: builtins.elem nodeName accessUnitNames
-        ) (map toString path);
+        lib.filter
+          (
+            nodeName: builtins.elem nodeName accessUnitNames
+          )
+          (map toString path);
 
       pathUplinks =
         path:
         let
-          pathSet = builtins.listToAttrs (map (nodeName: {
-            name = toString nodeName;
-            value = true;
-          }) path);
+          pathSet = builtins.listToAttrs (map
+            (nodeName: {
+              name = toString nodeName;
+              value = true;
+            })
+            path);
           cores = site.upstreams.cores or { };
           matchingCores = lib.filter (coreName: builtins.hasAttr coreName pathSet) (builtins.attrNames cores);
         in
-        lib.concatMap (
-          coreName:
-          map (u: toString (u.name or "")) (cores.${coreName} or [ ])
-        ) matchingCores;
+        lib.concatMap
+          (
+            coreName:
+            map (u: toString (u.name or "")) (cores.${coreName} or [ ])
+          )
+          matchingCores;
 
       destinationUplinks =
         destination:
@@ -89,24 +95,31 @@ in
               in
               if explicit != [ ] then explicit else lib.concatMap pathUplinks alternatives;
           in
-          lib.concatMap (
-            accessUnit:
-            map (uplinkName: {
-              inherit accessUnit uplinkName;
-            }) uplinks
-          ) accessUnits;
+          lib.concatMap
+            (
+              accessUnit:
+              map
+                (uplinkName: {
+                  inherit accessUnit uplinkName;
+                })
+                uplinks
+            )
+            accessUnits;
 
       trafficPathEntries = lib.concatMap perPath (site.trafficPaths or [ ]);
     in
     trace.emit "topology:lane-access-uplinks:traffic-paths=${toString (builtins.length (site.trafficPaths or [ ]))}:entries=${toString (builtins.length trafficPathEntries)}" (
-      builtins.foldl' (
-        acc: entry:
-        if (entry.accessUnit or "") == "" || (entry.uplinkName or "") == "" then
-          acc
-        else
-          acc // {
-            "${entry.accessUnit}" = (acc.${entry.accessUnit} or [ ]) ++ [ entry.uplinkName ];
-          }
-      ) { } trafficPathEntries
+      builtins.foldl'
+        (
+          acc: entry:
+          if (entry.accessUnit or "") == "" || (entry.uplinkName or "") == "" then
+            acc
+          else
+            acc // {
+              "${entry.accessUnit}" = (acc.${entry.accessUnit} or [ ]) ++ [ entry.uplinkName ];
+            }
+        )
+        { }
+        trafficPathEntries
     );
 }

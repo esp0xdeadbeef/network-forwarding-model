@@ -6,9 +6,9 @@ let
 in
 {
   finalPolicyNodeName =
-    {
-      normalizedRouteSite,
-      policyNodeName,
+    { normalizedRouteSite
+    , policyNodeName
+    ,
     }:
     if normalizedRouteSite ? policyNodeName && normalizedRouteSite.policyNodeName != null then
       normalizedRouteSite.policyNodeName
@@ -18,9 +18,9 @@ in
       common.firstNodeNameByRole (normalizedRouteSite.nodes or { }) "policy";
 
   upstreamSelectorNodeName =
-    {
-      normalizedRouteSite,
-      upstreamSelectorNodeName,
+    { normalizedRouteSite
+    , upstreamSelectorNodeName
+    ,
     }:
     let
       nodes = normalizedRouteSite.nodes or { };
@@ -38,11 +38,11 @@ in
       null;
 
   validateUpstreamSelector =
-    {
-      enterprise,
-      siteId,
-      normalizedRouteSite,
-      emittedUpstreamSelectorNodeName,
+    { enterprise
+    , siteId
+    , normalizedRouteSite
+    , emittedUpstreamSelectorNodeName
+    ,
     }:
     if emittedUpstreamSelectorNodeName == null then
       true

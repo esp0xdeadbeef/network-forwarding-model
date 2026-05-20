@@ -1,11 +1,11 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
-{
-  all ? null,
-  routed,
-  nodeName ? null,
-  linkName ? null,
-  fabricHost ? null,
+{ all ? null
+, routed
+, nodeName ? null
+, linkName ? null
+, fabricHost ? null
+,
 }:
 
 let
@@ -114,9 +114,11 @@ let
     else
       { };
 
-  enrichedInterfaces = lib.mapAttrs (
-    _: iface: sanitizeIface (scopeTenantRoutes (rewriteVlanId iface))
-  ) ifaces0;
+  enrichedInterfaces = lib.mapAttrs
+    (
+      _: iface: sanitizeIface (scopeTenantRoutes (rewriteVlanId iface))
+    )
+    ifaces0;
 
   selected =
     if linkName == null then
