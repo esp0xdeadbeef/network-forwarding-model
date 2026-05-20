@@ -56,7 +56,6 @@ let
       relation:
       if
         (relation.action or null) == "allow"
-        && (relation.trafficType or null) == "any"
         && builtins.elem accessName (relationAccessUnits topo (relation.from or { }))
       then
         pathDestinationUplinks (relation.to or { })
@@ -72,7 +71,6 @@ let
           path:
           if
             (path.action or null) == "allow"
-            && (path.trafficType or null) == "any"
             && builtins.elem accessName (pathNodes path)
           then
             pathDestinationUplinks (path.destination or { })

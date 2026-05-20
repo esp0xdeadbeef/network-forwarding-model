@@ -24,13 +24,15 @@ cat >"$input_nix" <<'EOF'
     ];
 
     communicationContract = {
-      trafficTypes = [ ];
+      trafficTypes = [
+        { name = "dns"; match = [ { family = "any"; proto = "udp"; dports = [ 53 ]; } { family = "any"; proto = "tcp"; dports = [ 53 ]; } ]; }
+      ];
       services = [
         { name = "dns-dmz"; providers = [ "dns-dmz" ]; trafficType = "dns"; }
       ];
       relations = [
         { id = "allow-client-to-uplink0"; priority = 90; from = { kind = "tenant"; name = "client"; }; to = { kind = "external"; uplinks = [ "uplink0" ]; }; trafficType = "any"; action = "allow"; }
-        { id = "allow-dmz-dns-to-uplink0"; priority = 100; from = { kind = "service"; name = "dns-dmz"; }; to = { kind = "external"; uplinks = [ "uplink0" ]; }; trafficType = "any"; action = "allow"; }
+        { id = "allow-dmz-dns-to-uplink0"; priority = 100; from = { kind = "service"; name = "dns-dmz"; }; to = { kind = "external"; uplinks = [ "uplink0" ]; }; trafficType = "dns"; action = "allow"; }
       ];
     };
 
@@ -62,6 +64,19 @@ jq -e '
     | select(.laneMeta.access == "s-router-access-dmz")
     | select(.laneMeta.uplink == "uplink0")
   ] | length == 1
+' "$output_json" >/dev/null
+
+jq -e '
+  .enterprise.esp0xdeadbeef.site."site-a".nodes."s-router-policy".interfaces
+  | to_entries[]
+  | select(.key == "p2p-s-router-policy-s-router-upstream-selector--access-s-router-access-dmz--uplink-uplink0")
+  | [.value.routes.ipv4[]?
+      | select(.dst == "0.0.0.0/0")
+      | select(.reason == "policy-derived-default")
+      | select(.policyOnly == true)
+      | select(.lane.access == "s-router-access-dmz")
+      | select(.lane.uplink == "uplink0")]
+  | length == 1
 ' "$output_json" >/dev/null
 
 pass_timed "service-source-uplink-lanes"
