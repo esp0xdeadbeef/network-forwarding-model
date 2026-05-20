@@ -118,10 +118,12 @@ in
             specs = acc.specs ++ [ link ];
           };
 
-      result = builtins.foldl' step {
-        seen = { };
-        specs = [ ];
-      } specs;
+      result = builtins.foldl' step
+        {
+          seen = { };
+          specs = [ ];
+        }
+        specs;
     in
     lib.sort (left: right: left.linkName < right.linkName) result.specs;
 }

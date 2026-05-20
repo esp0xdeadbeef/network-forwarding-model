@@ -20,9 +20,10 @@ let
     if builtins.isList overlays0 then
       lib.filter (x: x != null) (map normalizeOverlay overlays0)
     else if builtins.isAttrs overlays0 then
-      lib.filter (x: x != null) (
-        lib.mapAttrsToList (name: v: normalizeOverlay (v // { inherit name; })) overlays0
-      )
+      lib.filter (x: x != null)
+        (
+          lib.mapAttrsToList (name: v: normalizeOverlay (v // { inherit name; })) overlays0
+        )
     else
       [ ];
 
@@ -64,10 +65,12 @@ in
       overlays =
         let
           fromIntent = overlayItemsFrom site;
-          fromSolved = lib.mapAttrsToList (name: value: {
-            inherit name;
-            terminateOn = value.terminateOn or [ ];
-          }) (site.overlayReachability or { });
+          fromSolved = lib.mapAttrsToList
+            (name: value: {
+              inherit name;
+              terminateOn = value.terminateOn or [ ];
+            })
+            (site.overlayReachability or { });
         in
         if fromSolved != [ ] then fromSolved else fromIntent;
 
@@ -78,13 +81,15 @@ in
           targets = lib.unique (targetNamesFrom overlay);
           coreTargets = lib.filter (nodeName: (nodes.${nodeName}.role or null) == "core") targets;
 
-          offenders = lib.filter (
-            nodeName:
-            let
-              uplinks = builtins.attrNames (nodes.${nodeName}.uplinks or { });
-            in
-            !(lib.elem overlayName uplinks)
-          ) coreTargets;
+          offenders = lib.filter
+            (
+              nodeName:
+              let
+                uplinks = builtins.attrNames (nodes.${nodeName}.uplinks or { });
+              in
+                !(lib.elem overlayName uplinks)
+            )
+            coreTargets;
         in
         common.assert_ (offenders == [ ]) ''
           invariants(overlay-core-uplink-dedicated):

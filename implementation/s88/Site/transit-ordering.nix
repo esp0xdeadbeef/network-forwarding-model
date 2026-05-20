@@ -7,40 +7,44 @@ let
     pairs:
     lib.sort (a: b: a < b) (
       lib.unique (
-        lib.concatMap (
-          pair: if builtins.isList pair && builtins.length pair == 2 then map toString pair else [ ]
-        ) pairs
+        lib.concatMap
+          (
+            pair: if builtins.isList pair && builtins.length pair == 2 then map toString pair else [ ]
+          )
+          pairs
       )
     );
 
   roleCatalogFrom =
-    {
-      siteName,
-      pairs,
-      roleFromInput,
+    { siteName
+    , pairs
+    , roleFromInput
+    ,
     }:
     let
       nodeNames = uniqueNodeNames pairs;
     in
     builtins.listToAttrs (
-      map (
-        nodeName:
-        let
-          role = roleFromInput nodeName;
-        in
-        if role == null || role == "" then
-          throw ''
-            network-forwarding-model: transit ordering references node without explicit role
+      map
+        (
+          nodeName:
+          let
+            role = roleFromInput nodeName;
+          in
+          if role == null || role == "" then
+            throw ''
+              network-forwarding-model: transit ordering references node without explicit role
 
-            site: ${siteName}
-            node: ${toString nodeName}
-          ''
-        else
-          {
-            name = toString nodeName;
-            value = toString role;
-          }
-      ) nodeNames
+              site: ${siteName}
+              node: ${toString nodeName}
+            ''
+          else
+            {
+              name = toString nodeName;
+              value = toString role;
+            }
+        )
+        nodeNames
     );
 
   hasRole = roles: wanted: lib.any (nodeName: roles.${nodeName} == wanted) (builtins.attrNames roles);
@@ -54,10 +58,10 @@ let
     };
 
   canonicalizeOne =
-    {
-      siteName,
-      roles,
-      pair,
+    { siteName
+    , roles
+    , pair
+    ,
     }:
     let
       firstEndpoint = toString (builtins.elemAt pair 0);
@@ -128,22 +132,24 @@ let
 in
 {
   canonicalize =
-    {
-      siteName,
-      pairs,
-      roleFromInput,
+    { siteName
+    , pairs
+    , roleFromInput
+    ,
     }:
     let
       roles = roleCatalogFrom {
         inherit siteName pairs roleFromInput;
       };
 
-      orientedPairs = map (
-        pair:
-        canonicalizeOne {
-          inherit siteName roles pair;
-        }
-      ) pairs;
+      orientedPairs = map
+        (
+          pair:
+          canonicalizeOne {
+            inherit siteName roles pair;
+          }
+        )
+        pairs;
     in
     lib.sort (x: y: (pairSortKey roles x) < (pairSortKey roles y)) orientedPairs;
 }

@@ -11,14 +11,16 @@ let
 
   hasP2pLinkBetween =
     links: a: b:
-    lib.any (
-      linkName:
-      let
-        l = links.${linkName};
-        members = l.members or [ ];
-      in
-      (l.kind or null) == "p2p" && lib.elem a members && lib.elem b members
-    ) (builtins.attrNames links);
+    lib.any
+      (
+        linkName:
+        let
+          l = links.${linkName};
+          members = l.members or [ ];
+        in
+        (l.kind or null) == "p2p" && lib.elem a members && lib.elem b members
+      )
+      (builtins.attrNames links);
 
   p2pLinkNames =
     links: lib.filter (linkName: (links.${linkName}.kind or null) == "p2p") (builtins.attrNames links);
@@ -82,20 +84,22 @@ in
         upstreamSelectorNode = selectorNode;
       };
 
-      _expectedAdjacenciesPresent = builtins.deepSeq (
-        lib.forEach expectedAdjacencies (
-          adjacency:
-          common.assert_ (hasP2pLinkBetween links adjacency.source adjacency.target) ''
-            invariants(transit-ordering-valid):
+      _expectedAdjacenciesPresent = builtins.deepSeq
+        (
+          lib.forEach expectedAdjacencies (
+            adjacency:
+            common.assert_ (hasP2pLinkBetween links adjacency.source adjacency.target) ''
+              invariants(transit-ordering-valid):
 
-            missing ${adjacency.sourceRole} -> ${adjacency.targetRole} p2p adjacency
+              missing ${adjacency.sourceRole} -> ${adjacency.targetRole} p2p adjacency
 
-            site: ${siteName}
-            source: ${adjacency.source}
-            target: ${adjacency.target}
-          ''
+              site: ${siteName}
+              source: ${adjacency.source}
+              target: ${adjacency.target}
+            ''
+          )
         )
-      ) true;
+        true;
 
       transitLinks = sorted (p2pLinkNames links);
 

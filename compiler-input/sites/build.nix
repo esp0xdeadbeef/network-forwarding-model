@@ -45,17 +45,21 @@ let
       siteNames = lib.unique ((builtins.attrNames explicit) ++ (builtins.attrNames original));
     in
     builtins.listToAttrs (
-      builtins.map (siteId: {
-        name = siteId;
-        value = mergeAttrs (original.${siteId} or { }) (explicit.${siteId} or { });
-      }) siteNames
+      builtins.map
+        (siteId: {
+          name = siteId;
+          value = mergeAttrs (original.${siteId} or { }) (explicit.${siteId} or { });
+        })
+        siteNames
     );
 
   rawSitesByEnterprise = builtins.listToAttrs (
-    builtins.map (enterpriseName: {
-      name = enterpriseName;
-      value = mergeSitesForEnterprise enterpriseName;
-    }) allEnterpriseNames
+    builtins.map
+      (enterpriseName: {
+        name = enterpriseName;
+        value = mergeSitesForEnterprise enterpriseName;
+      })
+      allEnterpriseNames
   );
 
   normalizeSite =
@@ -104,10 +108,12 @@ let
       };
     };
 
-  normalizedSitesByEnterprise = builtins.mapAttrs (
-    enterpriseName: sites:
-    builtins.mapAttrs (siteId: site: normalizeSite enterpriseName siteId site) sites
-  ) rawSitesByEnterprise;
+  normalizedSitesByEnterprise = builtins.mapAttrs
+    (
+      enterpriseName: sites:
+        builtins.mapAttrs (siteId: site: normalizeSite enterpriseName siteId site) sites
+    )
+    rawSitesByEnterprise;
 
 in
 normalizedSitesByEnterprise

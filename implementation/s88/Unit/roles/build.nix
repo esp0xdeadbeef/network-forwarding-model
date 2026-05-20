@@ -2,14 +2,14 @@
 
 {
   compute =
-    {
-      lib,
-      site,
-      enterprise,
-      siteId,
-      ordering,
-      accessUnits,
-      allUnits,
+    { lib
+    , site
+    , enterprise
+    , siteId
+    , ordering
+    , accessUnits
+    , allUnits
+    ,
     }:
 
     let

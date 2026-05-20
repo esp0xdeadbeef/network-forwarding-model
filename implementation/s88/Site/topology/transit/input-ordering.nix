@@ -6,9 +6,9 @@ let
 in
 {
   normalize =
-    {
-      siteName,
-      ordering,
+    { siteName
+    , ordering
+    ,
     }:
     let
       _list =
@@ -142,32 +142,35 @@ in
 
       normalizedPairs = lib.imap0 normalizeOne ordering;
 
-      _unique = builtins.foldl' (
-        acc: pair:
-        let
-          a = builtins.elemAt pair 0;
-          b = builtins.elemAt pair 1;
-          k = pairsMod.pairKey a b;
-          rendered = builtins.toJSON [
-            a
-            b
-          ];
-        in
-        if acc ? "${k}" then
-          throw ''
-            network-forwarding-model: duplicate node-pair transit.ordering entry
+      _unique = builtins.foldl'
+        (
+          acc: pair:
+            let
+              a = builtins.elemAt pair 0;
+              b = builtins.elemAt pair 1;
+              k = pairsMod.pairKey a b;
+              rendered = builtins.toJSON [
+                a
+                b
+              ];
+            in
+            if acc ? "${k}" then
+              throw ''
+                network-forwarding-model: duplicate node-pair transit.ordering entry
 
-            site: ${siteName}
+                site: ${siteName}
 
-            first:
-              ${acc.${k}}
+                first:
+                  ${acc.${k}}
 
-            duplicate:
-              ${rendered}
-          ''
-        else
-          acc // { "${k}" = rendered; }
-      ) { } normalizedPairs;
+                duplicate:
+                  ${rendered}
+              ''
+            else
+              acc // { "${k}" = rendered; }
+        )
+        { }
+        normalizedPairs;
     in
     builtins.deepSeq _unique {
       inputShape = "node-pairs";

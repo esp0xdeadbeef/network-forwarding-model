@@ -5,9 +5,9 @@ let
 in
 {
   apply =
-    {
-      node,
-      routeContext,
+    { node
+    , routeContext
+    ,
     }:
     let
       inherit (routeContext) mkRoute4 mkRoute6;
@@ -22,29 +22,33 @@ in
             if (iface.peerAddr4 or null) == null then
               [ ]
             else
-              map (
-                dst:
-                mkRoute4 {
-                  inherit dst;
-                  via4 = helpers.stripMask iface.peerAddr4;
-                  proto = "uplink";
-                  intentKind = "uplink-learned-reachability";
-                }
-              ) (iface.uplinkRoutes4 or [ ]);
+              map
+                (
+                  dst:
+                  mkRoute4 {
+                    inherit dst;
+                    via4 = helpers.stripMask iface.peerAddr4;
+                    proto = "uplink";
+                    intentKind = "uplink-learned-reachability";
+                  }
+                )
+                (iface.uplinkRoutes4 or [ ]);
 
           prefixRoutes6 =
             if (iface.peerAddr6 or null) == null then
               [ ]
             else
-              map (
-                dst:
-                mkRoute6 {
-                  inherit dst;
-                  via6 = helpers.stripMask iface.peerAddr6;
-                  proto = "uplink";
-                  intentKind = "uplink-learned-reachability";
-                }
-              ) (iface.uplinkRoutes6 or [ ]);
+              map
+                (
+                  dst:
+                  mkRoute6 {
+                    inherit dst;
+                    via6 = helpers.stripMask iface.peerAddr6;
+                    proto = "uplink";
+                    intentKind = "uplink-learned-reachability";
+                  }
+                )
+                (iface.uplinkRoutes6 or [ ]);
 
           default4 =
             if
@@ -81,14 +85,17 @@ in
           routes6 = prefixRoutes6 ++ default6;
         };
     in
-    builtins.foldl' (
-      acc: ifName:
-      let
-        routes = routesForInterface ifs.${ifName};
-      in
-      if routes.routes4 == [ ] && routes.routes6 == [ ] then
-        acc
-      else
-        helpers.addRoutesOnLink acc ifName routes.routes4 routes.routes6
-    ) node ifNames;
+    builtins.foldl'
+      (
+        acc: ifName:
+        let
+          routes = routesForInterface ifs.${ifName};
+        in
+        if routes.routes4 == [ ] && routes.routes6 == [ ] then
+          acc
+        else
+          helpers.addRoutesOnLink acc ifName routes.routes4 routes.routes6
+      )
+      node
+      ifNames;
 }

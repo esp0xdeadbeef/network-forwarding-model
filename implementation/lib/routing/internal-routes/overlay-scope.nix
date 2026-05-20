@@ -24,17 +24,20 @@ let
 
   tenantOwnerNodesByName =
     tenantOwnerEntries:
-    builtins.foldl' (
-      acc: entry:
-      let
-        tenantName = entry.netName or null;
-        owner = entry.owner or null;
-      in
-      if tenantName == null || owner == null then
-        acc
-      else
-        addUnique acc (toString tenantName) (toString owner)
-    ) { } tenantOwnerEntries;
+    builtins.foldl'
+      (
+        acc: entry:
+        let
+          tenantName = entry.netName or null;
+          owner = entry.owner or null;
+        in
+        if tenantName == null || owner == null then
+          acc
+        else
+          addUnique acc (toString tenantName) (toString owner)
+      )
+      { }
+      tenantOwnerEntries;
 
   sourceOwnerNodes =
     ownersByTenant: source:
@@ -44,11 +47,14 @@ let
     if kind == "tenant" then
       ownersByTenant.${toString (source.name or "")} or [ ]
     else if kind == "tenant-set" then
-      lib.unique (
-        lib.concatMap (
-          tenantName: ownersByTenant.${toString tenantName} or [ ]
-        ) (asList (source.members or [ ]))
-      )
+      lib.unique
+        (
+          lib.concatMap
+            (
+              tenantName: ownersByTenant.${toString tenantName} or [ ]
+            )
+            (asList (source.members or [ ]))
+        )
     else
       [ ];
 
@@ -78,43 +84,51 @@ let
     );
 
   policyAllowedNodes =
-    {
-      overlayNames,
-      tenantOwnerEntries,
-      trafficPaths,
+    { overlayNames
+    , tenantOwnerEntries
+    , trafficPaths
+    ,
     }:
     let
       ownersByTenant = tenantOwnerNodesByName tenantOwnerEntries;
     in
-    builtins.foldl' (
-      acc: path:
-      if !(builtins.isAttrs path) || (path.action or "allow") != "allow" then
-        acc
-      else
-        let
-          overlays = destinationOverlayNames overlayNames (path.destination or { });
-          nodesForPath = trafficPathNodes ownersByTenant path;
-        in
-        builtins.foldl' (
-          overlayAcc: overlayName:
-          overlayAcc // {
-            "${overlayName}" = lib.unique ((overlayAcc.${overlayName} or [ ]) ++ nodesForPath);
-          }
-        ) acc overlays
-    ) { } trafficPaths;
+    builtins.foldl'
+      (
+        acc: path:
+        if !(builtins.isAttrs path) || (path.action or "allow") != "allow" then
+          acc
+        else
+          let
+            overlays = destinationOverlayNames overlayNames (path.destination or { });
+            nodesForPath = trafficPathNodes ownersByTenant path;
+          in
+          builtins.foldl'
+            (
+              overlayAcc: overlayName:
+              overlayAcc // {
+                "${overlayName}" = lib.unique ((overlayAcc.${overlayName} or [ ]) ++ nodesForPath);
+              }
+            )
+            acc
+            overlays
+      )
+      { }
+      trafficPaths;
 
   attachmentAllowedNodes =
     overlayAttachments:
-    lib.mapAttrs (
-      _overlayName: attachment:
-      lib.unique (
-        (cleanNodeNames (attachment.accessNodes or [ ]))
-        ++ (cleanNodeNames (attachment.canonicalPath or [ ]))
-        ++ (cleanNodeNames (attachment.terminateOn or [ ]))
-        ++ (cleanNodeNames (attachment.terminatesOn or [ ]))
-        ++ (cleanNodeNames (attachment.terminatedOn or [ ]))
+    lib.mapAttrs
+      (
+        _overlayName: attachment:
+        lib.unique (
+          (cleanNodeNames (attachment.accessNodes or [ ]))
+          ++ (cleanNodeNames (attachment.canonicalPath or [ ]))
+          ++ (cleanNodeNames (attachment.terminateOn or [ ]))
+          ++ (cleanNodeNames (attachment.terminatesOn or [ ]))
+          ++ (cleanNodeNames (attachment.terminatedOn or [ ]))
+        )
       )
-    ) overlayAttachments;
+      overlayAttachments;
 in
 {
   build =

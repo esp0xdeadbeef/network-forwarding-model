@@ -6,12 +6,12 @@ let
 in
 {
   validateLinks =
-    {
-      siteName,
-      links,
-      nodeNames,
-      linkMembersFor,
-      assert_,
+    { siteName
+    , links
+    , nodeNames
+    , linkMembersFor
+    , assert_
+    ,
     }:
     let
       validateLink =
@@ -23,9 +23,10 @@ in
 
           _membersExist = lib.forEach explicitMembers (
             nodeName:
-            assert_ (
-              builtins.elem nodeName nodeNames
-            ) "topology-resolve: link '${linkName}' references unknown member node '${nodeName}'"
+            assert_
+              (
+                builtins.elem nodeName nodeNames
+              ) "topology-resolve: link '${linkName}' references unknown member node '${nodeName}'"
           );
 
           _endpointsExist = lib.forEach endpointKeys (
@@ -41,9 +42,10 @@ in
           );
 
           finalMembers = linkMembersFor linkName l;
-          _nonOrphan = assert_ (
-            finalMembers != [ ]
-          ) "topology-resolve: link '${linkName}' is orphaned (no valid members/endpoints)";
+          _nonOrphan = assert_
+            (
+              finalMembers != [ ]
+            ) "topology-resolve: link '${linkName}' is orphaned (no valid members/endpoints)";
 
           _p2pShape =
             if (l.kind or null) != "p2p" then
@@ -77,26 +79,28 @@ in
     builtins.deepSeq (lib.forEach (lib.sort (a: b: a < b) (builtins.attrNames links)) validateLink) true;
 
   resolvedP2pPairs =
-    {
-      links,
-      linkMembersFor,
+    { links
+    , linkMembersFor
+    ,
     }:
     lib.filter (x: x != null) (
-      map (
-        linkName:
-        let
-          l = links.${linkName};
-        in
-        if (l.kind or null) != "p2p" then
-          null
-        else
+      map
+        (
+          linkName:
           let
-            members = lib.sort (a: b: a < b) (linkMembersFor linkName l);
+            l = links.${linkName};
           in
-          {
-            inherit linkName members;
-            key = "${builtins.elemAt members 0}|${builtins.elemAt members 1}";
-          }
-      ) (lib.sort (a: b: a < b) (builtins.attrNames links))
+          if (l.kind or null) != "p2p" then
+            null
+          else
+            let
+              members = lib.sort (a: b: a < b) (linkMembersFor linkName l);
+            in
+            {
+              inherit linkName members;
+              key = "${builtins.elemAt members 0}|${builtins.elemAt members 1}";
+            }
+        )
+        (lib.sort (a: b: a < b) (builtins.attrNames links))
     );
 }

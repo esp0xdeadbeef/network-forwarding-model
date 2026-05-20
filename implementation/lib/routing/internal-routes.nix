@@ -18,14 +18,14 @@ in
   buildRemotePrefixFacts = remotePrefixes.buildFacts;
 
   apply =
-    {
-      topo,
-      nodeName,
-      node,
-      routeContext,
-      routeFacts ? routeContext.buildFacts topo,
-      remotePrefixFacts ? remotePrefixes.buildFacts topo,
-      routeGraph ? graphContext.build (topo.links or { }) { },
+    { topo
+    , nodeName
+    , node
+    , routeContext
+    , routeFacts ? routeContext.buildFacts topo
+    , remotePrefixFacts ? remotePrefixes.buildFacts topo
+    , routeGraph ? graphContext.build (topo.links or { }) { }
+    ,
     }:
     let
       inherit (routeContext) mkRoute4 mkRoute6;
@@ -46,13 +46,15 @@ in
             ((if includeP2p then p2pRemote else [ ])
               ++ (if includeTenant then tenantRemote else [ ])
               ++ (if includeOverlay then overlayRemote else [ ]));
-          remote = lib.filter (
-            e:
-            if e ? dst then
-              !(ownSet ? "${toString e.family}|${e.dst}")
-            else
-              true
-          ) remote0;
+          remote = lib.filter
+            (
+              e:
+              if e ? dst then
+                !(ownSet ? "${toString e.family}|${e.dst}")
+              else
+                true
+            )
+            remote0;
           _remoteCount = trace.emit "routing:internal:${nodeName}:remote-filtered=${toString (builtins.length remote)}" true;
           resolutionKey =
             e:
@@ -74,19 +76,23 @@ in
                   inherit routeGraph;
                 };
             in
-            lib.concatMap (
-              resolvedHop:
-              map (
-                entry:
-                entry
-                // {
-                  hopNode = resolvedHop.hopNode;
-                  linkName = resolvedHop.linkName;
-                  via4 = resolvedHop.via4;
-                  via6 = resolvedHop.via6;
-                }
-              ) entries
-            ) resolvedSample;
+            lib.concatMap
+              (
+                resolvedHop:
+                map
+                  (
+                    entry:
+                    entry
+                    // {
+                      hopNode = resolvedHop.hopNode;
+                      linkName = resolvedHop.linkName;
+                      via4 = resolvedHop.via4;
+                      via6 = resolvedHop.via6;
+                    }
+                  )
+                  entries
+              )
+              resolvedSample;
           resolved = trace.emit "routing:internal:${nodeName}:resolving:groups=${toString (builtins.length (builtins.attrNames remoteGroups))}" (
             lib.concatMap (key: resolveGroup remoteGroups.${key}) (builtins.attrNames remoteGroups)
           );
@@ -98,37 +104,43 @@ in
 
           grouped = builtins.groupBy perNextHopKey resolved;
         in
-        builtins.foldl' (
-          acc: entries:
-          let
-            built = routeGroups.build {
-              inherit
-                entries
-                mkRoute4
-                mkRoute6
-                mode
-                topo
-                ;
-            };
-          in
-          trace.emit "routing:internal:${nodeName}:group:${built.linkName}:entries=${toString (builtins.length entries)}" (
-            acc
-            // {
-              "${built.linkName}" = {
-                routes4 = (acc.${built.linkName}.routes4 or [ ]) ++ built.routes4;
-                routes6 = (acc.${built.linkName}.routes6 or [ ]) ++ built.routes6;
-              };
-            }
+        builtins.foldl'
+          (
+            acc: entries:
+              let
+                built = routeGroups.build {
+                  inherit
+                    entries
+                    mkRoute4
+                    mkRoute6
+                    mode
+                    topo
+                    ;
+                };
+              in
+              trace.emit "routing:internal:${nodeName}:group:${built.linkName}:entries=${toString (builtins.length entries)}" (
+                acc
+                // {
+                  "${built.linkName}" = {
+                    routes4 = (acc.${built.linkName}.routes4 or [ ]) ++ built.routes4;
+                    routes6 = (acc.${built.linkName}.routes6 or [ ]) ++ built.routes6;
+                  };
+                }
+              )
           )
-        ) { } (builtins.attrValues grouped);
+          { }
+          (builtins.attrValues grouped);
 
       perLink = aggregatePrefixesForNode;
     in
-    builtins.foldl' (
-      acc: linkName:
-      let
-        add = perLink.${linkName};
-      in
-      helpers.addRoutesOnLink acc linkName add.routes4 add.routes6
-    ) node (builtins.attrNames perLink);
+    builtins.foldl'
+      (
+        acc: linkName:
+        let
+          add = perLink.${linkName};
+        in
+        helpers.addRoutesOnLink acc linkName add.routes4 add.routes6
+      )
+      node
+      (builtins.attrNames perLink);
 }

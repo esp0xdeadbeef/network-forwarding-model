@@ -22,19 +22,21 @@ let
     if builtins.isList externals then
       lib.filter (x: x != null) (map normalizeExternalDomainEntry externals)
     else if builtins.isAttrs externals then
-      lib.mapAttrsToList (
-        name: v:
-        let
-          normalized = normalizeExternalDomainEntry (v // { inherit name; });
-        in
-        if normalized == null then
-          {
-            name = toString name;
-            kind = "external";
-          }
-        else
-          normalized
-      ) externals
+      lib.mapAttrsToList
+        (
+          name: v:
+          let
+            normalized = normalizeExternalDomainEntry (v // { inherit name; });
+          in
+          if normalized == null then
+            {
+              name = toString name;
+              kind = "external";
+            }
+          else
+            normalized
+        )
+        externals
     else
       [ ];
 
@@ -60,17 +62,20 @@ let
         overlays = transport.overlays or [ ];
       in
       if builtins.isList overlays then
-        lib.unique (
-          lib.concatMap (
-            overlay:
-            if builtins.isString overlay then
-              [ (toString overlay) ]
-            else if builtins.isAttrs overlay && (overlay.name or null) != null then
-              [ (toString overlay.name) ]
-            else
-              [ ]
-          ) overlays
-        )
+        lib.unique
+          (
+            lib.concatMap
+              (
+                overlay:
+                if builtins.isString overlay then
+                  [ (toString overlay) ]
+                else if builtins.isAttrs overlay && (overlay.name or null) != null then
+                  [ (toString overlay.name) ]
+                else
+                  [ ]
+              )
+              overlays
+          )
       else if builtins.isAttrs overlays then
         lib.sort (a: b: a < b) (builtins.attrNames overlays)
       else
@@ -81,20 +86,24 @@ let
     let
       existingList = externalDomainsListFrom existing;
       existingByName = builtins.listToAttrs (
-        map (entry: {
-          name = entry.name;
-          value = entry;
-        }) existingList
+        map
+          (entry: {
+            name = entry.name;
+            value = entry;
+          })
+          existingList
       );
 
       addedByName = builtins.listToAttrs (
-        map (name: {
-          name = toString name;
-          value = {
+        map
+          (name: {
             name = toString name;
-            kind = "external";
-          };
-        }) (lib.filter (name: name != null && name != "") names)
+            value = {
+              name = toString name;
+              kind = "external";
+            };
+          })
+          (lib.filter (name: name != null && name != "") names)
       );
     in
     builtins.attrValues (existingByName // addedByName);

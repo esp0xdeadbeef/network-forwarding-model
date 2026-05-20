@@ -63,14 +63,15 @@ let
           true;
     in
     builtins.seq _two (
-      builtins.seq _id {
-        id = toString linkId;
-        name = linkName;
-        kind = "p2p";
-        link = linkName;
-        members = nodeNames;
-        endpoints = map (nodeName: mkEndpoint nodeName endpoints.${nodeName}) nodeNames;
-      }
+      builtins.seq _id
+        {
+          id = toString linkId;
+          name = linkName;
+          kind = "p2p";
+          link = linkName;
+          members = nodeNames;
+          endpoints = map (nodeName: mkEndpoint nodeName endpoints.${nodeName}) nodeNames;
+        }
       // lib.optionalAttrs ((link.lane or null) != null) { lane = link.lane; }
       // lib.optionalAttrs (builtins.isAttrs (link.laneMeta or null)) { laneMeta = link.laneMeta; }
       // lib.optionalAttrs (builtins.isList (link.uplinks or null)) { uplinks = link.uplinks; }

@@ -20,17 +20,19 @@ let
     else
       true;
 
-  hits = lib.filter (
-    linkName:
-    let
-      l = links.${linkName};
-      ms = lib.sort (x: y: x < y) (l.members or [ ]);
-    in
-    (l.kind or null) == "p2p"
-    && builtins.length ms == 2
-    && (builtins.elemAt ms 0) == members.left
-    && (builtins.elemAt ms 1) == members.right
-  ) (builtins.attrNames links);
+  hits = lib.filter
+    (
+      linkName:
+      let
+        l = links.${linkName};
+        ms = lib.sort (x: y: x < y) (l.members or [ ]);
+      in
+      (l.kind or null) == "p2p"
+      && builtins.length ms == 2
+      && (builtins.elemAt ms 0) == members.left
+      && (builtins.elemAt ms 1) == members.right
+    )
+    (builtins.attrNames links);
 
   _known =
     if hits == [ ] then

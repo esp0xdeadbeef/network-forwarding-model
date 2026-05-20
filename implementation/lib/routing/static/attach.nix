@@ -9,9 +9,9 @@ let
 in
 rec {
   attachWith =
-    {
-      topo,
-      routeGraph ? null,
+    { topo
+    , routeGraph ? null
+    ,
     }:
     let
       nodes0 = topo.nodes or { };

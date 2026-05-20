@@ -6,11 +6,11 @@ let
 in
 {
   build =
-    {
-      enterprise,
-      siteId,
-      rolesResult,
-      realizedTransitAdjacencies,
+    { enterprise
+    , siteId
+    , rolesResult
+    , realizedTransitAdjacencies
+    ,
     }:
     let
       orderKey =

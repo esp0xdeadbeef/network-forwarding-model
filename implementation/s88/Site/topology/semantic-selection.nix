@@ -44,19 +44,21 @@ let
           [ ];
     in
     sortedUnique (
-      map (
-        external:
-        if builtins.isAttrs external && external ? name && external.name != null then
-          external.name
-        else
-          toString external
-      ) externals
+      map
+        (
+          external:
+          if builtins.isAttrs external && external ? name && external.name != null then
+            external.name
+          else
+            toString external
+        )
+        externals
     );
 
   roleOfFor =
-    {
-      nodes,
-      rolesResult ? null,
+    { nodes
+    , rolesResult ? null
+    ,
     }:
     let
       roleFromInput =
@@ -80,10 +82,10 @@ let
       null;
 
   coreNodeNamesFor =
-    {
-      site,
-      nodeNames,
-      roleOf,
+    { site
+    , nodeNames
+    , roleOf
+    ,
     }:
     if site ? coreNodeNames && builtins.isList site.coreNodeNames && site.coreNodeNames != [ ] then
       sortedUnique site.coreNodeNames
@@ -91,10 +93,10 @@ let
       sortedUnique (lib.filter (name: roleOf name == "core") nodeNames);
 
   policyNodeNameFor =
-    {
-      site,
-      nodeNames,
-      roleOf,
+    { site
+    , nodeNames
+    , roleOf
+    ,
     }:
     if site ? policyNodeName && site.policyNodeName != null then
       toString site.policyNodeName
@@ -102,10 +104,10 @@ let
       firstByRole nodeNames roleOf "policy";
 
   upstreamSelectorNodeNameFor =
-    {
-      site,
-      nodeNames,
-      roleOf,
+    { site
+    , nodeNames
+    , roleOf
+    ,
     }:
     if site ? upstreamSelectorNodeName && site.upstreamSelectorNodeName != null then
       toString site.upstreamSelectorNodeName
@@ -113,9 +115,9 @@ let
       firstByRole nodeNames roleOf "upstream-selector";
 
   siteUplinkCoreNamesFor =
-    {
-      site,
-      wanResult ? null,
+    { site
+    , wanResult ? null
+    ,
     }:
     if site ? uplinkCoreNames && builtins.isList site.uplinkCoreNames then
       sortedUnique site.uplinkCoreNames
@@ -123,10 +125,10 @@ let
       namesFromWan wanResult "declaredUplinkCores" "uplinkCores";
 
   siteUplinkNamesFor =
-    {
-      site,
-      wanResult ? null,
-      siteExternalDomains,
+    { site
+    , wanResult ? null
+    , siteExternalDomains
+    ,
     }:
     let
       fromSite =

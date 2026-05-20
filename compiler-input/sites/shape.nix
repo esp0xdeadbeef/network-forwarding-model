@@ -1,6 +1,6 @@
-{
-  getAttrPathOr,
-  hasAttrPath,
+{ getAttrPathOr
+, hasAttrPath
+,
 }:
 
 let
@@ -11,10 +11,12 @@ let
       nodeNames = builtins.attrNames nodes;
     in
     builtins.concatLists (
-      builtins.map (
-        nodeName:
-        builtins.map (attachment: attachment // { unit = nodeName; }) (nodes.${nodeName}.attachments or [ ])
-      ) nodeNames
+      builtins.map
+        (
+          nodeName:
+          builtins.map (attachment: attachment // { unit = nodeName; }) (nodes.${nodeName}.attachments or [ ])
+        )
+        nodeNames
     );
 
   siteCoreNodeNamesFromTopology =

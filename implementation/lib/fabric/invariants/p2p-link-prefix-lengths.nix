@@ -12,13 +12,13 @@ let
     c.prefix == want;
 
   checkEp =
-    {
-      siteName,
-      linkName,
-      nodeName,
-      fam,
-      addr,
-      want,
+    { siteName
+    , linkName
+    , nodeName
+    , fam
+    , addr
+    , want
+    ,
     }:
     common.assert_ (hasPrefixLength addr want) ''
       invariants(p2p-link-prefix-lengths):

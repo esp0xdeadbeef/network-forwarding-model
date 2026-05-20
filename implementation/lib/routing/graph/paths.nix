@@ -5,17 +5,17 @@ let
 in
 {
   shortestPathsFromWithNeighbors =
-    {
-      neighbors,
-      src,
+    { neighbors
+    , src
+    ,
     }:
     trace.emit "graph:shortestPathsFrom" (
       let
         bfs =
-          {
-            queue,
-            visited,
-            parent,
+          { queue
+          , visited
+          , parent
+          ,
           }:
           if queue == [ ] then
             {
@@ -47,18 +47,20 @@ in
         unwind = n: acc: if n == null then acc else unwind (result.parent.${n} or null) ([ n ] ++ acc);
       in
       builtins.listToAttrs (
-        map (dst: {
-          name = dst;
-          value = if dst == src then [ src ] else unwind dst [ ];
-        }) (builtins.attrNames result.visited)
+        map
+          (dst: {
+            name = dst;
+            value = if dst == src then [ src ] else unwind dst [ ];
+          })
+          (builtins.attrNames result.visited)
       )
     );
 
   shortestPathWithNeighbors =
-    {
-      neighbors,
-      src,
-      dst,
+    { neighbors
+    , src
+    , dst
+    ,
     }:
     trace.emit "graph:shortestPath" (
       if src == dst then
@@ -66,10 +68,10 @@ in
       else
         let
           bfs =
-            {
-              queue,
-              visited,
-              parent,
+            { queue
+            , visited
+            , parent
+            ,
             }:
             if queue == [ ] then
               null

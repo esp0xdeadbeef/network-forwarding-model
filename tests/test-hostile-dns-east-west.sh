@@ -75,13 +75,13 @@ OUTPUT_JSON="${output_json}" nix eval --impure --expr '
   in
     hasDst hostileEw "10.20.10.0/24"
     && hasDst hostileEw "fd42:dead:beef:0010:0000:0000:0000:0000/64"
-    && !(hasDst hostileEw "0.0.0.0/0")
-    && !(hasDefault6 hostileEw)
+    && hasDst hostileEw "0.0.0.0/0"
+    && hasDefault6 hostileEw
     && (siteB.tenantPrefixOwners."6|fd42:dead:feed:0070:0000:0000:0000:0000/64".owner or null) == "b-router-access-hostile"
     && hasDst siteB.nodes."b-router-core-nebula".interfaces."p2p-b-router-core-nebula-b-router-upstream-selector".routes "fd42:dead:feed:0070:0000:0000:0000:0000/64"
 ' | {
   if ! grep -qx true; then
-    echo "FAIL hostile-dns-east-west: DNS-only hostile east-west policy lane must keep specific DNS reachability without unscoped public defaults" >&2
+    echo "FAIL hostile-dns-east-west: DNS-only hostile east-west policy lane must keep specific DNS reachability and executable east-west defaults" >&2
     exit 1
   fi
 }

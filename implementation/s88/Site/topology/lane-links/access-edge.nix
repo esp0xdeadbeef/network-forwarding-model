@@ -2,19 +2,21 @@
 
 {
   annotate =
-    {
-      accessUnitNames,
-      canonicalP2pLinkNameForEndpoints,
-      downstreamSelectorUnit,
-      linkSpecConnectsEndpoints,
+    { accessUnitNames
+    , canonicalP2pLinkNameForEndpoints
+    , downstreamSelectorUnit
+    , linkSpecConnectsEndpoints
+    ,
     }:
     pair:
     let
       matchingAccessUnits =
-        lib.filter (
-          accessUnit:
-          downstreamSelectorUnit != null && linkSpecConnectsEndpoints accessUnit downstreamSelectorUnit pair
-        ) accessUnitNames;
+        lib.filter
+          (
+            accessUnit:
+            downstreamSelectorUnit != null && linkSpecConnectsEndpoints accessUnit downstreamSelectorUnit pair
+          )
+          accessUnitNames;
     in
     if builtins.length matchingAccessUnits != 1 then
       pair

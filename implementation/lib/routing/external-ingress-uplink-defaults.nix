@@ -6,13 +6,13 @@ let
 in
 {
   apply =
-    {
-      topo,
-      nodeName,
-      node,
-      routeContext,
-      routeFacts ? routeContext.buildFacts topo,
-      routeGraph ? graphContext.build (topo.links or { }) { },
+    { topo
+    , nodeName
+    , node
+    , routeContext
+    , routeFacts ? routeContext.buildFacts topo
+    , routeGraph ? graphContext.build (topo.links or { }) { }
+    ,
     }:
     let
       inherit (routeContext) nextHopWithPreferredUplinks;
@@ -30,18 +30,20 @@ in
 
       coresForUplink =
         uplinkName:
-        (routeFacts.uplinkCoreNamesByUplink or { }).${uplinkName} or [ ];
+          (routeFacts.uplinkCoreNamesByUplink or { }).${uplinkName} or [ ];
 
-      externalToUplinkRelations = lib.filter (
-        relation:
-        (relation.action or "allow") == "allow"
-        && (relation.trafficType or null) == "any"
-        && (relation.from.kind or null) == "external"
-        && (relation.from.name or null) != null
-        && (relation.to.kind or null) == "external"
-        && builtins.isList (relation.to.uplinks or null)
-        && (relation.to.uplinks or [ ]) != [ ]
-      ) relations;
+      externalToUplinkRelations = lib.filter
+        (
+          relation:
+          (relation.action or "allow") == "allow"
+          && (relation.trafficType or null) == "any"
+          && (relation.from.kind or null) == "external"
+          && (relation.from.name or null) != null
+          && (relation.to.kind or null) == "external"
+          && builtins.isList (relation.to.uplinks or null)
+          && (relation.to.uplinks or [ ]) != [ ]
+        )
+        relations;
 
       firstHopTo =
         targetCore: preferredUplinks:
@@ -90,74 +92,96 @@ in
             ];
         };
 
-      entries = lib.concatMap (
-        relation:
-        let
-          sourceName = relation.from.name;
-          sourceCores = coresForUplink sourceName;
-          targetUplinks = relation.to.uplinks or [ ];
-        in
-        lib.concatMap (
-          sourceCore:
+      entries = lib.concatMap
+        (
+          relation:
           let
-            sourceNh = firstHopTo sourceCore [ sourceName ];
+            sourceName = relation.from.name;
+            sourceCores = coresForUplink sourceName;
+            targetUplinks = relation.to.uplinks or [ ];
           in
-          if sourceNh.linkName == null then [ ] else
-            lib.concatMap (
-              targetUplinkName:
-              map (targetCore: {
-                linkName = sourceNh.linkName;
-                routes = routesForTarget targetUplinkName targetCore;
-              }) (coresForUplink targetUplinkName)
-            ) targetUplinks
-        ) sourceCores
-      ) externalToUplinkRelations;
-
-      sourceCoreRouteEntries = lib.concatMap (
-        relation:
-        let
-          sourceName = relation.from.name;
-          sourceCores = coresForUplink sourceName;
-          targetUplinks = relation.to.uplinks or [ ];
-        in
-        if !(builtins.elem nodeName sourceCores) then
-          [ ]
-        else
-          lib.concatMap (
-            targetUplinkName:
-            map (
-              targetCore:
+          lib.concatMap
+            (
+              sourceCore:
               let
-                routes = routesForTarget targetUplinkName targetCore;
+                sourceNh = firstHopTo sourceCore [ sourceName ];
               in
-              {
-                linkName = (firstHopTo targetCore [ targetUplinkName ]).linkName;
-                inherit routes;
-              }
-            ) (coresForUplink targetUplinkName)
-          ) targetUplinks
-      ) externalToUplinkRelations;
+              if sourceNh.linkName == null then [ ] else
+              lib.concatMap
+                (
+                  targetUplinkName:
+                  map
+                    (targetCore: {
+                      linkName = sourceNh.linkName;
+                      routes = routesForTarget targetUplinkName targetCore;
+                    })
+                    (coresForUplink targetUplinkName)
+                )
+                targetUplinks
+            )
+            sourceCores
+        )
+        externalToUplinkRelations;
+
+      sourceCoreRouteEntries = lib.concatMap
+        (
+          relation:
+          let
+            sourceName = relation.from.name;
+            sourceCores = coresForUplink sourceName;
+            targetUplinks = relation.to.uplinks or [ ];
+          in
+          if !(builtins.elem nodeName sourceCores) then
+            [ ]
+          else
+            lib.concatMap
+              (
+                targetUplinkName:
+                map
+                  (
+                    targetCore:
+                    let
+                      routes = routesForTarget targetUplinkName targetCore;
+                    in
+                    {
+                      linkName = (firstHopTo targetCore [ targetUplinkName ]).linkName;
+                      inherit routes;
+                    }
+                  )
+                  (coresForUplink targetUplinkName)
+              )
+              targetUplinks
+        )
+        externalToUplinkRelations;
 
       nodeIsExternalSourceCore =
-        builtins.any (
-          relation: builtins.elem nodeName (coresForUplink relation.from.name)
-        ) externalToUplinkRelations;
+        builtins.any
+          (
+            relation: builtins.elem nodeName (coresForUplink relation.from.name)
+          )
+          externalToUplinkRelations;
     in
     if selectorNodeName == null then
       node
     else if nodeName == selectorNodeName && role == "upstream-selector" then
-      builtins.foldl' (
-        acc: entry:
-        helpers.addRoutesOnLink acc entry.linkName entry.routes.routes4 entry.routes.routes6
-      ) node entries
-    else if nodeIsExternalSourceCore then
-      builtins.foldl' (
-        acc: entry:
-        if entry.linkName == null then
-          acc
-        else
+      builtins.foldl'
+        (
+          acc: entry:
           helpers.addRoutesOnLink acc entry.linkName entry.routes.routes4 entry.routes.routes6
-      ) node sourceCoreRouteEntries
+        )
+        node
+        entries
+    else if nodeIsExternalSourceCore then
+      builtins.foldl'
+        (
+          acc: entry:
+          if entry.linkName == null then
+            acc
+          else
+            helpers.addRoutesOnLink acc entry.linkName entry.routes.routes4 entry.routes.routes6
+        )
+        node
+        sourceCoreRouteEntries
     else
       node;
 }

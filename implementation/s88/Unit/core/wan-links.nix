@@ -21,11 +21,11 @@ let
       "unclassified";
 
   mkInterface =
-    {
-      linkName,
-      uplinkName,
-      tenant,
-      uplink,
+    { linkName
+    , uplinkName
+    , tenant
+    , uplink
+    ,
     }:
     {
       name = linkName;

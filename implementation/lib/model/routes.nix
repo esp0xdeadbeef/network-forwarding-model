@@ -63,17 +63,20 @@ let
   dedupeRoutes =
     routes0:
     builtins.attrValues (
-      builtins.foldl' (
-        acc: r0:
-        let
-          r = canonical.annotate r0;
-          k = canonical.forwardingKey r;
-        in
-        acc
-        // {
-          "${k}" = if acc ? "${k}" then canonical.canonicalize acc.${k} r else r;
-        }
-      ) { } routes0
+      builtins.foldl'
+        (
+          acc: r0:
+          let
+            r = canonical.annotate r0;
+            k = canonical.forwardingKey r;
+          in
+          acc
+          // {
+            "${k}" = if acc ? "${k}" then canonical.canonicalize acc.${k} r else r;
+          }
+        )
+        { }
+        routes0
     );
 
   ifaceRoutes =

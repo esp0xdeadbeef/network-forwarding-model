@@ -20,18 +20,18 @@ let
 in
 {
   build =
-    {
-      lib,
-      site,
-      siteId,
-      enterprise,
-      ordering,
-      linkPairs ? null,
-      p2pPool,
-      rolesResult,
-      wanResult,
-      enforcementResult,
-      sites ? { },
+    { lib
+    , site
+    , siteId
+    , enterprise
+    , ordering
+    , linkPairs ? null
+    , p2pPool
+    , rolesResult
+    , wanResult
+    , enforcementResult
+    , sites ? { }
+    ,
     }:
     let
       siteName = toString (site.siteName or "${enterprise}.${siteId}");

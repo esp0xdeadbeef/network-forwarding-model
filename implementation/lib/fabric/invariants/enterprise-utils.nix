@@ -13,19 +13,22 @@ let
 
   groupByEnterprise =
     sites:
-    builtins.foldl' (
-      acc: siteKey:
-      let
-        site = sites.${siteKey};
-        e = enterpriseOf siteKey site;
-      in
-      acc
-      // {
-        "${e}" = (acc."${e}" or { }) // {
-          "${siteKey}" = site;
-        };
-      }
-    ) { } (builtins.attrNames sites);
+    builtins.foldl'
+      (
+        acc: siteKey:
+        let
+          site = sites.${siteKey};
+          e = enterpriseOf siteKey site;
+        in
+        acc
+        // {
+          "${e}" = (acc."${e}" or { }) // {
+            "${siteKey}" = site;
+          };
+        }
+      )
+      { }
+      (builtins.attrNames sites);
 in
 {
   inherit enterpriseOf groupByEnterprise;

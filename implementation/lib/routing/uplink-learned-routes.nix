@@ -16,27 +16,31 @@ let
         let
           rs = helpers.ifaceRoutes ifs.${ifName};
         in
-        (map (r: {
-          family = 4;
-          dst = r.dst or null;
-        }) (lib.filter (r: (r.proto or null) == "uplink" && (r ? dst)) rs.ipv4))
-        ++ (map (r: {
-          family = 6;
-          dst = r.dst or null;
-        }) (lib.filter (r: (r.proto or null) == "uplink" && (r ? dst)) rs.ipv6));
+        (map
+          (r: {
+            family = 4;
+            dst = r.dst or null;
+          })
+          (lib.filter (r: (r.proto or null) == "uplink" && (r ? dst)) rs.ipv4))
+        ++ (map
+          (r: {
+            family = 6;
+            dst = r.dst or null;
+          })
+          (lib.filter (r: (r.proto or null) == "uplink" && (r ? dst)) rs.ipv6));
     in
     lib.concatMap perIface ifNames;
 
 in
 {
   addToSelector =
-    {
-      topo,
-      nodeName,
-      node,
-      routeContext,
-      routeFacts ? routeContext.buildFacts topo,
-      routeGraph ? graphContext.build (topo.links or { }) { },
+    { topo
+    , nodeName
+    , node
+    , routeContext
+    , routeFacts ? routeContext.buildFacts topo
+    , routeGraph ? graphContext.build (topo.links or { }) { }
+    ,
     }:
     let
       inherit (routeContext) nextHopWithPreferredUplinks;
@@ -46,98 +50,110 @@ in
       routeExportCores = overlayCoreSelection.nonOverlayUplinkCores topo uplinkCores;
       ownSet = helpers.ownConnectedPrefixes (topo.nodes.${nodeName});
 
-      advertised = lib.concatMap (
-        core:
-        let
-          coreNode = topo.nodes.${core} or { };
-          path = routeGraph.shortestPath {
-            src = nodeName;
-            dst = core;
-          };
-        in
-        if path == null || builtins.length path < 2 then
-          [ ]
-        else
+      advertised = lib.concatMap
+        (
+          core:
           let
-            hop = builtins.elemAt path 1;
-            nextHop = nextHopWithPreferredUplinks {
-              inherit topo;
-              from = nodeName;
-              to = hop;
-              inherit routeGraph;
-              preferredUplinks = topo.uplinkNames or [ ];
+            coreNode = topo.nodes.${core} or { };
+            path = routeGraph.shortestPath {
+              src = nodeName;
+              dst = core;
             };
-
-            exported = lib.filter (e: e.dst != null && !(ownSet ? "${toString e.family}|${e.dst}")) (
-              uplinkRouteEntriesFromNode coreNode
-            );
           in
-          if nextHop.linkName == null then
+          if path == null || builtins.length path < 2 then
             [ ]
           else
-            map (
-              e:
-              e
-              // {
-                linkName = nextHop.linkName;
-                via4 = if e.family == 4 then nextHop.via4 else null;
-                via6 = if e.family == 6 then nextHop.via6 else null;
-              }
-            ) exported
-      ) routeExportCores;
+            let
+              hop = builtins.elemAt path 1;
+              nextHop = nextHopWithPreferredUplinks {
+                inherit topo;
+                from = nodeName;
+                to = hop;
+                inherit routeGraph;
+                preferredUplinks = topo.uplinkNames or [ ];
+              };
 
-      usable = lib.filter (
-        e: (e.family == 4 && e.via4 != null) || (e.family == 6 && e.via6 != null)
-      ) advertised;
-
-      perLink = builtins.foldl' (
-        acc: e:
-        let
-          add4 =
-            if e.family == 4 then
-              [
-                (routeContext.mkRoute4 {
-                  dst = e.dst;
-                  via4 = e.via4;
-                  proto = "uplink";
-                  intentKind = "uplink-learned-reachability";
-                })
-              ]
+              exported = lib.filter (e: e.dst != null && !(ownSet ? "${toString e.family}|${e.dst}")) (
+                uplinkRouteEntriesFromNode coreNode
+              );
+            in
+            if nextHop.linkName == null then
+              [ ]
             else
-              [ ];
+              map
+                (
+                  e:
+                  e
+                  // {
+                    linkName = nextHop.linkName;
+                    via4 = if e.family == 4 then nextHop.via4 else null;
+                    via6 = if e.family == 6 then nextHop.via6 else null;
+                  }
+                )
+                exported
+        )
+        routeExportCores;
 
-          add6 =
-            if e.family == 6 then
-              [
-                (routeContext.mkRoute6 {
-                  dst = e.dst;
-                  via6 = e.via6;
-                  proto = "uplink";
-                  intentKind = "uplink-learned-reachability";
-                })
-              ]
-            else
-              [ ];
-        in
-        acc
-        // {
-          "${e.linkName}" = {
-            routes4 = (acc.${e.linkName}.routes4 or [ ]) ++ add4;
-            routes6 = (acc.${e.linkName}.routes6 or [ ]) ++ add6;
-          };
-        }
-      ) { } usable;
+      usable = lib.filter
+        (
+          e: (e.family == 4 && e.via4 != null) || (e.family == 6 && e.via6 != null)
+        )
+        advertised;
+
+      perLink = builtins.foldl'
+        (
+          acc: e:
+            let
+              add4 =
+                if e.family == 4 then
+                  [
+                    (routeContext.mkRoute4 {
+                      dst = e.dst;
+                      via4 = e.via4;
+                      proto = "uplink";
+                      intentKind = "uplink-learned-reachability";
+                    })
+                  ]
+                else
+                  [ ];
+
+              add6 =
+                if e.family == 6 then
+                  [
+                    (routeContext.mkRoute6 {
+                      dst = e.dst;
+                      via6 = e.via6;
+                      proto = "uplink";
+                      intentKind = "uplink-learned-reachability";
+                    })
+                  ]
+                else
+                  [ ];
+            in
+            acc
+            // {
+              "${e.linkName}" = {
+                routes4 = (acc.${e.linkName}.routes4 or [ ]) ++ add4;
+                routes6 = (acc.${e.linkName}.routes6 or [ ]) ++ add6;
+              };
+            }
+        )
+        { }
+        usable;
 
       linkNames = builtins.attrNames perLink;
     in
     if selectorNode == null || nodeName != selectorNode then
       node
     else
-      builtins.foldl' (
-        acc: linkName:
-        let
-          add = perLink.${linkName};
-        in
-        helpers.addRoutesOnLink acc linkName add.routes4 add.routes6
-      ) node linkNames;
+      builtins.foldl'
+        (
+          acc: linkName:
+          let
+            add = perLink.${linkName};
+          in
+          helpers.addRoutesOnLink acc linkName add.routes4 add.routes6
+        )
+        node
+        linkNames;
 }

@@ -7,27 +7,29 @@ let
 in
 {
   checkTransit =
-    {
-      siteName,
-      links,
-      linkIdToName,
-      adjacencies,
+    { siteName
+    , links
+    , linkIdToName
+    , adjacencies
+    ,
     }:
     let
       linkNames = sortedNames links;
       p2pLinkNames = lib.filter (linkName: (links.${linkName}.kind or null) == "p2p") linkNames;
 
-      _adjIdsPresent = lib.imap0 (
-        adjacencyIndex: adjacency:
-        common.assert_ ((adjacency.id or null) != null) ''
-          invariants(final-topology-integrity):
+      _adjIdsPresent = lib.imap0
+        (
+          adjacencyIndex: adjacency:
+            common.assert_ ((adjacency.id or null) != null) ''
+              invariants(final-topology-integrity):
 
-          transit adjacency is missing stable link identity
+              transit adjacency is missing stable link identity
 
-          site: ${siteName}
-          index: ${toString adjacencyIndex}
-        ''
-      ) adjacencies;
+              site: ${siteName}
+              index: ${toString adjacencyIndex}
+            ''
+        )
+        adjacencies;
 
       adjacencyIdToIndex =
         let
@@ -56,9 +58,11 @@ in
             else
               indexesByAdjacencyId // { "${id}" = adjacencyIndex; };
 
-          indexed = lib.imap0 (
-            adjacencyIndex: adjacency: { inherit adjacency adjacencyIndex; }
-          ) adjacencies;
+          indexed = lib.imap0
+            (
+              adjacencyIndex: adjacency: { inherit adjacency adjacencyIndex; }
+            )
+            adjacencies;
         in
         builtins.foldl' step { } indexed;
 
@@ -80,9 +84,11 @@ in
           adjacency = builtins.elemAt adjacencies adjacencyIdToIndex.${id};
           linkName = linkIdToName.${id};
           expectedMembers = lib.sort (a: b: a < b) (links.${linkName}.members or [ ]);
-          gotMembers = lib.sort (
-            a: b: a < b
-          ) (map (endpoint: toString (endpoint.unit or "")) (adjacency.endpoints or [ ]));
+          gotMembers = lib.sort
+            (
+              a: b: a < b
+            )
+            (map (endpoint: toString (endpoint.unit or "")) (adjacency.endpoints or [ ]));
         in
         builtins.seq
           (common.assert_ (builtins.length (adjacency.endpoints or [ ]) == 2) ''
@@ -110,10 +116,12 @@ in
 
       expectedP2pIds = sortedNames (
         builtins.listToAttrs (
-          map (linkName: {
-            name = toString (links.${linkName}.id or "");
-            value = true;
-          }) p2pLinkNames
+          map
+            (linkName: {
+              name = toString (links.${linkName}.id or "");
+              value = true;
+            })
+            p2pLinkNames
         )
       );
       gotAdjacencyIds = sortedNames adjacencyIdToIndex;

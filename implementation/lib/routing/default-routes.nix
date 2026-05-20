@@ -9,13 +9,13 @@ let
 in
 {
   apply =
-    {
-      topo,
-      nodeName,
-      node,
-      routeContext,
-      routeFacts ? routeContext.buildFacts topo,
-      routeGraph ? graphContext.build (topo.links or { }) { },
+    { topo
+    , nodeName
+    , node
+    , routeContext
+    , routeFacts ? routeContext.buildFacts topo
+    , routeGraph ? graphContext.build (topo.links or { }) { }
+    ,
     }:
     let
       inherit (routeContext) nextHopWithPreferredUplinks;
@@ -49,16 +49,18 @@ in
           uplinks = routeFacts.uplinkCores or [ ];
           candidates = overlayCoreSelection.nonOverlayUplinkCores topo uplinks;
           reachable =
-            lib.filter (
-              target:
-              let
-                path = routeGraph.shortestPath {
-                  src = nodeName;
-                  dst = target;
-                };
-              in
-              path != null && builtins.length path >= 2
-            ) candidates;
+            lib.filter
+              (
+                target:
+                let
+                  path = routeGraph.shortestPath {
+                    src = nodeName;
+                    dst = target;
+                  };
+                in
+                path != null && builtins.length path >= 2
+              )
+              candidates;
         in
         if uplinks == [ ] || lib.elem nodeName uplinks || reachable == [ ] then
           null

@@ -15,10 +15,12 @@ in
       pairs = maps.linkPairMap links;
       graphNodeNames = lib.sort (a: b: a < b) (lib.unique ((builtins.attrNames neighbors) ++ (map toString nodeNames)));
       pathCache = builtins.listToAttrs (
-        map (src: {
-          name = src;
-          value = paths.shortestPathsFromWithNeighbors { inherit neighbors src; };
-        }) graphNodeNames
+        map
+          (src: {
+            name = src;
+            value = paths.shortestPathsFromWithNeighbors { inherit neighbors src; };
+          })
+          graphNodeNames
       );
       cachedPath =
         { src, dst }:

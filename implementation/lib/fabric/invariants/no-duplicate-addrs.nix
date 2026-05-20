@@ -11,55 +11,59 @@ let
       nodes = site.nodes or { };
     in
     iface.nonEmptyEntries (
-      lib.concatMap (
-        nodeName:
-        let
-          node = nodes.${nodeName};
+      lib.concatMap
+        (
+          nodeName:
+          let
+            node = nodes.${nodeName};
 
-          nodeIfs = iface.ifaceEntriesFrom {
-            whereBase = "${siteName}:nodes.${nodeName}.interfaces";
-            ifaces = node.interfaces or { };
-            extra = {
-              box = "${siteName}:${nodeName}";
-            };
-          };
-
-          contIfs = lib.concatMap (
-            cname:
-            let
-              c = node.${cname} or { };
-            in
-            iface.ifaceEntriesFrom {
-              whereBase = "${siteName}:nodes.${nodeName}.${cname}.interfaces";
-              ifaces = c.interfaces or { };
+            nodeIfs = iface.ifaceEntriesFrom {
+              whereBase = "${siteName}:nodes.${nodeName}.interfaces";
+              ifaces = node.interfaces or { };
               extra = {
-                box = "${siteName}:${nodeName}.${cname}";
+                box = "${siteName}:${nodeName}";
               };
-            }
-          ) (common.containersOf node);
+            };
 
-          loopbackEntries =
-            let
-              lb = node.loopback or { };
+            contIfs = lib.concatMap
+              (
+                cname:
+                let
+                  c = node.${cname} or { };
+                in
+                iface.ifaceEntriesFrom {
+                  whereBase = "${siteName}:nodes.${nodeName}.${cname}.interfaces";
+                  ifaces = c.interfaces or { };
+                  extra = {
+                    box = "${siteName}:${nodeName}.${cname}";
+                  };
+                }
+              )
+              (common.containersOf node);
 
-              mk =
-                family: attr:
-                if !(lb ? "${attr}") || lb.${attr} == null then
-                  [ ]
-                else
-                  [
-                    {
-                      family = family;
-                      ip = common.stripMask lb.${attr};
-                      where = "${siteName}:nodes.${nodeName}.loopback.${attr}";
-                      box = "${siteName}:${nodeName}";
-                    }
-                  ];
-            in
-            (mk "addr4" "ipv4") ++ (mk "addr6" "ipv6");
-        in
-        nodeIfs ++ contIfs ++ loopbackEntries
-      ) (builtins.attrNames nodes)
+            loopbackEntries =
+              let
+                lb = node.loopback or { };
+
+                mk =
+                  family: attr:
+                  if !(lb ? "${attr}") || lb.${attr} == null then
+                    [ ]
+                  else
+                    [
+                      {
+                        family = family;
+                        ip = common.stripMask lb.${attr};
+                        where = "${siteName}:nodes.${nodeName}.loopback.${attr}";
+                        box = "${siteName}:${nodeName}";
+                      }
+                    ];
+              in
+              (mk "addr4" "ipv4") ++ (mk "addr6" "ipv6");
+          in
+          nodeIfs ++ contIfs ++ loopbackEntries
+        )
+        (builtins.attrNames nodes)
     );
 
   checkUniqAcrossBoxes =

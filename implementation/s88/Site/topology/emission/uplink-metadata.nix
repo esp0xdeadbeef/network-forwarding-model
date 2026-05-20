@@ -2,9 +2,9 @@
 
 {
   coreNames =
-    {
-      normalizedRouteSite,
-      wanResult,
+    { normalizedRouteSite
+    , wanResult
+    ,
     }:
     let
       routedNames =
@@ -32,9 +32,9 @@
     );
 
   uplinkNames =
-    {
-      normalizedRouteSite,
-      wanResult,
+    { normalizedRouteSite
+    , wanResult
+    ,
     }:
     let
       routedNames =

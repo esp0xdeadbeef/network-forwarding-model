@@ -6,10 +6,10 @@ let
 in
 {
   validate =
-    {
-      siteName,
-      links,
-      linkNames,
+    { siteName
+    , links
+    , linkNames
+    ,
     }:
     let
       _present = lib.forEach linkNames (
@@ -25,29 +25,32 @@ in
       );
 
       byId =
-        builtins.foldl' (
-          identitiesByLinkId: linkName:
-          let
-            id = toString (links.${linkName}.id or "");
-          in
-          if identitiesByLinkId ? "${id}" then
-            throw ''
-              invariants(final-topology-integrity):
+        builtins.foldl'
+          (
+            identitiesByLinkId: linkName:
+              let
+                id = toString (links.${linkName}.id or "");
+              in
+              if identitiesByLinkId ? "${id}" then
+                throw ''
+                  invariants(final-topology-integrity):
 
-              duplicate link identity detected
+                  duplicate link identity detected
 
-              site: ${siteName}
-              linkId: ${id}
+                  site: ${siteName}
+                  linkId: ${id}
 
-              first link:
-              ${identitiesByLinkId.${id}}
+                  first link:
+                  ${identitiesByLinkId.${id}}
 
-              duplicate link:
-              ${linkName}
-            ''
-          else
-            identitiesByLinkId // { "${id}" = linkName; }
-        ) { } linkNames;
+                  duplicate link:
+                  ${linkName}
+                ''
+              else
+                identitiesByLinkId // { "${id}" = linkName; }
+          )
+          { }
+          linkNames;
     in
     {
       inherit byId;

@@ -6,12 +6,12 @@ let
 in
 {
   build =
-    {
-      topo,
-      mode,
-      entries,
-      mkRoute4,
-      mkRoute6,
+    { topo
+    , mode
+    , entries
+    , mkRoute4
+    , mkRoute6
+    ,
     }:
     let
       sample = builtins.head entries;
@@ -45,38 +45,43 @@ in
 
       rawRoutes =
         if isRuntimeRoutedPrefix then
-          map (entry: {
-            family = 6;
-            sourceFile = entry.sourceFile;
-            proto = if (entry.overlay or null) != null then "overlay" else "internal";
-            via6 = entry.via6;
-            intent = {
-              kind = intentKind;
-              source = "intent-routed-prefix";
-              accessNode = entry.owner;
-            };
-          } // lib.optionalAttrs ((entry.prefixName or null) != null) { prefixName = entry.prefixName; })
+          map
+            (entry: {
+              family = 6;
+              sourceFile = entry.sourceFile;
+              proto = if (entry.overlay or null) != null then "overlay" else "internal";
+              via6 = entry.via6;
+              intent = {
+                kind = intentKind;
+                source = "intent-routed-prefix";
+                accessNode = entry.owner;
+              };
+            } // lib.optionalAttrs ((entry.prefixName or null) != null) { prefixName = entry.prefixName; })
             entries
         else if sample.family == 4 then
-          map (
-            dst:
-            mkRoute4 {
-              inherit dst intentKind;
-              via4 = sample.via4;
-              proto = "internal";
-              preserveDst = sample.kind == "p2p" || sample.kind == "overlay";
-            }
-          ) summarizedDsts
+          map
+            (
+              dst:
+              mkRoute4 {
+                inherit dst intentKind;
+                via4 = sample.via4;
+                proto = "internal";
+                preserveDst = sample.kind == "p2p" || sample.kind == "overlay";
+              }
+            )
+            summarizedDsts
         else
-          map (
-            dst:
-            mkRoute6 {
-              inherit dst intentKind;
-              via6 = sample.via6;
-              proto = "internal";
-              preserveDst = sample.kind == "p2p" || sample.kind == "overlay";
-            }
-          ) summarizedDsts;
+          map
+            (
+              dst:
+              mkRoute6 {
+                inherit dst intentKind;
+                via6 = sample.via6;
+                proto = "internal";
+                preserveDst = sample.kind == "p2p" || sample.kind == "overlay";
+              }
+            )
+            summarizedDsts;
 
       aggRoute =
         if aggDst == null then

@@ -23,7 +23,7 @@ let
         seen = seen // {
           "${ifname}" = where;
         };
-        entries = entries ++ [ { inherit where ifname; } ];
+        entries = entries ++ [{ inherit where ifname; }];
       };
 
 in
@@ -42,15 +42,19 @@ in
           ownIfs =
             if builtins.isAttrs (node.interfaces or null) then builtins.attrNames node.interfaces else [ ];
 
-          ownEntries = map (k: {
-            where = "${siteName}:${nodeName}.interfaces";
-            ifname = k;
-          }) ownIfs;
+          ownEntries = map
+            (k: {
+              where = "${siteName}:${nodeName}.interfaces";
+              ifname = k;
+            })
+            ownIfs;
 
-          _scan = builtins.foldl' addSeen {
-            seen = { };
-            entries = [ ];
-          } ownEntries;
+          _scan = builtins.foldl' addSeen
+            {
+              seen = { };
+              entries = [ ];
+            }
+            ownEntries;
         in
         if role != "core" then true else builtins.deepSeq _scan true
       );

@@ -2,16 +2,18 @@
 
 {
   collect =
-    {
-      site,
-      topologyPairs,
-      rolesResult,
+    { site
+    , topologyPairs
+    , rolesResult
+    ,
     }:
     let
       orderingUnits = lib.unique (
-        lib.concatMap (
-          p: if builtins.isList p && builtins.length p == 2 then map toString p else [ ]
-        ) topologyPairs
+        lib.concatMap
+          (
+            p: if builtins.isList p && builtins.length p == 2 then map toString p else [ ]
+          )
+          topologyPairs
       );
 
       topologyNodeNames =

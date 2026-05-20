@@ -30,10 +30,10 @@ let
   mkOverlayIface = overlay.build;
 
   mkIfaceBase =
-    {
-      linkName,
-      link,
-      ep,
+    { linkName
+    , link
+    , ep
+    ,
     }:
     let
       rawAddr4 = ep.addr4 or null;

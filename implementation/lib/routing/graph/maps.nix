@@ -17,13 +17,19 @@ in
         let
           members = link.membersOf links.${lname};
         in
-        builtins.foldl' (
-          memberAcc: node:
-          builtins.foldl' (
-            peerAcc: peer:
-            if peer == node then peerAcc else addNeighbor peerAcc node peer
-          ) memberAcc members
-        ) acc members;
+        builtins.foldl'
+          (
+            memberAcc: node:
+            builtins.foldl'
+              (
+                peerAcc: peer:
+                if peer == node then peerAcc else addNeighbor peerAcc node peer
+              )
+              memberAcc
+              members
+          )
+          acc
+          members;
       raw = builtins.foldl' addLink { } (builtins.attrNames links);
     in
     builtins.mapAttrs (_: peers: lib.sort (a: b: a < b) (lib.unique peers)) raw;
@@ -41,13 +47,19 @@ in
         let
           members = link.membersOf links.${lname};
         in
-        builtins.foldl' (
-          memberAcc: a:
-          builtins.foldl' (
-            peerAcc: b:
-            if a == b then peerAcc else addPair peerAcc a b lname
-          ) memberAcc members
-        ) acc members;
+        builtins.foldl'
+          (
+            memberAcc: a:
+            builtins.foldl'
+              (
+                peerAcc: b:
+                if a == b then peerAcc else addPair peerAcc a b lname
+              )
+              memberAcc
+              members
+          )
+          acc
+          members;
       raw = builtins.foldl' addLink { } (builtins.attrNames links);
     in
     builtins.mapAttrs (_: names: lib.sort (a: b: a < b) (lib.unique names)) raw;

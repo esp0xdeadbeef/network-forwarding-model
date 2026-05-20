@@ -23,16 +23,18 @@ let
       names = builtins.attrNames interfaces;
     in
     sortedUnique (
-      lib.filter (
-        ifName:
-        let
-          iface = interfaces.${ifName};
-          kind = iface.kind or null;
-          carrier = iface.carrier or null;
-          type = iface.type or null;
-        in
-        kind == "wan" || carrier == "wan" || type == "wan"
-      ) names
+      lib.filter
+        (
+          ifName:
+          let
+            iface = interfaces.${ifName};
+            kind = iface.kind or null;
+            carrier = iface.carrier or null;
+            type = iface.type or null;
+          in
+          kind == "wan" || carrier == "wan" || type == "wan"
+        )
+        names
     );
 
   declaredUplinksForNode =
@@ -43,13 +45,13 @@ let
       [ ];
 
   build =
-    {
-      nodeName,
-      node,
-      role,
-      siteUplinkCoreNames,
-      siteUplinkNames,
-      siteExternalDomains,
+    { nodeName
+    , node
+    , role
+    , siteUplinkCoreNames
+    , siteUplinkNames
+    , siteExternalDomains
+    ,
     }:
     let
       exitNode = lib.elem nodeName siteUplinkCoreNames;

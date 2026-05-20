@@ -134,7 +134,9 @@ rec {
       ranges = map cidrRange cidrs;
       merged = mergeRanges ranges;
     in
-    lib.concatMap (
-      r: if eq r.start allZero && eq r.end allOnes then [ "::/0" ] else rangeToCidrs r.start r.end
-    ) merged;
+    lib.concatMap
+      (
+        r: if eq r.start allZero && eq r.end allOnes then [ "::/0" ] else rangeToCidrs r.start r.end
+      )
+      merged;
 }

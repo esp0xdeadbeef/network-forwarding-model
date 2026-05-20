@@ -12,11 +12,11 @@ let
     c.prefix == want;
 
   checkAddr6 =
-    {
-      siteName,
-      linkName,
-      nodeName,
-      addr6,
+    { siteName
+    , linkName
+    , nodeName
+    , addr6
+    ,
     }:
     common.assert_ (hasPrefixLength addr6 127) ''
       invariants(p2p-ipv6-prefixlen-127):
@@ -32,10 +32,10 @@ let
     '';
 
   forEachEndpoint =
-    {
-      siteName,
-      linkName,
-      endpoints,
+    { siteName
+    , linkName
+    , endpoints
+    ,
     }:
     let
       epNames = builtins.attrNames endpoints;
@@ -105,9 +105,10 @@ let
       walk =
         nodeName: v:
         if builtins.isAttrs v && v ? interfaces && builtins.isAttrs v.interfaces then
-          lib.forEach (builtins.attrNames v.interfaces) (
-            ifName: checkIface nodeName ifName v.interfaces.${ifName}
-          )
+          lib.forEach (builtins.attrNames v.interfaces)
+            (
+              ifName: checkIface nodeName ifName v.interfaces.${ifName}
+            )
         else
           true;
 

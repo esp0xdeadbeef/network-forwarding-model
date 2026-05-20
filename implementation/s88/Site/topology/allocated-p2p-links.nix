@@ -6,17 +6,17 @@ let
 in
 {
   allocate =
-    {
-      enterprise,
-      siteId,
-      siteName,
-      localPool,
-      p2pPool,
-      p2pLinkSpecs,
-      nodes,
-      siteDomains,
-      userPrefixes,
-      explicitLoopbackEntries,
+    { enterprise
+    , siteId
+    , siteName
+    , localPool
+    , p2pPool
+    , p2pLinkSpecs
+    , nodes
+    , siteDomains
+    , userPrefixes
+    , explicitLoopbackEntries
+    ,
     }:
     let
       validateP2pIpv4Pool = pools.validatePool {

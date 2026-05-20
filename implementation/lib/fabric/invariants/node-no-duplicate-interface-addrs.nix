@@ -4,10 +4,10 @@ let
   iface = import ./interface-utils.nix { inherit lib self; };
 
   checkNode =
-    {
-      siteName,
-      nodeName,
-      node,
+    { siteName
+    , nodeName
+    , node
+    ,
     }:
     let
       entries = iface.nonEmptyEntries (

@@ -15,12 +15,12 @@ let
     if n <= 1 then 0 else go 0 1;
 
   validatePool =
-    {
-      label,
-      family,
-      cidrStr ? null,
-      requiredHosts ? 0,
-      required ? false,
+    { label
+    , family
+    , cidrStr ? null
+    , requiredHosts ? 0
+    , required ? false
+    ,
     }:
     if cidrStr == null then
       if required || requiredHosts > 0 then
@@ -85,11 +85,11 @@ let
       builtins.seq _family (builtins.seq _prefix (builtins.seq _range _capacity));
 
   assertNoOverlap =
-    {
-      leftLabel,
-      leftCidr,
-      rightLabel,
-      rightCidr,
+    { leftLabel
+    , leftCidr
+    , rightLabel
+    , rightCidr
+    ,
     }:
     if leftCidr == null || rightCidr == null then
       true
@@ -118,12 +118,12 @@ let
     && hostRange0.end <= poolRange.end;
 
   assertHostInPool =
-    {
-      poolLabel,
-      poolCidr,
-      entryLabel,
-      family,
-      addr0,
+    { poolLabel
+    , poolCidr
+    , entryLabel
+    , family
+    , addr0
+    ,
     }:
     if poolCidr == null || addr0 == null then
       true

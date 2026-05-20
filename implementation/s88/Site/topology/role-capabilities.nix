@@ -7,10 +7,10 @@ let
   ];
 
   roleFlagsFor =
-    {
-      role,
-      exitNode,
-      upstreamSelection,
+    { role
+    , exitNode
+    , upstreamSelection
+    ,
     }:
     {
       isAccess = role == "access";
