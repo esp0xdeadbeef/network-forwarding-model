@@ -1,4 +1,10 @@
-{ lib, self ? { outPath = ./.; }, ... }:
+{
+  lib,
+  self ? {
+    outPath = ./.;
+  },
+  ...
+}:
 
 let
   selection = import ./semantic-selection.nix { inherit lib self; };
@@ -17,10 +23,10 @@ let
     ;
 
   annotateSite =
-    { site
-    , rolesResult ? null
-    , wanResult ? null
-    ,
+    {
+      site,
+      rolesResult ? null,
+      wanResult ? null,
     }:
     let
       nodes = site.nodes or { };
@@ -34,28 +40,25 @@ let
       siteUplinkCoreNames = siteUplinkCoreNamesFor { inherit site wanResult; };
       siteUplinkNames = siteUplinkNamesFor { inherit site wanResult siteExternalDomains; };
 
-      nodeSemantics = builtins.mapAttrs
-        (
-          nodeName: node:
-            semanticNode.build {
-              inherit
-                node
-                nodeName
-                siteExternalDomains
-                siteUplinkCoreNames
-                siteUplinkNames
-                ;
-              role = roleOf nodeName;
-            }
-        )
-        nodes;
+      nodeSemantics = builtins.mapAttrs (
+        nodeName: node:
+        semanticNode.build {
+          inherit
+            node
+            nodeName
+            site
+            siteExternalDomains
+            siteUplinkCoreNames
+            siteUplinkNames
+            ;
+          role = roleOf nodeName;
+        }
+      ) nodes;
 
       traversalParticipantNodeNames = sortedUnique (
-        lib.filter
-          (
-            name: ((nodeSemantics.${name}.traversalParticipation.participates or false) == true)
-          )
-          nodeNames
+        lib.filter (
+          name: ((nodeSemantics.${name}.traversalParticipation.participates or false) == true)
+        ) nodeNames
       );
       isWanFallbackCore =
         name:
@@ -63,19 +66,19 @@ let
           node = nodes.${name} or { };
           uplinks = node.uplinks or { };
         in
-        builtins.any
-          (
-            uplinkName:
-            let
-              uplink = uplinks.${uplinkName} or { };
-              prefixes = (uplink.ipv4 or [ ]) ++ (uplink.ipv6 or [ ]);
-            in
-            builtins.elem "0.0.0.0/0" prefixes || builtins.elem "::/0" prefixes
-          )
-          (builtins.attrNames uplinks);
+        builtins.any (
+          uplinkName:
+          let
+            uplink = uplinks.${uplinkName} or { };
+            prefixes = (uplink.ipv4 or [ ]) ++ (uplink.ipv6 or [ ]);
+          in
+          builtins.elem "0.0.0.0/0" prefixes || builtins.elem "::/0" prefixes
+        ) (builtins.attrNames uplinks);
       dnsAccessNodeNames = sortedUnique (lib.filter (name: roleOf name == "access") nodeNames);
       dnsCoreNodeNames = sortedUnique coreNodeNames;
-      dnsNonWanCoreNodeNames = sortedUnique (lib.filter (name: !(isWanFallbackCore name)) dnsCoreNodeNames);
+      dnsNonWanCoreNodeNames = sortedUnique (
+        lib.filter (name: !(isWanFallbackCore name)) dnsCoreNodeNames
+      );
       dnsWanCoreNodeNames = sortedUnique (lib.filter isWanFallbackCore dnsCoreNodeNames);
 
       siteEgressIntent = {
