@@ -34,6 +34,7 @@ tests=(
   test-ipv6-intent-preserved.sh
   test-runtime-gua-return-routes.sh
   test-lane-default-routes-policy-only.sh
+  test-policy-source-scope-contract.sh
   test-compiler-traffic-path-propagation.sh
   test-overlay-core-access-p2p-contract.sh
   test-hostile-dedicated-east-west-lanes.sh
