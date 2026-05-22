@@ -66,8 +66,14 @@
               overlayName = entry.overlay or null;
               policyScoped = overlayName != null && builtins.hasAttr overlayName overlayPolicyAllowedNodes;
               attachmentScoped = overlayName != null && builtins.hasAttr overlayName overlayAllowedNodes;
+              isNonOverlayUplinkCore =
+                nodeRole == "core"
+                && overlayName != null
+                && builtins.any (uplinkName: uplinkName != overlayName) uplinksOnNode;
             in
-            if policyScoped then
+            if isNonOverlayUplinkCore then
+              true
+            else if policyScoped then
               builtins.elem nodeName overlayPolicyAllowedNodes.${overlayName}
             else if attachmentScoped then
               builtins.elem nodeName overlayAllowedNodes.${overlayName}
