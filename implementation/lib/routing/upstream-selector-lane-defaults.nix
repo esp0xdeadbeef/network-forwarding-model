@@ -35,6 +35,9 @@ in
       uplinkHasDefault =
         uplinkName:
         builtins.hasAttr uplinkName (routeFacts.uplinkHasDefaultSet or { });
+      uplinkHasExecutableDefault =
+        uplinkName:
+        uplinkHasDefault uplinkName || builtins.hasAttr uplinkName (routeFacts.overlayUplinkNameSet or { });
 
       policyLaneLinks =
         if role != "upstream-selector" || selectorNodeName != nodeName || policyNodeName == null then
@@ -85,7 +88,7 @@ in
                 if
                   coreLinkName == null
                   || uplinkName == null
-                  || !(uplinkHasDefault uplinkName)
+                  || !(uplinkHasExecutableDefault uplinkName)
                   || !(defaultRoutePolicy.accessMayUseDefault topo (laneAccessNodeName policyLink) uplinkName)
                 then
                   { routes4 = [ ]; routes6 = [ ]; }

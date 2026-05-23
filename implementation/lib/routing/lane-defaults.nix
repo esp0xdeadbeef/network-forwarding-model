@@ -19,6 +19,11 @@ let
     routeFacts: uplinkName:
     builtins.hasAttr uplinkName (routeFacts.uplinkHasDefaultSet or { });
 
+  uplinkHasExecutableDefault =
+    routeFacts: uplinkName:
+    uplinkHasDefault routeFacts uplinkName
+    || builtins.hasAttr uplinkName (routeFacts.overlayUplinkNameSet or { });
+
 in
 {
   addDownstreamSelectorPolicyDefaults =
@@ -123,7 +128,7 @@ in
         in
         if
           uplinkName == null
-          || !(uplinkHasDefault routeFacts uplinkName)
+          || !(uplinkHasExecutableDefault routeFacts uplinkName)
           || !(defaultRoutePolicy.accessMayUseDefault topo (laneAccessNodeName links.${linkName}) uplinkName)
         then
           acc

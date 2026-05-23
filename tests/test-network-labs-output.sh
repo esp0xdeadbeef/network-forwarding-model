@@ -209,6 +209,21 @@ validate_contracts() {
   ' "${output_json}" >/dev/null || fail "FAIL network-labs-contracts: ${example_name}"
 }
 
+export_new_tsv_enabled() {
+  [[ "${EXPORT_NEW_TSV:-false}" == "true" ]]
+}
+
+overwrite_expected_tsv() {
+  local actual_sorted="$1"
+  local expected_file="$2"
+  local label="$3"
+
+  if export_new_tsv_enabled; then
+    cp "${actual_sorted}" "${expected_file}"
+    echo "EXPORT_NEW_TSV: wrote ${label} expected TSV: ${expected_file}" >&2
+  fi
+}
+
 run_example() {
   local intent="$1"
   local example_dir="${intent%/*}"
@@ -317,11 +332,8 @@ done < <(find "${examples_root}" -mindepth 2 -maxdepth 2 -type f -name intent.ni
   tail -n +2 "${actual_sites}" | LC_ALL=C sort
 } > "${actual_sites_sorted}"
 
-if [[ "${NETWORK_REPO_UPDATE_EXPECTED:-0}" == "1" ]]; then
-  cp "${actual_sites_sorted}" "${expected_sites}"
-fi
-
 if ! diff -u "${expected_sites_sorted}" "${actual_sites_sorted}"; then
+  overwrite_expected_tsv "${actual_sites_sorted}" "${expected_sites}" "network-labs sites"
   fail "FAIL network-labs-output: site summary changed"
 fi
 
@@ -337,11 +349,8 @@ pass_timed "network-labs-output"
   tail -n +2 "${actual_routes}" | LC_ALL=C sort
 } > "${actual_routes_sorted}"
 
-if [[ "${NETWORK_REPO_UPDATE_EXPECTED:-0}" == "1" ]]; then
-  cp "${actual_routes_sorted}" "${expected_routes}"
-fi
-
 if ! diff -u "${expected_routes_sorted}" "${actual_routes_sorted}"; then
+  overwrite_expected_tsv "${actual_routes_sorted}" "${expected_routes}" "network-labs routes"
   fail "FAIL network-labs-routes: route summary changed"
 fi
 

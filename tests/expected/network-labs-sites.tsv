@@ -12,10 +12,10 @@ multi-wan-dedicated-lanes	esp0xdeadbeef	site-a	7	10	6	10	2	0	22	141	139
 overlay-east-west	enterprise-a	site-a	6	6	5	6	2	1	14	82	82
 overlay-east-west	enterprise-b	site-b	6	6	5	6	2	1	14	82	82
 priority-stability	esp0xdeadbeef	site-stable	7	8	6	8	1	0	19	120	120
-s-router-overlay-dns-lane-policy	esp0xdeadbeef	site-a	12	29	11	29	3	1	65	670	670
-s-router-overlay-dns-lane-policy	esp0xdeadbeef	site-c	7	10	6	10	2	1	23	200	205
+s-router-overlay-dns-lane-policy	esp0xdeadbeef	site-a	12	29	11	29	3	1	65	675	675
+s-router-overlay-dns-lane-policy	esp0xdeadbeef	site-c	7	10	6	10	2	1	23	204	209
 s-router-overlay-dns-lane-policy	espbranch	site-b	7	9	6	9	2	1	21	188	192
-s-router-public-overlay-service	esp0xdeadbeef	site-a	12	29	11	29	3	1	65	644	644
+s-router-public-overlay-service	esp0xdeadbeef	site-a	12	29	11	29	3	1	65	649	649
 s-router-public-overlay-service	esp0xdeadbeef	site-c	7	10	6	10	2	1	23	157	162
 s-router-public-overlay-service	espbranch	site-b	7	10	6	10	2	1	23	183	188
 single-wan	esp0xdeadbeef	site-a	7	10	6	10	1	0	23	152	152
@@ -34,6 +34,6 @@ tri-site-dual-wan-overlay-integration-bgp	espbranch	site-b	7	10	6	10	2	1	23	175	
 tri-site-dual-wan-overlay-integration-static	esp0xdeadbeef	site-a	11	26	10	26	4	2	59	553	553
 tri-site-dual-wan-overlay-integration-static	esp0xdeadbeef	site-c	10	20	9	20	2	1	47	427	427
 tri-site-dual-wan-overlay-integration-static	espbranch	site-b	7	10	6	10	2	1	23	175	175
-tri-site-s-router-overlay-egress	esp	edge	7	9	6	9	2	1	21	204	208
+tri-site-s-router-overlay-egress	esp	edge	7	9	6	9	2	1	21	206	210
 tri-site-s-router-overlay-egress	esp	home	12	26	11	26	3	1	59	610	614
 tri-site-s-router-overlay-egress	esp	lab	11	19	10	19	2	1	45	436	444
