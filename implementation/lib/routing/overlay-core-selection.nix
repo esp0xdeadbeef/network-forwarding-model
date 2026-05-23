@@ -15,6 +15,30 @@ let
     in
     if builtins.isList targets then map toString targets else [ (toString targets) ];
 
+  overlayUnderlayAccessNodes =
+    topo: overlay:
+    let
+      nodes = topo.nodes or { };
+      underlayAccess = overlay.underlayAccess or { };
+      tenantName = if (underlayAccess.kind or null) == "tenant" then underlayAccess.name or null else null;
+      nodeHasTenant =
+        node:
+        lib.any
+          (
+            attachment:
+            (attachment.kind or null) == "tenant"
+            && tenantName != null
+            && (toString (attachment.name or "")) == (toString tenantName)
+          )
+          (node.attachments or [ ]);
+    in
+    if tenantName == null then
+      [ ]
+    else
+      lib.filter
+        (name: ((nodes.${name}.role or null) == "access") && nodeHasTenant nodes.${name})
+        (builtins.attrNames nodes);
+
   attachmentTargets =
     attachment:
     let
@@ -48,11 +72,17 @@ in
           attachment: builtins.elem (toString coreName) (attachmentTargets attachment)
         )
         attachments;
+      matchingOverlays = lib.filter
+        (
+          overlay: builtins.elem (toString coreName) (overlayTargets overlay)
+        )
+        (overlayItems topo);
     in
     lib.unique (
       lib.concatMap
         (attachment: map toString (attachment.accessNodes or [ ]))
         matchingAttachments
+      ++ lib.concatMap (overlayUnderlayAccessNodes topo) matchingOverlays
     );
 
   nonOverlayUplinkCores =
