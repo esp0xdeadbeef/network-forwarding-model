@@ -23,11 +23,11 @@ labs_path="$(
 
 output_json="${work_dir}/forwarding.json"
 gron_txt="${work_dir}/forwarding.gron"
-lab_dir="${labs_path}/labs/lab-s-sigma/s-router-test-three-site"
+example_dir="${labs_path}/examples/s-router-overlay-dns-lane-policy"
 
 start_ms="$(test_now_ms)"
 nix run "${repo_root}#compile-and-build-forwarding-model" -- \
-  "${lab_dir}/intent.nix" >"${output_json}"
+  "${example_dir}/intent.nix" >"${output_json}"
 pass_timed "policy-source-scope-contract:compile" "${start_ms}"
 
 gron "${output_json}" >"${gron_txt}"
@@ -40,15 +40,15 @@ require_gron() {
   fi
 }
 
-require_gron 'json.enterprise.esp.site.nixos.tenantPrefixOwners["4|10.20.70.0/24"].owner = "nixos-router-access-hostile";'
-require_gron 'json.enterprise.esp.site.nixos.tenantPrefixOwners["6|source:/run/secrets/access-node-ipv6-prefix-esp-nixos-router-access-hostile"].owner = "nixos-router-access-hostile";'
-require_gron 'json.enterprise.esp.site.nixos.nodes["nixos-router-policy"].interfaces["p2p-nixos-router-policy-nixos-router-upstream--access-nixos-router-access-hostile--uplink-east-west"].routes.ipv4[0].lane.access = "nixos-router-access-hostile";'
-require_gron 'json.enterprise.esp.site.nixos.nodes["nixos-router-policy"].interfaces["p2p-nixos-router-policy-nixos-router-upstream--access-nixos-router-access-hostile--uplink-east-west"].routes.ipv4[0].lane.uplink = "east-west";'
+require_gron 'json.enterprise.espbranch.site["site-b"].tenantPrefixOwners["4|10.70.10.0/24"].owner = "b-router-access-hostile";'
+require_gron 'json.enterprise.espbranch.site["site-b"].tenantPrefixOwners["6|source:/run/secrets/access-node-ipv6-prefix-espbranch-site-b-b-router-access-hostile"].owner = "b-router-access-hostile";'
+require_gron 'json.enterprise.espbranch.site["site-b"].nodes["b-router-policy"].interfaces["p2p-b-router-policy-b-router-upstream-selector--access-b-router-access-hostile--uplink-east-west"].routes.ipv4[0].lane.access = "b-router-access-hostile";'
+require_gron 'json.enterprise.espbranch.site["site-b"].nodes["b-router-policy"].interfaces["p2p-b-router-policy-b-router-upstream-selector--access-b-router-access-hostile--uplink-east-west"].routes.ipv4[0].lane.uplink = "east-west";'
 
 jq -e '
   def route_has($access; $uplink; $dst):
-    [.enterprise.esp.site.nixos.nodes."nixos-router-policy".interfaces[]
-      .routes.ipv4[]?, .enterprise.esp.site.nixos.nodes."nixos-router-policy".interfaces[]
+    [.enterprise.espbranch.site["site-b"].nodes."b-router-policy".interfaces[]
+      .routes.ipv4[]?, .enterprise.espbranch.site["site-b"].nodes."b-router-policy".interfaces[]
       .routes.ipv6[]?
       | select(
           (.policyOnly // false) == true
@@ -57,12 +57,12 @@ jq -e '
           and (.lane.uplink // "") == $uplink
           and (.dst // "") == $dst
         )] | length > 0;
-  .enterprise.esp.site.nixos as $site
-  | ($site.tenantPrefixOwners["4|10.20.70.0/24"].owner == "nixos-router-access-hostile")
-    and ($site.tenantPrefixOwners["6|fd42:dead:beef:0070:0000:0000:0000:0000/64"].owner == "nixos-router-access-hostile")
-    and ($site.tenantPrefixOwners["6|source:/run/secrets/access-node-ipv6-prefix-esp-nixos-router-access-hostile"].owner == "nixos-router-access-hostile")
-    and route_has("nixos-router-access-hostile"; "east-west"; "0.0.0.0/0")
-    and route_has("nixos-router-access-hostile"; "east-west"; "::/0")
+  .enterprise.espbranch.site["site-b"] as $site
+  | ($site.tenantPrefixOwners["4|10.70.10.0/24"].owner == "b-router-access-hostile")
+    and ($site.tenantPrefixOwners["6|fd42:dead:feed:0070:0000:0000:0000:0000/64"].owner == "b-router-access-hostile")
+    and ($site.tenantPrefixOwners["6|source:/run/secrets/access-node-ipv6-prefix-espbranch-site-b-b-router-access-hostile"].owner == "b-router-access-hostile")
+    and route_has("b-router-access-hostile"; "east-west"; "0.0.0.0/0")
+    and route_has("b-router-access-hostile"; "east-west"; "::/0")
 ' "${output_json}" >/dev/null || {
   cat >&2 <<'EOF'
 FAIL policy-source-scope-contract

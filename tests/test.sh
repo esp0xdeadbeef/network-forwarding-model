@@ -42,7 +42,7 @@ tests=(
   test-overlay-access-uplink-defaults-without-core-default.sh
   test-hostile-dedicated-east-west-lanes.sh
   test-tri-site-hostile-forwarding-scope.sh
-  test-sigma-hetz-overlay-wan-return.sh
+  test-example-overlay-wan-return.sh
   test-overlay-peer-sites.sh
   test-external-ingress-uplink-defaults.sh
   test-service-source-uplink-lanes.sh

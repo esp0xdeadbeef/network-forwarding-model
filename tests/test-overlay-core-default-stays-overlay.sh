@@ -24,33 +24,33 @@ labs_path="$(
   '
 )"
 
-intent_path="${labs_path}/labs/lab-s-sigma/s-router-test-three-site/intent.nix"
+intent_path="${labs_path}/examples/s-router-overlay-dns-lane-policy/intent.nix"
 nix run "${repo_root}#compile-and-build-forwarding-model" -- "${intent_path}" >"${output_json}"
 
 OUTPUT_JSON="${output_json}" nix eval --impure --expr '
   let
     data = builtins.fromJSON (builtins.readFile (builtins.getEnv "OUTPUT_JSON"));
-    nixos = data.enterprise.esp.site.nixos;
-    hetz = data.enterprise.esp.site.hetz;
+    siteA = data.enterprise.esp0xdeadbeef.site."site-a";
+    siteC = data.enterprise.esp0xdeadbeef.site."site-c";
 
     hasDefault4 = routes:
       builtins.any (route: (route.dst or null) == "0.0.0.0/0") (routes.ipv4 or [ ]);
     hasDefault6 = routes:
       builtins.any (route: (route.dst or null) == "::/0") (routes.ipv6 or [ ]);
 
-    nixosOverlay = nixos.nodes."nixos-router-core-nebula".interfaces."overlay-east-west".routes;
-    nixosUnderlay = nixos.nodes."nixos-router-core-nebula".interfaces."p2p-nixos-router-core-nebula-nixos-router-upstream".routes;
-    hetzUnderlay = hetz.nodes."hetz-router-nebula-core".interfaces."p2p-hetz-router-nebula-core-hetz-router-upstream".routes;
+    siteAOverlay = siteA.nodes."s-router-core-nebula".interfaces."overlay-east-west".routes;
+    siteAUnderlay = siteA.nodes."s-router-core-nebula".interfaces."p2p-s-router-core-nebula-s-router-upstream-selector".routes;
+    siteCUnderlay = siteC.nodes."c-router-nebula-core".interfaces."p2p-c-router-nebula-core-c-router-upstream-selector".routes;
   in
-    hasDefault4 nixosOverlay
-    && hasDefault6 nixosOverlay
-    && !(hasDefault4 nixosUnderlay)
-    && !(hasDefault6 nixosUnderlay)
-    && hasDefault4 hetzUnderlay
-    && hasDefault6 hetzUnderlay
+    !(hasDefault4 siteAOverlay)
+    && !(hasDefault6 siteAOverlay)
+    && hasDefault4 siteAUnderlay
+    && hasDefault6 siteAUnderlay
+    && hasDefault4 siteCUnderlay
+    && hasDefault6 siteCUnderlay
 ' | {
   if ! grep -qx true; then
-    echo "FAIL overlay-core-default-stays-overlay: compiler overlay defaults must stay on overlay interfaces unless an explicit external-overlay-to-uplink relation allows local WAN egress" >&2
+    echo "FAIL overlay-core-default-stays-overlay: examples must place executable overlay-underlay defaults on explicit underlay access, not on the overlay interface itself" >&2
     exit 1
   fi
 }
