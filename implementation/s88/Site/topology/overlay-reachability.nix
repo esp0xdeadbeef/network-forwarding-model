@@ -37,6 +37,13 @@ let
       inherit ipv4 ipv6;
     };
 
+  overlayUnderlayAccessOf =
+    overlay:
+    let
+      underlayAccess = overlay.underlayAccess or null;
+    in
+    if builtins.isAttrs underlayAccess then underlayAccess else null;
+
   overlayNodePrefixesOf =
     peerSite: overlayName:
     let
@@ -69,6 +76,7 @@ let
           tenantPrefixes.prefixesOfSite peerSite;
       terminateOn = lib.unique (overlayTargetNamesFrom overlay);
       explicitPrefixes = explicitPrefixesOf overlay;
+      underlayAccess = overlayUnderlayAccessOf overlay;
       overlayNodePrefixes =
         if peerSite == null then
           {
@@ -84,6 +92,7 @@ let
         overlay = overlayName;
         peerSite = peerSiteRef;
         terminateOn = terminateOn;
+        inherit underlayAccess;
         routes4 = normalizedPrefixRoutes {
           inherit overlayName peerSiteRef;
           family = 4;
@@ -124,6 +133,7 @@ let
             overlay = item.overlay;
             peerSites = [ ];
             terminateOn = [ ];
+            underlayAccess = null;
             routes4 = [ ];
             routes6 = [ ];
           };
@@ -140,6 +150,8 @@ let
           peerSite = if peerSites == [ ] then null else builtins.head peerSites;
           peerSites = peerSites;
           terminateOn = lib.unique (existing.terminateOn ++ item.terminateOn);
+          underlayAccess =
+            if existing.underlayAccess != null then existing.underlayAccess else item.underlayAccess or null;
           routes4 = lib.unique (existing.routes4 ++ item.routes4);
           routes6 = lib.unique (existing.routes6 ++ item.routes6);
         };
