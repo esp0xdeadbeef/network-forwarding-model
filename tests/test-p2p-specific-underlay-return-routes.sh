@@ -17,18 +17,25 @@ jq -e '
   def has_route($node; $iface; $dst; $via):
     .enterprise.esp.site.hetz.nodes[$node].interfaces[$iface].routes.ipv4
     | any(.dst == $dst and .via4 == $via and .proto == "internal" and .intent.kind == "internal-reachability");
+  def has_connected($node; $iface; $dst):
+    .enterprise.esp.site.hetz.nodes[$node].interfaces[$iface].routes.ipv4
+    | any(.dst == $dst and .proto == "connected" and .intent.kind == "connected-reachability");
+  def peer4($link; $node):
+    .enterprise.esp.site.hetz.links[$link].endpoints[$node].addr4 | split("/")[0];
 
   has_route(
     "hetz-router-policy";
     "p2p-hetz-router-policy-hetz-router-upstream--access-hetz-router-access-dmz--uplink-east-west";
-    "10.80.0.10/31";
-    "10.80.0.15"
+    "10.80.0.12/31";
+    peer4(
+      "p2p-hetz-router-policy-hetz-router-upstream--access-hetz-router-access-dmz--uplink-east-west";
+      "hetz-router-upstream"
+    )
   )
-  and has_route(
+  and has_connected(
     "hetz-router-downstream";
     "p2p-hetz-router-downstream-hetz-router-policy--access-hetz-router-access-dmz";
-    "10.80.0.10/31";
-    "10.80.0.9"
+    "10.80.0.10/31"
   )
   and (
     [
