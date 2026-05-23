@@ -38,6 +38,7 @@ tests=(
   test-dns-service-node-placement.sh
   test-compiler-traffic-path-propagation.sh
   test-overlay-core-access-p2p-contract.sh
+  test-overlay-underlay-access-default-routes.sh
   test-hostile-dedicated-east-west-lanes.sh
   test-tri-site-hostile-forwarding-scope.sh
   test-sigma-hetz-overlay-wan-return.sh

@@ -44,6 +44,16 @@ in
             })
           ];
 
+      overlayTerminatingCores = overlayCoreSelection.overlayTerminatingCores topo;
+
+      avoidsOverlayTransit =
+        path:
+        let
+          len = builtins.length path;
+          intermediate = if len <= 2 then [ ] else lib.sublist 1 (len - 2) path;
+        in
+        lib.all (node: !(builtins.elem node overlayTerminatingCores)) intermediate;
+
       nearestUplinkCore =
         let
           uplinks = routeFacts.uplinkCores or [ ];
@@ -58,7 +68,7 @@ in
                     dst = target;
                   };
                 in
-                path != null && builtins.length path >= 2
+                path != null && builtins.length path >= 2 && avoidsOverlayTransit path
               )
               candidates;
         in
@@ -67,18 +77,40 @@ in
         else
           builtins.head (lib.sort (a: b: a < b) reachable);
 
+      overlayUnderlayAccessNode =
+        let
+          accessNodes = overlayCoreSelection.underlayAccessNodesForCore topo nodeName;
+          reachable =
+            lib.filter
+              (
+                target:
+                let
+                  path = routeGraph.shortestPath {
+                    src = nodeName;
+                    dst = target;
+                  };
+                in
+                path != null && builtins.length path >= 2
+              )
+              accessNodes;
+        in
+        if reachable == [ ] then null else builtins.head (lib.sort (a: b: a < b) reachable);
+
+      nearestDefaultTarget =
+        if overlayUnderlayAccessNode != null then overlayUnderlayAccessNode else nearestUplinkCore;
+
       overlayUplinkNameSet = routeFacts.overlayUplinkNameSet or { };
       nonOverlayUplinkNames = routeFacts.nonOverlayUplinkNames or [ ];
       defaultReachabilityUplinkNames = routeFacts.defaultReachabilityUplinkNames or (topo.uplinkNames or [ ]);
 
       addDefaultTowardNearestUplinkCore =
-        if nearestUplinkCore == null then
+        if nearestDefaultTarget == null then
           node
         else
           let
             path = routeGraph.shortestPath {
               src = nodeName;
-              dst = nearestUplinkCore;
+              dst = nearestDefaultTarget;
             };
             nextHop = nextHopWithPreferredUplinks {
               inherit topo;
