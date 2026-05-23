@@ -88,10 +88,15 @@ nix run "${repo_root}#debug" -- "${ir_json}" >"${model_json}"
 if jq -e '
   .enterprise.acme.site.ams as $site
   | ($site.nodes."access-client".interfaces."p2p-access-client-core-overlay".routes // {}) as $accessRoutes
+  | ($site.nodes."access-client".interfaces."p2p-access-client-downstream".routes // {}) as $accessTransitRoutes
   | ($site.nodes."core-overlay".interfaces."p2p-access-client-core-overlay".routes // {}) as $coreRoutes
   | (
       (($accessRoutes.ipv4 // []) | all(.intent.kind != "default-reachability" and .dst != "0.0.0.0/0"))
       and (($accessRoutes.ipv6 // []) | all(.intent.kind != "default-reachability" and .dst != "::/0"))
+    )
+  and (
+      (($accessTransitRoutes.ipv4 // []) | any(.intent.kind == "default-reachability" and .dst == "0.0.0.0/0"))
+      and (($accessTransitRoutes.ipv6 // []) | any(.intent.kind == "default-reachability" and .dst == "::/0"))
     )
   and (
       (($coreRoutes.ipv4 // []) | any(.intent.kind == "default-reachability" and .dst == "0.0.0.0/0"))
@@ -105,9 +110,10 @@ FATAL network-forwarding-model overlay underlay access defaults regressed.
 
 Overlay daemon underlay may enter through an explicitly selected access node,
 but the selected access node must not default-route back into the overlay core.
-The overlay-terminating core must default toward that selected access node so
-runtime overlay bootstrap can use the normal access/downstream/policy/upstream
-path instead of a direct WAN/selector shortcut.
+The overlay-terminating core must default toward that selected access node, and
+the selected access node must keep its normal default toward downstream transit
+so runtime overlay bootstrap can use the normal access/downstream/policy/upstream
+path instead of either a self-loop or a dead-end access hop.
 EOF
   exit 1
 fi

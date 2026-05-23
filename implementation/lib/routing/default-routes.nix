@@ -1,4 +1,10 @@
-{ lib, self ? { outPath = ./.; }, ... }:
+{
+  lib,
+  self ? {
+    outPath = ./.;
+  },
+  ...
+}:
 
 let
   graphContext = import ./graph/context.nix { inherit lib self; };
@@ -6,16 +12,17 @@ let
   directWanDefaults = import ./direct-wan-defaults.nix { inherit lib self; };
   laneDefaults = import ./lane-defaults.nix { inherit lib self; };
   overlayCoreSelection = import ./overlay-core-selection.nix { inherit lib self; };
+  pathAvoidance = import ./graph/path-avoidance.nix { inherit lib; };
 in
 {
   apply =
-    { topo
-    , nodeName
-    , node
-    , routeContext
-    , routeFacts ? routeContext.buildFacts topo
-    , routeGraph ? graphContext.build (topo.links or { }) { }
-    ,
+    {
+      topo,
+      nodeName,
+      node,
+      routeContext,
+      routeFacts ? routeContext.buildFacts topo,
+      routeGraph ? graphContext.build (topo.links or { }) { },
     }:
     let
       inherit (routeContext) nextHopWithPreferredUplinks;
@@ -54,23 +61,23 @@ in
         in
         lib.all (node: !(builtins.elem node overlayTerminatingCores)) intermediate;
 
+      shortestPathAvoiding = pathAvoidance.shortestPath routeGraph;
+
       nearestUplinkCore =
         let
           uplinks = routeFacts.uplinkCores or [ ];
           candidates = overlayCoreSelection.nonOverlayUplinkCores topo uplinks;
-          reachable =
-            lib.filter
-              (
-                target:
-                let
-                  path = routeGraph.shortestPath {
-                    src = nodeName;
-                    dst = target;
-                  };
-                in
-                path != null && builtins.length path >= 2 && avoidsOverlayTransit path
-              )
-              candidates;
+          reachable = lib.filter (
+            target:
+            let
+              path = shortestPathAvoiding {
+                src = nodeName;
+                dst = target;
+                forbidden = overlayTerminatingCores;
+              };
+            in
+            path != null && builtins.length path >= 2 && avoidsOverlayTransit path
+          ) candidates;
         in
         if uplinks == [ ] || lib.elem nodeName uplinks || reachable == [ ] then
           null
@@ -80,19 +87,16 @@ in
       overlayUnderlayAccessNode =
         let
           accessNodes = overlayCoreSelection.underlayAccessNodesForCore topo nodeName;
-          reachable =
-            lib.filter
-              (
-                target:
-                let
-                  path = routeGraph.shortestPath {
-                    src = nodeName;
-                    dst = target;
-                  };
-                in
-                path != null && builtins.length path >= 2
-              )
-              accessNodes;
+          reachable = lib.filter (
+            target:
+            let
+              path = routeGraph.shortestPath {
+                src = nodeName;
+                dst = target;
+              };
+            in
+            path != null && builtins.length path >= 2
+          ) accessNodes;
         in
         if reachable == [ ] then null else builtins.head (lib.sort (a: b: a < b) reachable);
 
@@ -101,7 +105,8 @@ in
 
       overlayUplinkNameSet = routeFacts.overlayUplinkNameSet or { };
       nonOverlayUplinkNames = routeFacts.nonOverlayUplinkNames or [ ];
-      defaultReachabilityUplinkNames = routeFacts.defaultReachabilityUplinkNames or (topo.uplinkNames or [ ]);
+      defaultReachabilityUplinkNames =
+        routeFacts.defaultReachabilityUplinkNames or (topo.uplinkNames or [ ]);
 
       addDefaultTowardNearestUplinkCore =
         if nearestDefaultTarget == null then
@@ -112,10 +117,22 @@ in
               src = nodeName;
               dst = nearestDefaultTarget;
             };
+            nonOverlayPath = shortestPathAvoiding {
+              src = nodeName;
+              dst = nearestDefaultTarget;
+              forbidden = overlayTerminatingCores;
+            };
+            selectedPath =
+              if overlayUnderlayAccessNode != null then
+                path
+              else if nonOverlayPath != null then
+                nonOverlayPath
+              else
+                path;
             nextHop = nextHopWithPreferredUplinks {
               inherit topo;
               from = nodeName;
-              to = builtins.elemAt path 1;
+              to = builtins.elemAt selectedPath 1;
               inherit routeGraph;
               preferredUplinks = defaultReachabilityUplinkNames;
             };
@@ -126,14 +143,12 @@ in
               selectedUplinkName != null && builtins.hasAttr selectedUplinkName overlayUplinkNameSet;
             skipOverlayGenericDefault = nonOverlayUplinkNames != [ ] && selectedIsOverlayUplink;
           in
-          if nextHop.linkName == null || skipOverlayGenericDefault then
+          if selectedPath == null || nextHop.linkName == null || skipOverlayGenericDefault then
             node
           else
-            helpers.addRoutesOnLink
-              node
-              nextHop.linkName
-              (nearestDefaultRoute 4 nextHop.via4)
-              (nearestDefaultRoute 6 nextHop.via6);
+            helpers.addRoutesOnLink node nextHop.linkName (nearestDefaultRoute 4 nextHop.via4) (
+              nearestDefaultRoute 6 nextHop.via6
+            );
     in
     {
       inherit addDefaultTowardNearestUplinkCore;
