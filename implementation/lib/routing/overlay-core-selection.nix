@@ -15,10 +15,46 @@ let
     in
     if builtins.isList targets then map toString targets else [ (toString targets) ];
 
+  attachmentTargets =
+    attachment:
+    let
+      targets = attachment.terminatesOn or attachment.terminateOn or attachment.targets or [ ];
+    in
+    if builtins.isList targets then map toString targets else [ (toString targets) ];
+
+  overlayAttachmentItems =
+    topo:
+    let
+      attachments = topo.overlayAttachments or { };
+    in
+    if builtins.isAttrs attachments then builtins.attrValues attachments else [ ];
+
   overlayTerminatingCores =
-    topo: lib.unique (lib.concatMap overlayTargets (overlayItems topo));
+    topo:
+    lib.unique (
+      (lib.concatMap overlayTargets (overlayItems topo))
+      ++ (lib.concatMap attachmentTargets (overlayAttachmentItems topo))
+    );
 in
 {
+  inherit overlayTerminatingCores;
+
+  underlayAccessNodesForCore =
+    topo: coreName:
+    let
+      attachments = overlayAttachmentItems topo;
+      matchingAttachments = lib.filter
+        (
+          attachment: builtins.elem (toString coreName) (attachmentTargets attachment)
+        )
+        attachments;
+    in
+    lib.unique (
+      lib.concatMap
+        (attachment: map toString (attachment.accessNodes or [ ]))
+        matchingAttachments
+    );
+
   nonOverlayUplinkCores =
     topo: uplinkCores:
     let

@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+source "${repo_root}/tests/lib/timing.sh"
+tmpdir="$(mktemp -d)"
+trap 'rm -rf "${tmpdir}"' EXIT
+
+input_nix="${tmpdir}/input.nix"
+ir_json="${tmpdir}/ir.json"
+model_json="${tmpdir}/model.json"
+
+cat >"${input_nix}" <<'EOF'
+{
+  sites.acme.ams = {
+    addressPools = {
+      local.ipv4 = "10.0.0.0/24";
+      p2p.ipv4 = "10.0.1.0/24";
+      p2p.ipv6 = "fd42:0:0:1000::/64";
+    };
+
+    domains = {
+      tenants = [
+        {
+          kind = "tenant";
+          name = "client";
+          ipv4 = "10.10.0.0/24";
+          ipv6 = "fd42:10::/64";
+        }
+      ];
+      externals = [ { kind = "external"; name = "wan"; } ];
+    };
+
+    communicationContract.relations = [
+      {
+        id = "allow-client-wan";
+        priority = 100;
+        from = { kind = "tenant"; name = "client"; };
+        to = { kind = "external"; name = "wan"; };
+        trafficType = "any";
+        action = "allow";
+      }
+    ];
+
+    overlayAttachments."east-west" = {
+      accessNodes = [ "access-client" ];
+      terminatesOn = [ "core-overlay" ];
+      canonicalPath = [ "core-wan" "upstream" "policy" "downstream" "access-client" "overlay:east-west" ];
+      attachAfterStage = "access";
+      site = "acme.ams";
+    };
+
+    topology.nodes = {
+      access-client = {
+        role = "access";
+        attachments = [ { kind = "tenant"; name = "client"; } ];
+      };
+      downstream.role = "downstream-selector";
+      policy.role = "policy";
+      upstream.role = "upstream-selector";
+      core-wan = {
+        role = "core";
+        uplinks.wan.ipv4 = [ "0.0.0.0/0" ];
+        uplinks.wan.ipv6 = [ "::/0" ];
+      };
+      core-overlay = {
+        role = "core";
+        uplinks."east-west".ipv4 = [ "0.0.0.0/0" ];
+        uplinks."east-west".ipv6 = [ "::/0" ];
+      };
+    };
+
+    topology.links = [
+      [ "access-client" "downstream" ]
+      [ "downstream" "policy" ]
+      [ "policy" "upstream" ]
+      [ "upstream" "core-wan" ]
+      [ "upstream" "core-overlay" ]
+      [ "core-overlay" "access-client" ]
+    ];
+  };
+}
+EOF
+
+nix eval --json --impure --expr "import ${input_nix}" >"${ir_json}"
+nix run "${repo_root}#debug" -- "${ir_json}" >"${model_json}"
+
+if jq -e '
+  .enterprise.acme.site.ams as $site
+  | ($site.nodes."access-client".interfaces."p2p-access-client-core-overlay".routes // {}) as $accessRoutes
+  | ($site.nodes."core-overlay".interfaces."p2p-access-client-core-overlay".routes // {}) as $coreRoutes
+  | (
+      (($accessRoutes.ipv4 // []) | all(.intent.kind != "default-reachability" and .dst != "0.0.0.0/0"))
+      and (($accessRoutes.ipv6 // []) | all(.intent.kind != "default-reachability" and .dst != "::/0"))
+    )
+  and (
+      (($coreRoutes.ipv4 // []) | any(.intent.kind == "default-reachability" and .dst == "0.0.0.0/0"))
+      and (($coreRoutes.ipv6 // []) | any(.intent.kind == "default-reachability" and .dst == "::/0"))
+    )
+' "${model_json}" >/dev/null; then
+  pass_timed "overlay-underlay-access-default-routes"
+else
+  cat >&2 <<'EOF'
+FATAL network-forwarding-model overlay underlay access defaults regressed.
+
+Overlay daemon underlay may enter through an explicitly selected access node,
+but the selected access node must not default-route back into the overlay core.
+The overlay-terminating core must default toward that selected access node so
+runtime overlay bootstrap can use the normal access/downstream/policy/upstream
+path instead of a direct WAN/selector shortcut.
+EOF
+  exit 1
+fi
