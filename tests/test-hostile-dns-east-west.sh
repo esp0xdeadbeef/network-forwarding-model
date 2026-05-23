@@ -123,11 +123,11 @@ OUTPUT_JSON="${s_router_output_json}" nix eval --impure --expr '
         && ((route.via4 or null) == gateway || (route.via6 or null) == gateway)
       ) ((routes.ipv4 or [ ]) ++ (routes.ipv6 or [ ]));
   in
-    !(hasRoute clientEw "0.0.0.0/0" "10.80.0.13")
+    hasRoute clientEw "0.0.0.0/0" "10.80.0.13"
     && hasRoute clientWan "0.0.0.0/0" "10.80.0.15"
 ' | {
   if ! grep -qx true; then
-    echo "FAIL hostile-dns-east-west: site-c client public IPv4 default must prefer WAN, not east-west overlay" >&2
+    echo "FAIL hostile-dns-east-west: site-c client public IPv4 defaults must preserve both allowed WAN and east-west lanes" >&2
     exit 1
   fi
 }
