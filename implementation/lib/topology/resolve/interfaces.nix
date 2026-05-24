@@ -42,6 +42,7 @@ in
       );
 
       node = nodes.${nodeName} or { };
+      nodeRole = node.role or null;
       nets = helpers.networksOf node;
       logicalInterfaces = lib.listToAttrs (
         map
@@ -53,7 +54,7 @@ in
             {
               name = ifName;
               value = helpers.mkLogicalIface {
-                inherit nodeName ifName netName;
+                inherit nodeName nodeRole ifName netName;
                 net = nets.${netName};
               };
             }

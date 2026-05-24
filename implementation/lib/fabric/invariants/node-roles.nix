@@ -72,15 +72,20 @@ in
           n:
           let
             nets = nodes.${n}.networks or null;
+            nonGatewayNames =
+              if builtins.isAttrs nets then
+                lib.filter (name: (nets.${name}.gateway or true) == false) (builtins.attrNames nets)
+              else
+                [ ];
           in
-          nets != null && (nodes.${n}.role or "") != "access"
+          nets != null && (nodes.${n}.role or "") != "access" && builtins.length nonGatewayNames != builtins.length (builtins.attrNames nets)
         )
         (builtins.attrNames nodes);
 
       _accessOnlyNetworks = common.assert_
         (
           offenders == [ ]
-        ) "invariants(node-roles): only access nodes may define networks";
+        ) "invariants(node-roles): only access nodes may define gateway networks";
 
     in
     builtins.seq _mustHaveNodes (

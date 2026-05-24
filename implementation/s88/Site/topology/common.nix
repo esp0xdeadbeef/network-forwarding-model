@@ -34,8 +34,6 @@ let
   stripRendererUnsafe =
     iface:
     builtins.removeAttrs iface [
-      "acceptRA"
-      "dhcp"
       "ra6Prefixes"
       "addr6Public"
     ];

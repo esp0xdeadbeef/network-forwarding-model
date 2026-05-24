@@ -69,14 +69,15 @@ let
         netName:
         let
           net = nets.${netName};
+          ownsPrefix = (net.gateway or true) != false;
         in
         lib.flatten [
-          (lib.optional (net ? ipv4 && net.ipv4 != null) {
+          (lib.optional (ownsPrefix && net ? ipv4 && net.ipv4 != null) {
             family = 4;
             dst = canonicalCidr net.ipv4;
             netName = netName;
           })
-          (lib.optional (net ? ipv6 && net.ipv6 != null) {
+          (lib.optional (ownsPrefix && net ? ipv6 && net.ipv6 != null) {
             family = 6;
             dst = canonicalCidr net.ipv6;
             netName = netName;
@@ -87,7 +88,7 @@ let
               dst = canonicalCidr p;
               netName = netName;
             })
-            (net.ra6Prefixes or [ ]))
+            (lib.optionals ownsPrefix (net.ra6Prefixes or [ ])))
           (map
             (p: {
               family = 6;
@@ -101,7 +102,9 @@ let
             } // lib.optionalAttrs ((p.prefixPostfix or null) != null) {
               prefixPostfix = p.prefixPostfix;
             })
-            (lib.filter (p: builtins.isAttrs p && (p.sourceFile or null) != null) (net.routedPrefixes or [ ])))
+            (lib.optionals ownsPrefix (
+              lib.filter (p: builtins.isAttrs p && (p.sourceFile or null) != null) (net.routedPrefixes or [ ])
+            )))
         ]
       )
       netNames;
