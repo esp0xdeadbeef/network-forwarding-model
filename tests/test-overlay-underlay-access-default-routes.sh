@@ -15,6 +15,7 @@ cat >"${input_nix}" <<'EOF'
   sites.acme.ams = {
     addressPools = {
       local.ipv4 = "10.0.0.0/24";
+      local.ipv6 = "fd42:0:0:1900::/64";
       p2p.ipv4 = "10.0.1.0/24";
       p2p.ipv6 = "fd42:0:0:1000::/64";
     };
@@ -90,6 +91,10 @@ if jq -e '
   | ($site.nodes."access-client".interfaces."p2p-access-client-core-overlay".routes // {}) as $accessRoutes
   | ($site.nodes."access-client".interfaces."p2p-access-client-downstream".routes // {}) as $accessTransitRoutes
   | ($site.nodes."core-overlay".interfaces."p2p-access-client-core-overlay".routes // {}) as $coreRoutes
+  | (($site.nodes."core-overlay".loopback.ipv4 | sub("/.*$"; "") + "/32")) as $coreLoopback4
+  | (($site.nodes."core-overlay".loopback.ipv6 | sub("/.*$"; "") + "/128")) as $coreLoopback6
+  | ($site.nodes.upstream.interfaces."p2p-core-overlay-upstream".routes // {}) as $upstreamDirectOverlayRoutes
+  | ($site.nodes.upstream.interfaces."p2p-policy-upstream--access-access-client--uplink-wan".routes // {}) as $upstreamPolicyRoutes
   | (
       (($accessRoutes.ipv4 // []) | all(.intent.kind != "default-reachability" and .dst != "0.0.0.0/0"))
       and (($accessRoutes.ipv6 // []) | all(.intent.kind != "default-reachability" and .dst != "::/0"))
@@ -101,6 +106,14 @@ if jq -e '
   and (
       (($coreRoutes.ipv4 // []) | any(.intent.kind == "default-reachability" and .dst == "0.0.0.0/0"))
       and (($coreRoutes.ipv6 // []) | any(.intent.kind == "default-reachability" and .dst == "::/0"))
+    )
+  and (
+      (($upstreamDirectOverlayRoutes.ipv4 // []) | all(.dst != $coreLoopback4))
+      and (($upstreamDirectOverlayRoutes.ipv6 // []) | all(.dst != $coreLoopback6))
+    )
+  and (
+      (($upstreamPolicyRoutes.ipv4 // []) | any(.intent.kind == "internal-reachability" and .dst == $coreLoopback4))
+      and (($upstreamPolicyRoutes.ipv6 // []) | any(.intent.kind == "internal-reachability" and .dst == $coreLoopback6))
     )
 ' "${model_json}" >/dev/null; then
   pass_timed "overlay-underlay-access-default-routes"

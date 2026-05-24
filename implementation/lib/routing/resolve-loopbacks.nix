@@ -9,9 +9,8 @@ let
   routeFields = import (self.outPath + "/implementation/lib/routing/loopbacks/route-fields.nix") {
     inherit lib self;
   };
-
-  internalIntent = {
-    kind = "internal-reachability";
+  underlayPath = import (self.outPath + "/implementation/lib/routing/loopbacks/underlay-path.nix") {
+    inherit lib self;
   };
 
 in
@@ -55,12 +54,17 @@ rec {
                       src = nodeName;
                       dst = dst;
                     };
+                    selectedPath = underlayPath.selectedPath {
+                      inherit topo routeGraph dst;
+                      src = nodeName;
+                      fallbackPath = path;
+                    };
                   in
-                  if path == null || builtins.length path < 2 then
+                  if selectedPath == null || builtins.length selectedPath < 2 then
                     throw "routing(loopbacks): unreachable router identity '${dst}' from '${nodeName}'"
                   else
                     let
-                      hop = builtins.elemAt path 1;
+                      hop = builtins.elemAt selectedPath 1;
                       nh = nextHop.withPreferences {
                         inherit links;
                         from = nodeName;
@@ -81,7 +85,7 @@ rec {
                               dst = routeFields.hostDst4 lb.ipv4;
                               via4 = nh.via4;
                               proto = "internal";
-                              intent = internalIntent;
+                              intent.kind = "internal-reachability";
                               preserveDst = true;
                             }
                           ];
@@ -95,7 +99,7 @@ rec {
                               dst = routeFields.hostDst6 lb.ipv6;
                               via6 = nh.via6;
                               proto = "internal";
-                              intent = internalIntent;
+                              intent.kind = "internal-reachability";
                               preserveDst = true;
                             }
                           ];
