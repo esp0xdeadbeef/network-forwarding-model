@@ -2,36 +2,15 @@
 
 let
   common = import ./common.nix { inherit lib self; };
+  hostLikeOverlayCore = import (self.outPath + "/implementation/lib/fabric/invariants/host-like-overlay-core.nix") { inherit lib; };
+  transitLinkHelpers = import (self.outPath + "/implementation/lib/fabric/invariants/transit-link-helpers.nix") { inherit lib; };
   roleStages = import (self.outPath + "/implementation/lib/fabric/transit-role-stages.nix") { inherit lib self; };
+  inherit (transitLinkHelpers) hasP2pLinkBetween p2pLinkNames;
 
   sorted = xs: lib.sort (a: b: a < b) xs;
 
   nodeNamesByRole =
     role: nodes: sorted (builtins.attrNames (lib.filterAttrs (_: n: (n.role or null) == role) nodes));
-
-  hasP2pLinkBetween =
-    links: a: b:
-    lib.any
-      (
-        linkName:
-        let
-          l = links.${linkName};
-          members = l.members or [ ];
-        in
-        (l.kind or null) == "p2p" && lib.elem a members && lib.elem b members
-      )
-      (builtins.attrNames links);
-
-  p2pLinkNames =
-    links: lib.filter (linkName: (links.${linkName}.kind or null) == "p2p") (builtins.attrNames links);
-
-  tenantAttachments = node:
-    lib.filter (tenant: tenant != null) (
-      map
-        (attachment:
-          if (attachment.kind or null) == "tenant" then toString (attachment.name or null) else null)
-        (node.attachments or [ ])
-    );
 
 in
 {
@@ -55,14 +34,7 @@ in
         builtins.attrNames (site.overlayReachability or { })
         ++ builtins.attrNames (site.overlayAttachments or { })
       );
-      isHostLikeOverlayCore = nodeName:
-        let
-          node = nodes.${nodeName};
-          uplinkNames = builtins.attrNames (node.uplinks or { });
-        in
-        tenantAttachments node != [ ]
-        && uplinkNames != [ ]
-        && builtins.all (uplinkName: builtins.elem uplinkName overlayNames) uplinkNames;
+      isHostLikeOverlayCore = hostLikeOverlayCore.isHostLikeOverlayCore { inherit overlayNames nodes; };
       transitCoreNodes = lib.filter (nodeName: !(isHostLikeOverlayCore nodeName)) coreNodes;
 
       _policyCount = common.assert_ (builtins.length policyNodes == 1) ''
