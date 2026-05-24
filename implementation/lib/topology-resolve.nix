@@ -144,6 +144,39 @@ let
     tenantPrefixOwners = tenantPrefixOwners;
   };
 
+  overlayCoreSelection = import ./routing/overlay-core-selection.nix { inherit lib self; };
+  tenantAttachments = node:
+    lib.filter (tenant: tenant != null) (
+      map
+        (attachment:
+          if (attachment.kind or null) == "tenant" then toString (attachment.name or null) else null)
+        (node.attachments or [ ])
+    );
+  sharesTenantAttachment = left: right:
+    let
+      leftTenants = tenantAttachments left;
+      rightTenants = tenantAttachments right;
+    in
+    builtins.any (tenant: builtins.elem tenant rightTenants) leftTenants;
+  overlayUnderlayVirtualEdges =
+    let
+      nodesForGraph = topo2.nodes or { };
+      overlayCores = overlayCoreSelection.overlayTerminatingCores topo2;
+      edgesForCore = coreName:
+        let
+          core = nodesForGraph.${coreName} or { };
+          accessNodes = overlayCoreSelection.underlayAccessNodesForCore topo2 coreName;
+        in
+        map
+          (accessName: [ coreName accessName ])
+          (lib.filter
+            (accessName:
+              builtins.hasAttr accessName nodesForGraph
+              && sharesTenantAttachment core nodesForGraph.${accessName})
+            accessNodes);
+    in
+    lib.unique (lib.concatMap edgesForCore overlayCores);
+
   resolveLoopbacks = import ./routing/resolve-loopbacks.nix { inherit lib self; };
   routingStatic = import ./routing/static/attach.nix { inherit lib self; };
 
@@ -151,6 +184,7 @@ let
   routeGraph =
     graphContext.build (topo2.links or { }) {
       nodeNames = builtins.attrNames (topo2.nodes or { });
+      virtualEdges = overlayUnderlayVirtualEdges;
     };
   topo3 = if skipRouting then topo2 else resolveLoopbacks.attachWith { topo = topo2; inherit routeGraph; };
   topo4 = if skipRouting then topo3 else routingStatic.attachWith { topo = topo3; inherit routeGraph; };

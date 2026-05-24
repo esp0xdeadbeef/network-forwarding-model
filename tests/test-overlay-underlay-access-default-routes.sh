@@ -66,6 +66,7 @@ cat >"${input_nix}" <<'EOF'
       };
       core-overlay = {
         role = "core";
+        attachments = [ { kind = "tenant"; name = "client"; } ];
         uplinks."east-west".ipv4 = [ "0.0.0.0/0" ];
         uplinks."east-west".ipv6 = [ "::/0" ];
       };
@@ -76,8 +77,6 @@ cat >"${input_nix}" <<'EOF'
       [ "downstream" "policy" ]
       [ "policy" "upstream" ]
       [ "upstream" "core-wan" ]
-      [ "upstream" "core-overlay" ]
-      [ "core-overlay" "access-client" ]
     ];
   };
 }
@@ -88,28 +87,15 @@ nix run "${repo_root}#debug" -- "${ir_json}" >"${model_json}"
 
 if jq -e '
   .enterprise.acme.site.ams as $site
-  | ($site.nodes."access-client".interfaces."p2p-access-client-core-overlay".routes // {}) as $accessRoutes
   | ($site.nodes."access-client".interfaces."p2p-access-client-downstream".routes // {}) as $accessTransitRoutes
-  | ($site.nodes."core-overlay".interfaces."p2p-access-client-core-overlay".routes // {}) as $coreRoutes
+  | (($site.links // {}) | to_entries | map(select((.value.members // [] | index("core-overlay")) and (.value.members // [] | index("access-client"))))) as $coreAccessLinks
   | (($site.nodes."core-overlay".loopback.ipv4 | sub("/.*$"; "") + "/32")) as $coreLoopback4
   | (($site.nodes."core-overlay".loopback.ipv6 | sub("/.*$"; "") + "/128")) as $coreLoopback6
-  | ($site.nodes.upstream.interfaces."p2p-core-overlay-upstream".routes // {}) as $upstreamDirectOverlayRoutes
   | ($site.nodes.upstream.interfaces."p2p-policy-upstream--access-access-client--uplink-wan".routes // {}) as $upstreamPolicyRoutes
-  | (
-      (($accessRoutes.ipv4 // []) | all(.intent.kind != "default-reachability" and .dst != "0.0.0.0/0"))
-      and (($accessRoutes.ipv6 // []) | all(.intent.kind != "default-reachability" and .dst != "::/0"))
-    )
+  | ($coreAccessLinks == [])
   and (
       (($accessTransitRoutes.ipv4 // []) | any(.intent.kind == "default-reachability" and .dst == "0.0.0.0/0"))
       and (($accessTransitRoutes.ipv6 // []) | any(.intent.kind == "default-reachability" and .dst == "::/0"))
-    )
-  and (
-      (($coreRoutes.ipv4 // []) | any(.intent.kind == "default-reachability" and .dst == "0.0.0.0/0"))
-      and (($coreRoutes.ipv6 // []) | any(.intent.kind == "default-reachability" and .dst == "::/0"))
-    )
-  and (
-      (($upstreamDirectOverlayRoutes.ipv4 // []) | all(.dst != $coreLoopback4))
-      and (($upstreamDirectOverlayRoutes.ipv6 // []) | all(.dst != $coreLoopback6))
     )
   and (
       (($upstreamPolicyRoutes.ipv4 // []) | any(.intent.kind == "internal-reachability" and .dst == $coreLoopback4))
@@ -123,10 +109,11 @@ FATAL network-forwarding-model overlay underlay access defaults regressed.
 
 Overlay daemon underlay may enter through an explicitly selected access node,
 but the selected access node must not default-route back into the overlay core.
-The overlay-terminating core must default toward that selected access node, and
-the selected access node must keep its normal default toward downstream transit
-so runtime overlay bootstrap can use the normal access/downstream/policy/upstream
-path instead of either a self-loop or a dead-end access hop.
+The overlay-terminating core is a host-like tenant attachment, not a generated
+core/access p2p link, and the selected access node must keep its normal default
+toward downstream transit so runtime overlay bootstrap can use the normal
+access/downstream/policy/upstream path instead of either a self-loop or a
+dead-end access hop.
 EOF
   exit 1
 fi
