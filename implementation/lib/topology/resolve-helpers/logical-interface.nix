@@ -11,6 +11,7 @@ in
 
   build =
     { nodeName
+    , nodeRole ? null
     , ifName
     , netName
     , net
@@ -19,8 +20,9 @@ in
     let
       subnet4 = if net ? ipv4 && net.ipv4 != null then canonicalCidr net.ipv4 else null;
       subnet6 = if net ? ipv6 && net.ipv6 != null then canonicalCidr net.ipv6 else null;
-      addr4 = if subnet4 != null then addressing.hostCidr 1 subnet4 else null;
-      addr6 = if subnet6 != null then addressing.hostCidr 1 subnet6 else null;
+      isGatewayAttachment = nodeRole == "access" && (net.gateway or true) != false;
+      addr4 = if isGatewayAttachment && subnet4 != null then addressing.hostCidr 1 subnet4 else null;
+      addr6 = if isGatewayAttachment && subnet6 != null then addressing.hostCidr 1 subnet6 else null;
       tenantName = if net ? name && net.name != null then toString net.name else toString netName;
     in
     {
@@ -48,11 +50,11 @@ in
       upstream = null;
       overlay = null;
       routes = {
-        ipv4 = lib.optional (subnet4 != null) (mkConnectedRoute subnet4);
-        ipv6 = lib.optional (subnet6 != null) (mkConnectedRoute subnet6);
+        ipv4 = lib.optional (isGatewayAttachment && subnet4 != null) (mkConnectedRoute subnet4);
+        ipv6 = lib.optional (isGatewayAttachment && subnet6 != null) (mkConnectedRoute subnet6);
       };
       ra6Prefixes = map canonicalCidr (net.ra6Prefixes or [ ]);
-      acceptRA = false;
-      dhcp = false;
+      acceptRA = !isGatewayAttachment && subnet6 != null;
+      dhcp = !isGatewayAttachment && subnet4 != null;
     };
 }

@@ -74,6 +74,11 @@ in
                 if explicitLoopback != null && (explicitLoopback.ipv6 or null) != null then explicitLoopback.ipv6 else alloc6;
               loopback = if final4 == null && final6 == null then null else { ipv4 = final4; ipv6 = final6; };
               role = rolesResult.roleFromInput unitName;
+              effectiveAttachedNetworks =
+                if role == "access" then
+                  attachedNetworks
+                else
+                  lib.mapAttrs (_: net: net // { gateway = false; addressing = "dhcp-slaac"; }) attachedNetworks;
               baseServices = if builtins.isAttrs (base.services or null) then base.services else { };
               services = baseServices // dnsServiceForRole unitName role;
             in
@@ -81,7 +86,7 @@ in
             // {
               inherit role;
             }
-            // lib.optionalAttrs (attachedNetworks != { }) { networks = attachedNetworks; }
+            // lib.optionalAttrs (effectiveAttachedNetworks != { }) { networks = effectiveAttachedNetworks; }
             // lib.optionalAttrs (loopback != null) { inherit loopback; }
             // lib.optionalAttrs (services != { }) { inherit services; };
         })

@@ -25,14 +25,15 @@ in
               netName:
               let
                 net = nets.${netName};
+                ownsPrefix = (net.gateway or true) != false;
               in
               lib.flatten [
-                (lib.optional (net ? ipv4 && net.ipv4 != null) {
+                (lib.optional (ownsPrefix && net ? ipv4 && net.ipv4 != null) {
                   cidr = net.ipv4;
                   owner = "node '${name}' network '${netName}' ipv4";
                   range = cidr.cidrRange net.ipv4;
                 })
-                (lib.optional (net ? ipv6 && net.ipv6 != null) {
+                (lib.optional (ownsPrefix && net ? ipv6 && net.ipv6 != null) {
                   cidr = net.ipv6;
                   owner = "node '${name}' network '${netName}' ipv6";
                   range = cidr.cidrRange net.ipv6;
