@@ -25,6 +25,14 @@ let
   p2pLinkNames =
     links: lib.filter (linkName: (links.${linkName}.kind or null) == "p2p") (builtins.attrNames links);
 
+  tenantAttachments = node:
+    lib.filter (tenant: tenant != null) (
+      map
+        (attachment:
+          if (attachment.kind or null) == "tenant" then toString (attachment.name or null) else null)
+        (node.attachments or [ ])
+    );
+
 in
 {
   check =
@@ -43,6 +51,19 @@ in
       policyNode = if policyNodes == [ ] then null else builtins.head policyNodes;
       downstreamNode = if downstreamNodes == [ ] then null else builtins.head downstreamNodes;
       selectorNode = if selectorNodes == [ ] then null else builtins.head selectorNodes;
+      overlayNames = lib.unique (
+        builtins.attrNames (site.overlayReachability or { })
+        ++ builtins.attrNames (site.overlayAttachments or { })
+      );
+      isHostLikeOverlayCore = nodeName:
+        let
+          node = nodes.${nodeName};
+          uplinkNames = builtins.attrNames (node.uplinks or { });
+        in
+        tenantAttachments node != [ ]
+        && uplinkNames != [ ]
+        && builtins.all (uplinkName: builtins.elem uplinkName overlayNames) uplinkNames;
+      transitCoreNodes = lib.filter (nodeName: !(isHostLikeOverlayCore nodeName)) coreNodes;
 
       _policyCount = common.assert_ (builtins.length policyNodes == 1) ''
         invariants(transit-ordering-valid):
@@ -80,7 +101,8 @@ in
       '';
 
       expectedAdjacencies = roleStages.expectedTransitAdjacencies {
-        inherit accessNodes coreNodes downstreamNode policyNode;
+        inherit accessNodes downstreamNode policyNode;
+        coreNodes = transitCoreNodes;
         upstreamSelectorNode = selectorNode;
       };
 

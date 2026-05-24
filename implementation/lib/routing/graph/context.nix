@@ -11,7 +11,25 @@ in
     opts:
     let
       nodeNames = opts.nodeNames or [ ];
-      neighbors = maps.neighborMap links;
+      virtualEdges = opts.virtualEdges or [ ];
+      realNeighbors = maps.neighborMap links;
+      addNeighbor = acc: node: peer:
+        acc // { "${node}" = (acc.${node} or [ ]) ++ [ peer ]; };
+      withVirtualNeighbors = builtins.foldl'
+        (
+          acc: pair:
+            if builtins.length pair != 2 then
+              acc
+            else
+              let
+                a = toString (builtins.elemAt pair 0);
+                b = toString (builtins.elemAt pair 1);
+              in
+              addNeighbor (addNeighbor acc a b) b a
+        )
+        realNeighbors
+        virtualEdges;
+      neighbors = builtins.mapAttrs (_: peers: lib.sort (a: b: a < b) (lib.unique peers)) withVirtualNeighbors;
       pairs = maps.linkPairMap links;
       graphNodeNames = lib.sort (a: b: a < b) (lib.unique ((builtins.attrNames neighbors) ++ (map toString nodeNames)));
       pathCache = builtins.listToAttrs (
