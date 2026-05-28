@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# GAMP-ID: RTM-RUNNER-NFM-PASSING-001
+# GAMP-SCOPE: runner-only; not SMT acceptance evidence
 
 repo_root="$(git rev-parse --show-toplevel)"
 source "${repo_root}/tests/lib/timing.sh"

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# GAMP-ID: SMT-NFM-SERVICE-UPLINK-LANE-001
+# GAMP-SCOPE: software-module-test
 
 repo_root="$(git -C "$(dirname "$0")/.." rev-parse --show-toplevel)"
 source "${repo_root}/tests/lib/timing.sh"

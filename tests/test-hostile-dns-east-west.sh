@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# GAMP-ID: SMT-NFM-DNS-HOSTILE-001
+# GAMP-SCOPE: software-module-test
+# LAB-SMT-ID: LAB-SMT-005
+# LAB-SMT-SCOPE: examples-only; see network-labs/tests/SMT.md
 
 repo_root="$(git rev-parse --show-toplevel)"
 source "${repo_root}/tests/lib/timing.sh"
