@@ -21,7 +21,7 @@ labs_path="$(
   '
 )"
 
-intent_path="${labs_path}/labs/lab-s-sigma/s-router-test-three-site/intent.nix"
+intent_path="${labs_path}/examples/tri-site-s-router-overlay-egress/intent.nix"
 
 compile_start_ms="$(test_now_ms)"
 nix run "${repo_root}#compile-and-build-forwarding-model" -- "${intent_path}" >"${output_json}"
@@ -32,9 +32,9 @@ jq -e '
     . == "fd42:dead:beef:70::/64"
     or . == "fd42:dead:beef:0070:0000:0000:0000:0000/64";
 
-  .enterprise.esp.site.nixos as $site
-  | $site.nodes."nixos-router-core-nebula"
-    .interfaces."p2p-nixos-router-core-nebula-nixos-router-upstream"
+  .enterprise.esp.site.home as $site
+  | $site.nodes."home-example-router-core-nebula"
+    .interfaces."p2p-home-example-router-core-nebula-home-example-router-upstream"
     .routes as $routes
   | any($routes.ipv4[]?;
       .dst == "10.20.70.0/24"
@@ -47,7 +47,7 @@ jq -e '
       and .proto == "internal"
       and .intent.kind == "internal-reachability")
     and any($routes.ipv6[]?;
-      .sourceFile == "/run/secrets/access-node-ipv6-prefix-esp-nixos-router-access-hostile"
+      .sourceFile == "/run/secrets/access-node-ipv6-prefix-esp-home-example-router-access-hostile"
       and .via6 == "fd42:dead:beef:1000:0:0:0:11"
       and .proto == "internal"
       and .intent.kind == "runtime-routed-prefix-return")
@@ -61,8 +61,8 @@ real p2p leg. The virtual underlay-access edge used for overlay bootstrap must
 not make internal return-prefix routes disappear or loop back into the overlay.
 EOF
   jq '
-    .enterprise.esp.site.nixos.nodes."nixos-router-core-nebula"
-      .interfaces."p2p-nixos-router-core-nebula-nixos-router-upstream"
+    .enterprise.esp.site.home.nodes."home-example-router-core-nebula"
+      .interfaces."p2p-home-example-router-core-nebula-home-example-router-upstream"
       .routes
   ' "${output_json}" >&2
   exit 1
