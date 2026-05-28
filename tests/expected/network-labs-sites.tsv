@@ -35,5 +35,5 @@ tri-site-dual-wan-overlay-integration-static	esp0xdeadbeef	site-a	11	26	10	26	4	
 tri-site-dual-wan-overlay-integration-static	esp0xdeadbeef	site-c	10	20	9	20	2	1	47	427	427
 tri-site-dual-wan-overlay-integration-static	espbranch	site-b	7	10	6	10	2	1	23	177	177
 tri-site-s-router-overlay-egress	esp	edge	7	9	6	9	2	1	21	207	211
-tri-site-s-router-overlay-egress	esp	home	12	26	11	26	3	1	60	627	630
-tri-site-s-router-overlay-egress	esp	lab	11	19	10	19	2	1	46	441	448
+tri-site-s-router-overlay-egress	esp	home	12	26	11	26	3	1	60	632	636
+tri-site-s-router-overlay-egress	esp	lab	11	19	10	19	2	1	46	448	456

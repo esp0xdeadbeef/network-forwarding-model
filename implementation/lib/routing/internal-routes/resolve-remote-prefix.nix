@@ -19,13 +19,36 @@ in
     let
       inherit (routeContext) loopbackOwnerNodeForDstWithFacts nextHopWithPreferredUplinks;
 
-      path = routeGraph.shortestPath {
+      realGraph = graphContext.build (topo.links or { }) {
+        nodeNames = builtins.attrNames (topo.nodes or { });
+      };
+
+      primaryPath = routeGraph.shortestPath {
+        src = nodeName;
+        dst = dstEntry.owner;
+      };
+
+      firstHopHasRealLink =
+        path:
+        if path == null || builtins.length path < 2 then
+          false
+        else
+          let
+            hop = builtins.elemAt path 1;
+          in
+          routeGraph.linksBetween nodeName hop != [ ];
+
+      # Virtual underlay-access edges are valid for overlay bootstrap path
+      # selection, but internal remote-prefix routes need a real egress link.
+      selectedRouteGraph = if firstHopHasRealLink primaryPath then routeGraph else realGraph;
+
+      path = selectedRouteGraph.shortestPath {
         src = nodeName;
         dst = dstEntry.owner;
       };
     in
     if path == null || builtins.length path < 2 then
-      null
+      [ ]
     else
       let
         hop = builtins.elemAt path 1;
@@ -56,7 +79,7 @@ in
           inherit topo;
           from = nodeName;
           to = hop;
-          inherit routeGraph;
+          routeGraph = selectedRouteGraph;
           inherit preferredUplinks preferredAccessNodes;
         };
         candidateLinks = import (self.outPath + "/implementation/lib/routing/internal-routes/route-candidates.nix") {
@@ -67,7 +90,7 @@ in
             routeContext
             topo
             ;
-          inherit routeGraph;
+          routeGraph = selectedRouteGraph;
           baseLinkName = baseNh.linkName;
           isOverlay = dstEntry.kind == "overlay";
           isP2p = dstEntry.kind == "p2p";
