@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# GAMP-ID: SMT-NFM-OVERLAY-UNDERLAY-CONTRACT-001
+# GAMP-SCOPE: software-module-test
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
