@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 # GAMP-ID: SMT-NFM-PREFERRED-ACCESS-LANES-001
+# GAMP-ID: USR-DNS-001-FS-001-HDS-001-SDS-001-004-SMS-001-001
+# GAMP-ID: USR-DNS-001-FS-001-HDS-001-SDS-001-004-SMS-001-CMC-001-001
 # GAMP-SCOPE: software-module-test
 
 repo_root="$(git rev-parse --show-toplevel)"
