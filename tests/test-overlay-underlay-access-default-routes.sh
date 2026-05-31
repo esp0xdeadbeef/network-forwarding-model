@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 # GAMP-ID: SMT-NFM-UNDERLAY-ACCESS-DEFAULT-001
+# GAMP-ID: USR-OVERLAY-001-FS-001-HDS-002-SDS-001-001-SMS-001-005
+# GAMP-ID: USR-OVERLAY-001-FS-001-HDS-002-SDS-001-001-SMS-001-CMC-001-005
 # GAMP-SCOPE: software-module-test
 
 repo_root="$(git rev-parse --show-toplevel)"
