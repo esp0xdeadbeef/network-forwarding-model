@@ -13,6 +13,20 @@ fail() {
   exit 1
 }
 
+print_static_comparison_review_note() {
+  local label="$1"
+
+  cat >&2 <<EOF
+NOTE network-labs-${label}: this is a static expected-output comparison.
+Do not automatically patch code back to match the previous TSV counts.
+First review whether the newly emitted output is the correct model result.
+If the delta removes invalid invented routes, fixes route ownership, or otherwise
+matches the README/model contract, update the expected TSV intentionally with
+EXPORT_NEW_TSV=true after recording the reason. Reverting code may reintroduce a
+model bug.
+EOF
+}
+
 examples_root="$(
   archive_json="$(mktemp)"
   trap 'rm -f "${archive_json}"' RETURN
@@ -335,6 +349,7 @@ done < <(find "${examples_root}" -mindepth 2 -maxdepth 2 -type f -name intent.ni
 } > "${actual_sites_sorted}"
 
 if ! diff -u "${expected_sites_sorted}" "${actual_sites_sorted}"; then
+  print_static_comparison_review_note "sites"
   overwrite_expected_tsv "${actual_sites_sorted}" "${expected_sites}" "network-labs sites"
   fail "FAIL network-labs-output: site summary changed"
 fi
@@ -352,6 +367,7 @@ pass_timed "network-labs-output"
 } > "${actual_routes_sorted}"
 
 if ! diff -u "${expected_routes_sorted}" "${actual_routes_sorted}"; then
+  print_static_comparison_review_note "routes"
   overwrite_expected_tsv "${actual_routes_sorted}" "${expected_routes}" "network-labs routes"
   fail "FAIL network-labs-routes: route summary changed"
 fi

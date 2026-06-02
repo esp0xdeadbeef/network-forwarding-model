@@ -14,18 +14,6 @@
     }:
     let
       reach0 = if reachability != null && builtins.isAttrs reachability then reachability else { };
-      uplink = (node.uplinks or { }).${overlayName} or { };
-      localRoutes =
-        family: prefixes:
-        map
-          (dst: {
-            inherit dst family;
-            proto = "overlay";
-            overlay = overlayName;
-            peerSite = null;
-            intent.kind = "overlay-reachability";
-          })
-          prefixes;
     in
     {
       name = ifName;
@@ -53,8 +41,8 @@
         peerSite = reach0.peerSite or null;
       };
       routes = {
-        ipv4 = (reach0.routes4 or [ ]) ++ (localRoutes 4 (uplink.ipv4 or [ ]));
-        ipv6 = (reach0.routes6 or [ ]) ++ (localRoutes 6 (uplink.ipv6 or [ ]));
+        ipv4 = reach0.routes4 or [ ];
+        ipv6 = reach0.routes6 or [ ];
       };
       ra6Prefixes = [ ];
       acceptRA = false;

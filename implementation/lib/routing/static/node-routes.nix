@@ -19,7 +19,7 @@ let
   defaultsFor = ctx: nodeName: node:
     defaultRoutes.apply {
       inherit nodeName node;
-      inherit (ctx) topo routeContext routeFacts routeGraph;
+      inherit (ctx) topo routeContext routeFacts routeGraph nonOverlayTransitGraph;
     };
 in
 {
@@ -33,7 +33,7 @@ in
           internalRoutes.apply {
             nodeName = n;
             inherit node;
-            inherit (ctx) topo routeContext routeFacts remotePrefixFacts routeGraph;
+            inherit (ctx) topo routeContext routeFacts remotePrefixFacts routeGraph realRouteGraph internalRoutePlan;
           };
 
       withNearestUplinkDefault =

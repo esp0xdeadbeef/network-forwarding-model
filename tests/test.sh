@@ -19,6 +19,13 @@ tests=(
   test-nix-file-loc.sh
   test-regression-md-resolved-states.sh
   test-s88-structure-layout.sh
+  test-semantic-lib-performance-boundary.sh
+  test-internal-route-profile-hypothesis.sh
+  test-internal-route-site-plan-contract.sh
+  test-internal-route-equivalence-contract.sh
+  test-overlay-interface-no-peer-null-duplicates.sh
+  test-overlay-route-source-lane-contract.sh
+  test-aggregation-none-preserves-internal-prefixes.sh
   test-no-parent-relative-imports.sh
   test-s88-structure-keywords.sh
   test-passing-fixtures.sh
@@ -28,6 +35,7 @@ tests=(
   test-no-guessing.sh
   test-dedicated-lanes.sh
   test-p2p-link-realization.sh
+  test-p2p-route-next-hop-peer-contract.sh
   test-access-tenant-gateway-host-addresses.sh
   test-tenant-client-attachments.sh
   test-p2p-specific-underlay-return-routes.sh

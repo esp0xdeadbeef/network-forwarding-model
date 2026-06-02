@@ -248,13 +248,11 @@ jq -r "${site_jq}
   | .[]" "${output_json}" >"${actual_overlay_routes}"
 
 cat >"${expected_overlay_routes}" <<'EOF'
-0.0.0.0/0|east-west|<none>|overlay|overlay-reachability
 10.20.10.0/24|east-west|esp0xdeadbeef.site-a|overlay|overlay-reachability
 10.20.15.0/24|east-west|esp0xdeadbeef.site-a|overlay|overlay-reachability
 10.20.20.0/24|east-west|esp0xdeadbeef.site-a|overlay|overlay-reachability
 10.20.30.0/24|east-west|esp0xdeadbeef.site-a|overlay|overlay-reachability
 10.20.40.0/24|east-west|esp0xdeadbeef.site-a|overlay|overlay-reachability
-::/0|east-west|<none>|overlay|overlay-reachability
 fd42:dead:beef:10::/64|east-west|esp0xdeadbeef.site-a|overlay|overlay-reachability
 fd42:dead:beef:15::/64|east-west|esp0xdeadbeef.site-a|overlay|overlay-reachability
 fd42:dead:beef:20::/64|east-west|esp0xdeadbeef.site-a|overlay|overlay-reachability

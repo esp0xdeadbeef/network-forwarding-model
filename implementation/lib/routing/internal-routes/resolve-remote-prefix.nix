@@ -14,14 +14,13 @@ in
     , routeContext
     , routeFacts ? routeContext.buildFacts topo
     , routeGraph ? graphContext.build (topo.links or { }) { }
+    , realRouteGraph ? graphContext.build (topo.links or { }) {
+        nodeNames = builtins.attrNames (topo.nodes or { });
+      }
     ,
     }:
     let
       inherit (routeContext) loopbackOwnerNodeForDstWithFacts nextHopWithPreferredUplinks;
-
-      realGraph = graphContext.build (topo.links or { }) {
-        nodeNames = builtins.attrNames (topo.nodes or { });
-      };
 
       primaryPath = routeGraph.shortestPath {
         src = nodeName;
@@ -40,7 +39,7 @@ in
 
       # Virtual underlay-access edges are valid for overlay bootstrap path
       # selection, but internal remote-prefix routes need a real egress link.
-      selectedRouteGraph = if firstHopHasRealLink primaryPath then routeGraph else realGraph;
+      selectedRouteGraph = if firstHopHasRealLink primaryPath then routeGraph else realRouteGraph;
 
       path = selectedRouteGraph.shortestPath {
         src = nodeName;

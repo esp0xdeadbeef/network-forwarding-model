@@ -72,24 +72,27 @@ in
           nh = firstHopTo targetCore [ targetUplinkName ];
         in
         {
-          routes4 =
-            if nh.via4 == null then [ ] else [
-              (routeContext.mkRoute4 {
-                dst = helpers.default4;
-                via4 = nh.via4;
-                proto = "default";
-                intentKind = "default-reachability";
-              })
-            ];
-          routes6 =
-            if nh.via6 == null then [ ] else [
-              (routeContext.mkRoute6 {
-                dst = helpers.default6;
-                via6 = nh.via6;
-                proto = "default";
-                intentKind = "default-reachability";
-              })
-            ];
+          inherit (nh) linkName;
+          routes = {
+            routes4 =
+              if nh.via4 == null then [ ] else [
+                (routeContext.mkRoute4 {
+                  dst = helpers.default4;
+                  via4 = nh.via4;
+                  proto = "default";
+                  intentKind = "default-reachability";
+                })
+              ];
+            routes6 =
+              if nh.via6 == null then [ ] else [
+                (routeContext.mkRoute6 {
+                  dst = helpers.default6;
+                  via6 = nh.via6;
+                  proto = "default";
+                  intentKind = "default-reachability";
+                })
+              ];
+          };
         };
 
       entries = lib.concatMap
@@ -111,10 +114,7 @@ in
                 (
                   targetUplinkName:
                   map
-                    (targetCore: {
-                      linkName = sourceNh.linkName;
-                      routes = routesForTarget targetUplinkName targetCore;
-                    })
+                    (targetCore: routesForTarget targetUplinkName targetCore)
                     (coresForUplink targetUplinkName)
                 )
                 targetUplinks
@@ -141,11 +141,11 @@ in
                   (
                     targetCore:
                     let
-                      routes = routesForTarget targetUplinkName targetCore;
+                      target = routesForTarget targetUplinkName targetCore;
                     in
                     {
-                      linkName = (firstHopTo targetCore [ targetUplinkName ]).linkName;
-                      inherit routes;
+                      linkName = target.linkName;
+                      inherit (target) routes;
                     }
                   )
                   (coresForUplink targetUplinkName)

@@ -29,15 +29,36 @@ let
       "preserveDst"
     ];
 
+  sortRoutesByJSON =
+    rs:
+    map
+      (entry: entry.route)
+      (builtins.sort (a: b: a.key < b.key) (
+        map
+          (route: {
+            key = builtins.toJSON route;
+            inherit route;
+          })
+          rs
+      ));
+
+  uniqueStrings =
+    xs:
+    builtins.attrNames (builtins.listToAttrs (map (x: {
+      name = x;
+      value = true;
+    }) xs));
+
   detectRouteFamily = r: if lib.hasInfix ":" (stripMask r.dst) then 6 else 4;
 
   routePreservesDst = r: (r.preserveDst or false) == true;
+
   normalizeRouteList =
     family: rs:
     trace.emit "routing:normalizeRouteList:${toString family}:${toString (builtins.length rs)}" (
       let
-        dynamicRoutes = dedupeDynamicRoutes (lib.filter routeUsesDynamicSource rs);
-        staticRoutes = lib.filter (r: !(routeUsesDynamicSource r)) rs;
+        dynamicRoutes = dedupeDynamicRoutes (builtins.filter routeUsesDynamicSource rs);
+        staticRoutes = builtins.filter (r: !(routeUsesDynamicSource r)) rs;
         normalizedStatic =
           if staticRoutes == [ ] then
             [ ]
@@ -53,22 +74,37 @@ let
             [ (routeBase route // { inherit dst; }) ]
           else
             let
-              grouped = lib.groupBy (r: builtins.toJSON (routeBase r)) staticRoutes;
+              keyedRoutes = map
+                (
+                  r:
+                  let
+                    base = routeBase r;
+                  in
+                  {
+                    inherit base;
+                    key = builtins.toJSON base;
+                    preserveDst = routePreservesDst r;
+                    rawDst = r.dst;
+                  }
+                )
+                staticRoutes;
+              grouped = builtins.groupBy (r: r.key) keyedRoutes;
 
-              normalizedGroups = lib.concatMap
+              normalizedGroups = builtins.concatMap
                 (
                   key:
                   let
                     group = grouped.${key};
-                    base = routeBase (builtins.head group);
+                    base = (builtins.head group).base;
+                    preservesDst = builtins.any (r: r.preserveDst) group;
                     cidrs =
-                      if lib.any routePreservesDst group then
-                        lib.unique (map (r: r.dst) group)
+                      if preservesDst then
+                        uniqueStrings (map (r: r.rawDst) group)
                       else
-                        lib.unique (map (r: canonicalCidr r.dst) group);
+                        uniqueStrings (map (r: canonicalCidr r.rawDst) group);
                     renderedCidrs =
-                      if lib.any routePreservesDst group then
-                        lib.sort (a: b: a < b) cidrs
+                      if preservesDst then
+                        builtins.sort (a: b: a < b) cidrs
                       else if
                         builtins.length cidrs <= 1
                         && !(family == 6 && builtins.match ".*/0" (builtins.head cidrs) != null)
@@ -81,7 +117,7 @@ let
                 )
                 (builtins.attrNames grouped);
             in
-            lib.sort (a: b: (builtins.toJSON a) < (builtins.toJSON b)) normalizedGroups;
+            sortRoutesByJSON normalizedGroups;
       in
       normalizedStatic ++ dynamicRoutes
     );
@@ -89,11 +125,11 @@ let
   dedupeRoutes =
     rs:
     let
-      grouped = lib.groupBy (r: toString (detectRouteFamily r)) rs;
+      grouped = builtins.groupBy (r: toString (detectRouteFamily r)) rs;
       v4 = if grouped ? "4" then normalizeRouteList 4 grouped."4" else [ ];
       v6 = if grouped ? "6" then normalizeRouteList 6 grouped."6" else [ ];
     in
-    lib.sort (a: b: (builtins.toJSON a) < (builtins.toJSON b)) (v4 ++ v6);
+    sortRoutesByJSON (v4 ++ v6);
 
   addRoutesOnLink =
     node: linkName: add4: add6:
@@ -114,6 +150,31 @@ let
       };
     };
 
+  addRoutePlan =
+    node: plan:
+    let
+      ifs = node.interfaces or { };
+      applyLink =
+        accIfs: linkName:
+        let
+          add = plan.${linkName};
+          cur = accIfs.${linkName} or { };
+          curRoutes = ifaceRoutes cur;
+        in
+        accIfs // {
+          "${linkName}" = cur // {
+            routes = {
+              ipv4 = normalizeRouteList 4 (curRoutes.ipv4 ++ (add.routes4 or [ ]));
+              ipv6 = normalizeRouteList 6 (curRoutes.ipv6 ++ (add.routes6 or [ ]));
+            };
+          };
+        };
+    in
+    node
+    // {
+      interfaces = builtins.foldl' applyLink ifs (builtins.attrNames plan);
+    };
+
   allNodeNames = topo: builtins.attrNames (topo.nodes or { });
 
 in
@@ -128,6 +189,7 @@ in
     mkRoute6
     dedupeRoutes
     addRoutesOnLink
+    addRoutePlan
     allNodeNames
     summarizeCidrs
     normalizeRouteList
