@@ -183,7 +183,11 @@
               gitRev="unknown"
               gitDirty=true
               repoRoot="$(${pkgs.git}/bin/git -C "$PWD" rev-parse --show-toplevel 2>/dev/null || true)"
-              if [[ -n "$repoRoot" && "''${repoRoot##*/}" == "network-forwarding-model" ]]; then
+              repoRemote=""
+              if [[ -n "$repoRoot" ]]; then
+                repoRemote="$(${pkgs.git}/bin/git -C "$repoRoot" config --get remote.origin.url 2>/dev/null || true)"
+              fi
+              if [[ -n "$repoRoot" && ( "''${repoRoot##*/}" == "network-forwarding-model" || "$repoRemote" == *"network-forwarding-model"* ) ]]; then
                 gitRev="$(${pkgs.git}/bin/git -C "$repoRoot" rev-parse HEAD 2>/dev/null || echo "unknown")"
                 if ${pkgs.git}/bin/git -C "$repoRoot" diff --quiet >/dev/null 2>&1 && ${pkgs.git}/bin/git -C "$repoRoot" diff --cached --quiet >/dev/null 2>&1; then
                   gitDirty=false
@@ -240,7 +244,11 @@
               gitRev="unknown"
               gitDirty=true
               repoRoot="$(${pkgs.git}/bin/git -C "$PWD" rev-parse --show-toplevel 2>/dev/null || true)"
-              if [[ -n "$repoRoot" && "''${repoRoot##*/}" == "network-forwarding-model" ]]; then
+              repoRemote=""
+              if [[ -n "$repoRoot" ]]; then
+                repoRemote="$(${pkgs.git}/bin/git -C "$repoRoot" config --get remote.origin.url 2>/dev/null || true)"
+              fi
+              if [[ -n "$repoRoot" && ( "''${repoRoot##*/}" == "network-forwarding-model" || "$repoRemote" == *"network-forwarding-model"* ) ]]; then
                 gitRev="$(${pkgs.git}/bin/git -C "$repoRoot" rev-parse HEAD 2>/dev/null || echo "unknown")"
                 if ${pkgs.git}/bin/git -C "$repoRoot" diff --quiet >/dev/null 2>&1 && ${pkgs.git}/bin/git -C "$repoRoot" diff --cached --quiet >/dev/null 2>&1; then
                   gitDirty=false
