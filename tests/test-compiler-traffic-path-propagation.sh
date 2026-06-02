@@ -10,6 +10,8 @@ trap 'rm -rf "$tmp_dir"' EXIT
 
 input_nix="${tmp_dir}/input.nix"
 output_json="${tmp_dir}/forwarding.json"
+archive_json="${tmp_dir}/archive.json"
+wildcard_output_json="${tmp_dir}/wildcard-forwarding.json"
 
 cat >"$input_nix" <<'NIX'
 {
@@ -70,5 +72,31 @@ jq -e '
     and .forbidsCoreToCoreP2P == true
     and (.nodePathAlternatives | length) == 2
 ' "$output_json" >/dev/null
+
+nix flake archive --json "path:${repo_root}" >"${archive_json}"
+labs_path="$(
+  ARCHIVE_JSON="${archive_json}" nix eval --impure --raw --expr '
+    let
+      archived = builtins.fromJSON (builtins.readFile (builtins.getEnv "ARCHIVE_JSON"));
+      labs = archived.inputs."network-labs" or null;
+      labsPath = if labs == null then null else labs.path or null;
+    in
+      if labsPath == null then throw "tests: missing archived network-labs input path" else labsPath
+  '
+)"
+
+nix run "${repo_root}#compile-and-build-forwarding-model" -- \
+  "${labs_path}/examples/single-wan-with-nebula-any-to-any-fw/intent.nix" \
+  >"${wildcard_output_json}"
+
+jq -e '
+  .enterprise.esp0xdeadbeef.site."site-a".trafficPaths
+  | map(select(.relationId == "allow-client-to-any"))
+  | .[0]
+  | .destination == "any"
+    and ((.nodePathAlternatives // []) | length) == 3
+    and ([ (.nodePathAlternatives // [])[] | .[-1] ] | sort)
+      == [ "s-router-access-admin", "s-router-access-client", "s-router-access-mgmt" ]
+' "${wildcard_output_json}" >/dev/null
 
 pass_timed "compiler-traffic-path-propagation"
