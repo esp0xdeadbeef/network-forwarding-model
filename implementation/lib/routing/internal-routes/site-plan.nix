@@ -135,11 +135,33 @@ in
 
       rowsForEntry =
         entry:
-        map
-          (nodeName: {
-            inherit nodeName entry;
-          })
-          (builtins.filter (nodeName: sourceEligibleForEntry nodeName entry) nodeNames);
+        let
+          eligibleNodeNames = builtins.filter (nodeName: sourceEligibleForEntry nodeName entry) nodeNames;
+          baseRows =
+            map
+              (nodeName: {
+                inherit nodeName entry;
+              })
+              eligibleNodeNames;
+          serviceScopes =
+            if (entry.kind or null) == "tenant" then
+              remotePrefixFacts.serviceRouteScopesByOwner.${entry.owner} or [ ]
+            else
+              [ ];
+          scopedRows =
+            lib.concatMap
+              (
+                scope:
+                  map
+                    (nodeName: {
+                      inherit nodeName;
+                      entry = entry // { routeScope = scope; };
+                    })
+                    eligibleNodeNames
+              )
+              serviceScopes;
+        in
+        baseRows ++ scopedRows;
 
       sourceRows = lib.concatMap rowsForEntry entriesByKind;
 
@@ -147,8 +169,9 @@ in
         row:
         let
           e = row.entry;
+          routeScope = e.routeScope or { };
         in
-        "${row.nodeName}|${toString (e.owner or "")}|${toString (e.kind or "")}|${toString (e.overlay or "")}|${toString (e.peerSite or "")}";
+        "${row.nodeName}|${toString (e.owner or "")}|${toString (e.kind or "")}|${toString (e.overlay or "")}|${toString (e.peerSite or "")}|${toString (routeScope.access or "")}|${toString (routeScope.uplink or "")}|${toString (routeScope.serviceName or "")}";
 
       remoteGroups = groupValues resolutionKey sourceRows;
 
@@ -157,6 +180,7 @@ in
         let
           nodeName = row.nodeName;
           dstEntry = row.entry;
+          routeScope = dstEntry.routeScope or null;
 
           primaryPath = routeGraph.shortestPath {
             src = nodeName;
@@ -191,7 +215,9 @@ in
                 )
                 (builtins.attrNames (routeFacts.uplinkCoreNamesByUplink or { }));
             preferredUplinks =
-              if dstEntry.kind == "overlay" && (dstEntry.overlay or null) != null then
+              if routeScope != null && (routeScope.uplink or null) != null then
+                [ routeScope.uplink ]
+              else if dstEntry.kind == "overlay" && (dstEntry.overlay or null) != null then
                 [ dstEntry.overlay ]
               else if dstEntry.kind == "p2p" && builtins.hasAttr (dstEntry.owner or "") (routeFacts.uplinkCoreSet or { }) then
                 uplinksForCore dstEntry.owner
@@ -209,10 +235,13 @@ in
               else
                 [ ];
             preferredAccessNodes = lib.unique (
-              lib.filter (x: x != null) [
-                (dstEntry.owner or null)
-                (if dstEntry ? dst then loopbackOwnerNodeForDstWithFacts routeFacts dstEntry.family dstEntry.dst else null)
-              ]
+              if routeScope != null && (routeScope.access or null) != null then
+                [ routeScope.access ]
+              else
+                lib.filter (x: x != null) [
+                  (dstEntry.owner or null)
+                  (if dstEntry ? dst then loopbackOwnerNodeForDstWithFacts routeFacts dstEntry.family dstEntry.dst else null)
+                ]
               ++ overlayAllowedAccessNodes
             );
             baseNh = nextHopWithPreferredUplinks {
@@ -237,6 +266,7 @@ in
               isOverlay = dstEntry.kind == "overlay";
               isP2p = dstEntry.kind == "p2p";
               hopNode = hop;
+              preferScopedLane = routeScope != null;
             };
           in
           builtins.filter (entry: entry != null) (
@@ -282,7 +312,10 @@ in
 
       perNextHopKey =
         e:
-        "${e.nodeName}|${e.linkName}|${toString e.family}|${toString (e.via4 or "")}|${toString (e.via6 or "")}|${e.kind}|${toString (e.overlay or "")}|${toString (e.peerSite or "")}|${toString (e.sourceFile or "")}";
+        let
+          routeScope = e.routeScope or { };
+        in
+        "${e.nodeName}|${e.linkName}|${toString e.family}|${toString (e.via4 or "")}|${toString (e.via6 or "")}|${e.kind}|${toString (e.overlay or "")}|${toString (e.peerSite or "")}|${toString (e.sourceFile or "")}|${toString (routeScope.access or "")}|${toString (routeScope.uplink or "")}|${toString (routeScope.serviceName or "")}";
 
       nextHopGroups = groupValues perNextHopKey resolvedRows;
 

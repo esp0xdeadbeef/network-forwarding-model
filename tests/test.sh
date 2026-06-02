@@ -47,6 +47,7 @@ tests=(
   test-lane-default-routes-policy-only.sh
   test-policy-source-scope-contract.sh
   test-dns-service-node-placement.sh
+  test-dns-service-requester-lane-routes.sh
   test-compiler-traffic-path-propagation.sh
   test-overlay-core-access-p2p-contract.sh
   test-overlay-underlay-access-default-routes.sh

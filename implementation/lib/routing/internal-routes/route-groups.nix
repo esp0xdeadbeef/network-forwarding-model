@@ -62,18 +62,28 @@ in
         // lib.optionalAttrs ((sample.peerSite or null) != null) {
           peerSite = sample.peerSite;
         };
+      routeScope = sample.routeScope or null;
       linkMeta =
         if linkName != null && builtins.hasAttr linkName (topo.links or { }) then
           ((topo.links.${linkName}.laneMeta or { }))
         else
           { };
       laneFields =
-        lib.optionalAttrs (sample.kind == "overlay" && (linkMeta.access or null) != null) {
+        if routeScope != null && (routeScope.access or null) != null then
+          {
+            lane = {
+              access = routeScope.access;
+            } // lib.optionalAttrs ((routeScope.uplink or null) != null) {
+              uplink = routeScope.uplink;
+            };
+          }
+        else
+          lib.optionalAttrs (sample.kind == "overlay" && (linkMeta.access or null) != null) {
           lane = {
             access = linkMeta.access;
             uplink = if (linkMeta.uplink or null) != null then linkMeta.uplink else (sample.overlay or null);
           };
-        };
+          };
       mkExactRoute4 =
         dst: {
           inherit dst;

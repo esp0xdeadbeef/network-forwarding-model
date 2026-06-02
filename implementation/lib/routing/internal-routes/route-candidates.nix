@@ -5,6 +5,7 @@
 , link
 , lib
 , nodeName
+, preferScopedLane ? false
 , preferredAccessNodes ? [ ]
 , preferredUplinks
 , routeContext
@@ -63,8 +64,18 @@ let
           accessNodeName != null && builtins.elem accessNodeName preferredAccessSet
         )
         candidates;
+
+  scopedCandidates =
+    if preferredCandidates != [ ] && preferredAccessCandidates != [ ] then
+      builtins.filter (lname: builtins.elem lname preferredAccessCandidates) preferredCandidates
+    else if preferredCandidates != [ ] then
+      preferredCandidates
+    else
+      preferredAccessCandidates;
 in
-if isOverlay && preferredCandidates != [ ] && preferredAccessCandidates != [ ] then
+if preferScopedLane then
+  scopedCandidates
+else if isOverlay && preferredCandidates != [ ] && preferredAccessCandidates != [ ] then
   builtins.filter (lname: builtins.elem lname preferredAccessCandidates) preferredCandidates
 else if (isOverlay || isP2p) && preferredCandidates != [ ] then
   preferredCandidates
