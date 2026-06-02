@@ -27,6 +27,7 @@ tests=(
   test-overlay-route-source-lane-contract.sh
   test-aggregation-none-preserves-internal-prefixes.sh
   test-no-parent-relative-imports.sh
+  test-emitter-provenance-repo-boundary.sh
   test-s88-structure-keywords.sh
   test-passing-fixtures.sh
   test-network-labs-output.sh
