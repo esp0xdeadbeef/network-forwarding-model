@@ -156,12 +156,12 @@ let
   overlayCoreEgress = overlayCore.interfaces."p2p-overlayCore-upstream1".routes or { };
   upstreamToWan = site.nodes.upstream1.interfaces."p2p-upstream1-wanCore".routes or { };
   isDefault6 = dst: dst == "::/0" || dst == "0000:0000:0000:0000:0000:0000:0000:0000/0";
-  hasDefault4 = builtins.any (route:
+  overlayIngressHasWrongWanDefault4 = builtins.any (route:
     (route.dst or null) == "0.0.0.0/0"
     && (route.proto or null) == "default"
     && (route.via4 or null) == "10.0.1.11"
   ) (overlayIngress.ipv4 or [ ]);
-  hasDefault6 = builtins.any (route:
+  overlayIngressHasWrongWanDefault6 = builtins.any (route:
     isDefault6 (route.dst or null)
     && (route.proto or null) == "default"
     && (route.via6 or null) == "fd42:0:0:1000:0:0:0:b"
@@ -193,19 +193,31 @@ let
     && (route.proto or null) == "uplink"
     && (route.via4 or null) == "10.0.1.11"
   ) (upstreamToWan.ipv4 or [ ]);
+  upstreamWanDefault4 = builtins.any (route:
+    (route.dst or null) == "0.0.0.0/0"
+    && (route.proto or null) == "default"
+    && (route.via4 or null) == "10.0.1.11"
+  ) (upstreamToWan.ipv4 or [ ]);
+  upstreamWanDefault6 = builtins.any (route:
+    isDefault6 (route.dst or null)
+    && (route.proto or null) == "default"
+    && (route.via6 or null) == "fd42:0:0:1000:0:0:0:b"
+  ) (upstreamToWan.ipv6 or [ ]);
 in
   if
-    hasDefault4
-    && hasDefault6
+    !overlayIngressHasWrongWanDefault4
+    && !overlayIngressHasWrongWanDefault6
     && !hasDefaultBackToOverlay4
     && !hasDefaultBackToOverlay6
     && coreHasDefault4
     && coreHasDefault6
     && wanIngressKept4
+    && upstreamWanDefault4
+    && upstreamWanDefault6
   then
     "ok"
   else
-    throw "external ingress uplink defaults must send overlay underlay toward the WAN core"
+    throw "external ingress uplink defaults must attach to the WAN p2p link with the WAN peer as next-hop"
 EOF
 )"
 

@@ -3,7 +3,9 @@
 , isOverlay
 , isP2p ? false
 , link
+, lib
 , nodeName
+, preferredAccessNodes ? [ ]
 , preferredUplinks
 , routeContext
 , routeGraph ? null
@@ -12,7 +14,7 @@
 }:
 
 let
-  inherit (routeContext) laneUplinkNameFromLink;
+  inherit (routeContext) laneAccessNodeNameFromLink laneUplinkNameFromLink;
 
   links = topo.links or { };
   candidates =
@@ -45,9 +47,29 @@ let
           uplinkName != null && builtins.elem uplinkName preferredUplinks
         )
         candidates;
+
+  preferredAccessSet = lib.unique (map toString (lib.filter (x: x != null) preferredAccessNodes));
+
+  preferredAccessCandidates =
+    if preferredAccessSet == [ ] then
+      [ ]
+    else
+      builtins.filter
+        (
+          lname:
+          let
+            accessNodeName = laneAccessNodeNameFromLink links.${lname};
+          in
+          accessNodeName != null && builtins.elem accessNodeName preferredAccessSet
+        )
+        candidates;
 in
-if (isOverlay || isP2p) && preferredCandidates != [ ] then
+if isOverlay && preferredCandidates != [ ] && preferredAccessCandidates != [ ] then
+  builtins.filter (lname: builtins.elem lname preferredAccessCandidates) preferredCandidates
+else if (isOverlay || isP2p) && preferredCandidates != [ ] then
   preferredCandidates
+else if isOverlay && preferredAccessCandidates != [ ] then
+  preferredAccessCandidates
 else if isP2p && candidates != [ ] then
   candidates
 else if baseLinkName == null then

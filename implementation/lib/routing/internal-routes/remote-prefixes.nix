@@ -90,8 +90,18 @@ rec {
           overlay:
           let
             owners = overlay.terminateOn or [ ];
-            v4s = map (r: { family = 4; dst = r.dst or null; }) (overlay.routes4 or [ ]);
-            v6s = map (r: { family = 6; dst = r.dst or null; }) (overlay.routes6 or [ ]);
+            v4s = map (r: {
+              family = 4;
+              dst = r.dst or null;
+              peerSite = r.peerSite or (overlay.peerSite or null);
+              overlay = r.overlay or (overlay.overlay or null);
+            }) (overlay.routes4 or [ ]);
+            v6s = map (r: {
+              family = 6;
+              dst = r.dst or null;
+              peerSite = r.peerSite or (overlay.peerSite or null);
+              overlay = r.overlay or (overlay.overlay or null);
+            }) (overlay.routes6 or [ ]);
             prefixes = lib.filter (e: e.dst != null) (v4s ++ v6s);
           in
           lib.concatMap
@@ -104,8 +114,8 @@ rec {
                   // {
                     owner = owner;
                     kind = "overlay";
-                    overlay = overlay.overlay or null;
-                    peerSite = overlay.peerSite or null;
+                    overlay = e.overlay or (overlay.overlay or null);
+                    peerSite = e.peerSite or (overlay.peerSite or null);
                   }
                 )
                 prefixes

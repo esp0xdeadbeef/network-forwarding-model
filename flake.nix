@@ -52,13 +52,10 @@
       mkSystemLib =
         system:
         let
-          pkgs = mkPkgs system;
-          patched = import nixpkgs-network { inherit system; };
-
           applyForwardingModel = import ./s88/build.nix {
             inherit self;
-            lib = pkgs.lib // {
-              network = patched.lib.network;
+            lib = nixpkgs.lib // {
+              network = nixpkgs-network.lib.network;
             };
           };
 
@@ -112,6 +109,9 @@
             , name ? "output-network-forwarding-model.json"
             ,
             }:
+            let
+              pkgs = mkPkgs system;
+            in
             pkgs.writeText name (
               builtins.toJSON (build {
                 inherit input;
@@ -123,6 +123,9 @@
             , name ? "output-network-forwarding-model.json"
             ,
             }:
+            let
+              pkgs = mkPkgs system;
+            in
             pkgs.writeText name (builtins.toJSON (buildFromCompilerInputPath path));
         };
 

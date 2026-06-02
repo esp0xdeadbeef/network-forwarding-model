@@ -23,6 +23,7 @@ in
       routeContext,
       routeFacts ? routeContext.buildFacts topo,
       routeGraph ? graphContext.build (topo.links or { }) { },
+      nonOverlayTransitGraph ? null,
     }:
     let
       inherit (routeContext) nextHopWithPreferredUplinks;
@@ -61,7 +62,18 @@ in
         in
         lib.all (node: !(builtins.elem node overlayTerminatingCores)) intermediate;
 
-      shortestPathAvoiding = pathAvoidance.shortestPath routeGraph;
+      shortestPathAvoiding =
+        args:
+        if nonOverlayTransitGraph == null then
+          pathAvoidance.shortestPath routeGraph args
+        else if args.src == args.dst then
+          [ args.src ]
+        else if builtins.elem args.src args.forbidden then
+          null
+        else
+          nonOverlayTransitGraph.shortestPath {
+            inherit (args) src dst;
+          };
 
       nearestUplinkCore =
         let

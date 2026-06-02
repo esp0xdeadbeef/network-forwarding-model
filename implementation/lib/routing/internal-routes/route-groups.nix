@@ -2,6 +2,12 @@
 
 let
   helpers = import (self.outPath + "/implementation/lib/routing/static-helpers.nix") { inherit lib self; };
+  uniqueStrings =
+    xs:
+    builtins.attrNames (builtins.listToAttrs (map (x: {
+      name = x;
+      value = true;
+    }) xs));
 
 in
 {
@@ -11,12 +17,15 @@ in
     , entries
     , mkRoute4
     , mkRoute6
+    , linkName ? null
+    , via4 ? null
+    , via6 ? null
     ,
     }:
-    let
-      sample = builtins.head entries;
-      isRuntimeRoutedPrefix = sample.kind == "runtime-routed-prefix";
-      entryDsts = lib.unique (map (e: e.dst) (lib.filter (e: e ? dst) entries));
+      let
+        sample = builtins.head entries;
+        isRuntimeRoutedPrefix = sample.kind == "runtime-routed-prefix";
+      entryDsts = uniqueStrings (map (e: e.dst) (builtins.filter (e: e ? dst) entries));
       aggDst =
         if isRuntimeRoutedPrefix then
           null
@@ -28,8 +37,9 @@ in
           helpers.buildTenantAggregate topo sample.family
         else
           null;
+      preserveExactDsts = mode == "none" || sample.kind == "overlay" || sample.kind == "p2p";
       summarizedDsts =
-        if sample.kind == "overlay" || sample.kind == "p2p" then
+        if preserveExactDsts then
           entryDsts
         else if builtins.length entryDsts <= 1 then
           entryDsts
@@ -42,6 +52,44 @@ in
           "overlay-reachability"
         else
           "internal-reachability";
+      routeIntent = {
+        kind = intentKind;
+      };
+      overlayFields =
+        lib.optionalAttrs ((sample.overlay or null) != null) {
+          overlay = sample.overlay;
+        }
+        // lib.optionalAttrs ((sample.peerSite or null) != null) {
+          peerSite = sample.peerSite;
+        };
+      linkMeta =
+        if linkName != null && builtins.hasAttr linkName (topo.links or { }) then
+          ((topo.links.${linkName}.laneMeta or { }))
+        else
+          { };
+      laneFields =
+        lib.optionalAttrs (sample.kind == "overlay" && (linkMeta.access or null) != null) {
+          lane = {
+            access = linkMeta.access;
+            uplink = if (linkMeta.uplink or null) != null then linkMeta.uplink else (sample.overlay or null);
+          };
+        };
+      mkExactRoute4 =
+        dst: {
+          inherit dst;
+          proto = "internal";
+          via4 = if via4 != null then via4 else sample.via4;
+          intent = routeIntent;
+          preserveDst = true;
+        } // overlayFields // laneFields;
+      mkExactRoute6 =
+        dst: {
+          inherit dst;
+          proto = "internal";
+          via6 = if via6 != null then via6 else sample.via6;
+          intent = routeIntent;
+          preserveDst = true;
+        } // overlayFields // laneFields;
 
       rawRoutes =
         if isRuntimeRoutedPrefix then
@@ -50,7 +98,7 @@ in
               family = 6;
               sourceFile = entry.sourceFile;
               proto = if (entry.overlay or null) != null then "overlay" else "internal";
-              via6 = entry.via6;
+              via6 = if via6 != null then via6 else entry.via6;
               intent = {
                 kind = intentKind;
                 source = "intent-routed-prefix";
@@ -58,15 +106,19 @@ in
               };
             } // lib.optionalAttrs ((entry.prefixName or null) != null) { prefixName = entry.prefixName; })
             entries
+        else if preserveExactDsts && sample.family == 4 then
+          map mkExactRoute4 summarizedDsts
+        else if preserveExactDsts && sample.family == 6 then
+          map mkExactRoute6 summarizedDsts
         else if sample.family == 4 then
           map
             (
               dst:
               mkRoute4 {
                 inherit dst intentKind;
-                via4 = sample.via4;
+                via4 = if via4 != null then via4 else sample.via4;
                 proto = "internal";
-                preserveDst = sample.kind == "p2p" || sample.kind == "overlay";
+                preserveDst = preserveExactDsts;
               }
             )
             summarizedDsts
@@ -76,9 +128,9 @@ in
               dst:
               mkRoute6 {
                 inherit dst intentKind;
-                via6 = sample.via6;
+                via6 = if via6 != null then via6 else sample.via6;
                 proto = "internal";
-                preserveDst = sample.kind == "p2p" || sample.kind == "overlay";
+                preserveDst = preserveExactDsts;
               }
             )
             summarizedDsts;
@@ -87,12 +139,12 @@ in
         if aggDst == null then
           [ ]
         else if sample.family == 4 then
-          [ (mkRoute4 { dst = aggDst; via4 = sample.via4; proto = "internal"; inherit intentKind; }) ]
+          [ (mkRoute4 { dst = aggDst; via4 = if via4 != null then via4 else sample.via4; proto = "internal"; inherit intentKind; }) ]
         else
-          [ (mkRoute6 { dst = aggDst; via6 = sample.via6; proto = "internal"; inherit intentKind; }) ];
+          [ (mkRoute6 { dst = aggDst; via6 = if via6 != null then via6 else sample.via6; proto = "internal"; inherit intentKind; }) ];
     in
     {
-      linkName = sample.linkName;
+      linkName = if linkName != null then linkName else sample.linkName;
       routes4 = if sample.family == 4 then rawRoutes ++ aggRoute else [ ];
       routes6 = if sample.family == 6 then rawRoutes ++ aggRoute else [ ];
     };

@@ -7,15 +7,13 @@ let
   remotePrefixes = import (self.outPath + "/implementation/lib/routing/internal-routes/remote-prefixes.nix") {
     inherit lib self;
   };
-  remoteResolver = import (self.outPath + "/implementation/lib/routing/internal-routes/resolve-remote-prefix.nix") {
-    inherit lib self;
-  };
-  routeGroups = import (self.outPath + "/implementation/lib/routing/internal-routes/route-groups.nix") {
+  sitePlan = import (self.outPath + "/implementation/lib/routing/internal-routes/site-plan.nix") {
     inherit lib self;
   };
 in
 {
   buildRemotePrefixFacts = remotePrefixes.buildFacts;
+  buildSitePlan = sitePlan.build;
 
   apply =
     { topo
@@ -25,122 +23,23 @@ in
     , routeFacts ? routeContext.buildFacts topo
     , remotePrefixFacts ? remotePrefixes.buildFacts topo
     , routeGraph ? graphContext.build (topo.links or { }) { }
+    , realRouteGraph ? graphContext.build (topo.links or { }) {
+        nodeNames = builtins.attrNames (topo.nodes or { });
+      }
+    , internalRoutePlan ? sitePlan.build {
+        inherit
+          topo
+          routeContext
+          routeFacts
+          remotePrefixFacts
+          routeGraph
+          realRouteGraph
+          ;
+      }
     ,
     }:
     let
-      inherit (routeContext) mkRoute4 mkRoute6;
-
-      aggregatePrefixesForNode =
-        let
-          mode = helpers.aggregationMode topo;
-          ownSet = remotePrefixFacts.ownConnectedPrefixSetByNode.${nodeName} or { };
-          remoteByKind = remotePrefixes.byKindForNodeWithFacts remotePrefixFacts topo nodeName;
-          p2pRemote = remoteByKind.p2p;
-          tenantRemote = remoteByKind.tenant;
-          overlayRemote = remoteByKind.overlay;
-          includeP2p = builtins.getEnv "S88_NFM_PROFILE_SKIP_INTERNAL_P2P" != "1";
-          includeTenant = builtins.getEnv "S88_NFM_PROFILE_SKIP_INTERNAL_TENANT" != "1";
-          includeOverlay = builtins.getEnv "S88_NFM_PROFILE_SKIP_INTERNAL_OVERLAY" != "1";
-          remote0 = trace.emit
-            "routing:internal:${nodeName}:remote:p2p=${toString (builtins.length p2pRemote)}:tenant=${toString (builtins.length tenantRemote)}:overlay=${toString (builtins.length overlayRemote)}"
-            ((if includeP2p then p2pRemote else [ ])
-              ++ (if includeTenant then tenantRemote else [ ])
-              ++ (if includeOverlay then overlayRemote else [ ]));
-          remote = lib.filter
-            (
-              e:
-              if e ? dst then
-                !(ownSet ? "${toString e.family}|${e.dst}")
-              else
-                true
-            )
-            remote0;
-          _remoteCount = trace.emit "routing:internal:${nodeName}:remote-filtered=${toString (builtins.length remote)}" true;
-          resolutionKey =
-            e:
-            "${toString (e.owner or "")}|${toString (e.kind or "")}|${toString (e.overlay or "")}|${toString (e.peerSite or "")}";
-          remoteGroups = builtins.groupBy resolutionKey remote;
-          resolveGroup =
-            entries:
-            let
-              sample = builtins.head entries;
-              resolvedSample =
-                remoteResolver.resolve {
-                  dstEntry = sample;
-                  inherit
-                    nodeName
-                    routeFacts
-                    routeContext
-                    topo
-                    ;
-                  inherit routeGraph;
-                };
-            in
-            lib.concatMap
-              (
-                resolvedHop:
-                map
-                  (
-                    entry:
-                    entry
-                    // {
-                      hopNode = resolvedHop.hopNode;
-                      linkName = resolvedHop.linkName;
-                      via4 = resolvedHop.via4;
-                      via6 = resolvedHop.via6;
-                    }
-                  )
-                  entries
-              )
-              resolvedSample;
-          resolved = trace.emit "routing:internal:${nodeName}:resolving:groups=${toString (builtins.length (builtins.attrNames remoteGroups))}" (
-            lib.concatMap (key: resolveGroup remoteGroups.${key}) (builtins.attrNames remoteGroups)
-          );
-          _resolvedCount = trace.emit "routing:internal:${nodeName}:resolved=${toString (builtins.length resolved)}" true;
-
-          perNextHopKey =
-            e:
-            "${e.linkName}|${toString e.family}|${toString (e.via4 or "")}|${toString (e.via6 or "")}|${e.kind}|${toString (e.overlay or "")}|${toString (e.peerSite or "")}|${toString (e.sourceFile or "")}";
-
-          grouped = builtins.groupBy perNextHopKey resolved;
-        in
-        builtins.foldl'
-          (
-            acc: entries:
-              let
-                built = routeGroups.build {
-                  inherit
-                    entries
-                    mkRoute4
-                    mkRoute6
-                    mode
-                    topo
-                    ;
-                };
-              in
-              trace.emit "routing:internal:${nodeName}:group:${built.linkName}:entries=${toString (builtins.length entries)}" (
-                acc
-                // {
-                  "${built.linkName}" = {
-                    routes4 = (acc.${built.linkName}.routes4 or [ ]) ++ built.routes4;
-                    routes6 = (acc.${built.linkName}.routes6 or [ ]) ++ built.routes6;
-                  };
-                }
-              )
-          )
-          { }
-          (builtins.attrValues grouped);
-
-      perLink = aggregatePrefixesForNode;
+      perLink = internalRoutePlan.byNode.${nodeName} or { };
     in
-    builtins.foldl'
-      (
-        acc: linkName:
-        let
-          add = perLink.${linkName};
-        in
-        helpers.addRoutesOnLink acc linkName add.routes4 add.routes6
-      )
-      node
-      (builtins.attrNames perLink);
+    helpers.addRoutePlan node perLink;
 }
