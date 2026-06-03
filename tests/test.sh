@@ -55,6 +55,7 @@ tests=(
   test-overlay-core-local-hostile-return-routes.sh
   test-transport-overlay-underlay-access-contract.sh
   test-overlay-access-uplink-defaults-without-core-default.sh
+  test-overlay-access-uplink-lane-from-compiler-path.sh
   test-hostile-dedicated-east-west-lanes.sh
   test-tri-site-hostile-forwarding-scope.sh
   test-example-overlay-wan-return.sh
