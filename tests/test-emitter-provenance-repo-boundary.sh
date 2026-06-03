@@ -54,4 +54,7 @@ jq -e --arg own "${own_rev}" '
 ' "${tmp_dir}/own.json" >/dev/null \
   || fail "NFM provenance did not use the emitter repository"
 
+grep -q 'remote.origin.url' "${repo_root}/flake.nix" \
+  || fail "NFM provenance wrapper lacks repository remote identity fallback"
+
 echo "PASS emitter-provenance-repo-boundary"

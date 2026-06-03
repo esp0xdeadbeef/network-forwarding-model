@@ -88,7 +88,11 @@ in
           let
             alternatives = path.nodePathAlternatives or [ (path.nodePath or [ ]) ];
             sourceUnits = sourceAccessUnits (path.source or { });
-            accessUnits = if sourceUnits != [ ] then sourceUnits else lib.concatMap pathAccessUnits alternatives;
+            pathUnits = lib.concatMap pathAccessUnits alternatives;
+            accessUnits =
+              lib.filter
+                (unit: builtins.elem unit accessUnitNames)
+                (lib.unique (sourceUnits ++ pathUnits));
             uplinks =
               let
                 explicit = destinationUplinks (path.destination or { });
