@@ -50,6 +50,7 @@ tests=(
   test-dns-service-node-placement.sh
   test-dns-service-requester-lane-routes.sh
   test-compiler-traffic-path-propagation.sh
+  test-transit-ordering-deserializes-compiler-links.sh
   test-overlay-core-access-p2p-contract.sh
   test-overlay-underlay-access-default-routes.sh
   test-overlay-core-local-hostile-return-routes.sh

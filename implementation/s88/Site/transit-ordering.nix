@@ -10,10 +10,6 @@ let
   roleStages = import (self.outPath + "/implementation/lib/fabric/transit-role-stages.nix") {
     inherit lib self;
   };
-  overlayUnderlayAdjacency = import ./transit-ordering/overlay-underlay-adjacency.nix {
-    inherit lib;
-  };
-
   uniqueNodeNames =
     pairs:
     lib.sort (a: b: a < b) (
@@ -54,20 +50,9 @@ let
       ) nodeNames
     );
 
-  hasRole = roles: wanted: lib.any (nodeName: roles.${nodeName} == wanted) (builtins.attrNames roles);
-
-  nextRoleOf =
-    roles: role:
-    roleStages.nextTransitRole {
-      inherit role;
-      hasDownstreamSelector = hasRole roles "downstream-selector";
-      hasUpstreamSelector = hasRole roles "upstream-selector";
-    };
-
   canonicalizeOne =
     {
       siteName,
-      site,
       roles,
       pair,
     }:
@@ -101,47 +86,8 @@ let
             right: ${secondEndpoint} (${secondEndpointRole})
           '';
 
-      sourceNode = builtins.elemAt oriented 0;
-      destinationNode = builtins.elemAt oriented 1;
-
-      sourceRole = roles.${sourceNode};
-      destinationRole = roles.${destinationNode};
-      expectedDestinationRole = nextRoleOf roles sourceRole;
-
-      isExplicitOverlayUnderlayAccess =
-        (
-          (firstEndpointRole == "core" && secondEndpointRole == "access")
-          || (firstEndpointRole == "access" && secondEndpointRole == "core")
-        )
-        && overlayUnderlayAdjacency {
-          inherit
-            site
-            firstEndpoint
-            secondEndpoint
-            ;
-        };
     in
-    if expectedDestinationRole == null then
-      throw ''
-        network-forwarding-model: canonical transit ordering cannot originate from terminal stage
-
-        site: ${siteName}
-        node: ${sourceNode}
-        role: ${sourceRole}
-      ''
-    else if destinationRole != expectedDestinationRole && !isExplicitOverlayUnderlayAccess then
-      throw ''
-        network-forwarding-model: transit ordering violates canonical stage adjacency
-
-        site: ${siteName}
-        pair: ${sourceNode} -> ${destinationNode}
-
-        sourceRole: ${sourceRole}
-        destinationRole: ${destinationRole}
-        expectedDestinationRole: ${expectedDestinationRole}
-      ''
-    else
-      oriented;
+    oriented;
 
   pairSortKey =
     roles: pair:
@@ -169,7 +115,6 @@ in
         canonicalizeOne {
           inherit
             siteName
-            site
             roles
             pair
             ;
