@@ -63,6 +63,14 @@ let
     let
       nets = (networksOf { }) node;
       netNames = builtins.attrNames nets;
+      runtimeAuthorityClass =
+        p:
+        if (p.authorityClass or null) != null then
+          toString p.authorityClass
+        else if (p.perTenantPrefixLength or null) == 128 then
+          "host-only-provider-prefix"
+        else
+          "routed-client-prefix";
     in
     lib.concatMap
       (
@@ -76,6 +84,14 @@ let
             family = 4;
             dst = canonicalCidr net.ipv4;
             netName = netName;
+          })
+          (lib.optional (ownsPrefix && net ? publicIpv4 && net.publicIpv4 != null) {
+            family = 4;
+            dst = canonicalCidr net.publicIpv4;
+            netName = netName;
+            kind = "routed-public-ipv4";
+            authorityClass = "routed-public-ipv4";
+            source = "domains.tenants.publicIpv4";
           })
           (lib.optional (ownsPrefix && net ? ipv6 && net.ipv6 != null) {
             family = 6;
@@ -96,6 +112,7 @@ let
               prefixName = p.name or null;
               netName = netName;
               kind = "runtime-routed-prefix";
+              authorityClass = runtimeAuthorityClass p;
               delegatedPrefixLength = p.delegatedPrefixLength or 64;
               perTenantPrefixLength = p.perTenantPrefixLength or 64;
               slot = p.slot or 0;

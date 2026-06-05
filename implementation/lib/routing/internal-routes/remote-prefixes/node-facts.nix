@@ -48,6 +48,8 @@
                       kind = entry.kind or "tenant";
                     }
                     // lib.optionalAttrs (entry ? dst) { dst = entry.dst; }
+                    // lib.optionalAttrs ((entry.authorityClass or null) != null) { authorityClass = entry.authorityClass; }
+                    // lib.optionalAttrs ((entry.source or null) != null) { source = entry.source; }
                     // lib.optionalAttrs (entry ? sourceFile) {
                       sourceFile = entry.sourceFile;
                       prefixName = entry.prefixName or null;
