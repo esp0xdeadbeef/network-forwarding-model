@@ -23,7 +23,12 @@ let
         assignment = true;
         route = true;
       }
-    else if authorityClass == "routed-client-prefix" || authorityClass == "delegated-client-prefix" then
+    else if
+      authorityClass == "routed-client-prefix"
+      || authorityClass == "delegated-client-prefix"
+      || authorityClass == "tunneled-client-prefix"
+      || authorityClass == "provider-owned-client-prefix"
+    then
       denyAll // {
         advertisement = true;
         assignment = true;
@@ -43,6 +48,12 @@ let
       denyAll // {
         translation = true;
       }
+    else if
+      authorityClass == "wan-address"
+      || authorityClass == "uplink-address"
+      || authorityClass == "non-delegating-upstream-address"
+    then
+      denyAll
     else
       denyAll;
 
@@ -54,12 +65,22 @@ let
       "downstream-client-routing"
     else if authorityClass == "delegated-client-prefix" then
       "downstream-client-delegation"
+    else if authorityClass == "tunneled-client-prefix" then
+      "downstream-client-tunneled-routing"
+    else if authorityClass == "provider-owned-client-prefix" then
+      "downstream-client-provider-owned-routing"
     else if authorityClass == "routed-public-ipv4" then
       "downstream-client-public-ipv4-routing"
     else if authorityClass == "host-only-provider-prefix" then
       "provider-endpoint-host-address"
     else if authorityClass == "nat66-egress-prefix" then
       "translation-egress-source"
+    else if authorityClass == "wan-address" then
+      "wan-host-address"
+    else if authorityClass == "uplink-address" then
+      "uplink-host-address"
+    else if authorityClass == "non-delegating-upstream-address" then
+      "non-delegating-upstream-address"
     else
       "reserved-or-unassigned";
 
