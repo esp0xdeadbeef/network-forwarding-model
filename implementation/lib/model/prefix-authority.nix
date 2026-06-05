@@ -27,14 +27,36 @@ in
           topo.prefixConsumerRequests
         else
           [ ];
+      routeExportPreconditionRequests =
+        if builtins.isList (explicit.routeExportPreconditions or null) then
+          explicit.routeExportPreconditions
+        else if builtins.isList (explicit.returnRoutePreconditions or null) then
+          explicit.returnRoutePreconditions
+        else
+          lib.filter (request: builtins.isAttrs request) requests;
+      guaPlacementPreconditionRequests =
+        if builtins.isList (explicit.guaPlacementPreconditions or null) then
+          explicit.guaPlacementPreconditions
+        else if builtins.isList (explicit.guaPlacementRequests or null) then
+          explicit.guaPlacementRequests
+        else
+          [ ];
 
       records = common.listToAttrsById (recordsMod.build { inherit tenantPrefixOwners reservations; });
       consumerEligibilityRecords = requestsMod.classify records requests;
       deniedSpaceRecords = lib.filter (record: record.allowed == false) consumerEligibilityRecords;
+      routeExportPreconditionRecords = requestsMod.classifyReturnRoutePreconditions records routeExportPreconditionRequests;
+      deniedRouteExportPreconditionRecords = lib.filter (record: record.allowed == false) routeExportPreconditionRecords;
+      guaPlacementPreconditionRecords = requestsMod.classifyGuaPlacementPreconditions records guaPlacementPreconditionRequests;
+      deniedGuaPlacementPreconditionRecords = lib.filter (record: record.allowed == false) guaPlacementPreconditionRecords;
     in
     {
       records = records;
       consumerEligibility = common.listToAttrsById consumerEligibilityRecords;
       deniedSpace = common.listToAttrsById deniedSpaceRecords;
+      routeExportPreconditions = common.listToAttrsById routeExportPreconditionRecords;
+      deniedRouteExportPreconditions = common.listToAttrsById deniedRouteExportPreconditionRecords;
+      guaPlacementPreconditions = common.listToAttrsById guaPlacementPreconditionRecords;
+      deniedGuaPlacementPreconditions = common.listToAttrsById deniedGuaPlacementPreconditionRecords;
     };
 }
