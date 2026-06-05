@@ -60,6 +60,7 @@ tests=(
   test-fs360-public-prefix-return-route-precondition.sh
   test-fs360-gua-transit-placement-validation.sh
   test-fs380-fs410-route-authority-handoff.sh
+  test-fs480-route-import-constraint-validation.sh
   test-fs350-prefix-authority-consumer-eligibility.sh
   test-fs390-public-ipv4-destination-policy.sh
   test-dns-service-node-placement.sh
