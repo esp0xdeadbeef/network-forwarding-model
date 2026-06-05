@@ -30,6 +30,9 @@ tests=(
   test-fs300-source-lane-route-metadata.sh
   test-fs300-ineligible-lane-route-rejection.sh
   test-overlay-route-source-lane-contract.sh
+  test-fs370-overlay-source-prefix-identity-binding.sh
+  test-fs370-host-only-source-prefix-denial.sh
+  test-fs370-unrelated-egress-route-denial.sh
   test-aggregation-none-preserves-internal-prefixes.sh
   test-no-parent-relative-imports.sh
   test-emitter-provenance-repo-boundary.sh
