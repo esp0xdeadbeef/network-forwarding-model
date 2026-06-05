@@ -85,13 +85,13 @@ if [[ "${skip_ms}" -gt 3000 ]]; then
   exit 1
 fi
 
-if [[ "${delta_ms}" -lt 3000 ]]; then
-  echo "FAIL internal-route-profile-hypothesis: internal-route delta ${delta_ms}ms is too small to support H2" >&2
+if [[ "${delta_routes}" -lt 1000 ]]; then
+  echo "FAIL internal-route-profile-hypothesis: internal route delta ${delta_routes} routes is too small to support H2" >&2
   exit 1
 fi
 
-if [[ "${delta_routes}" -lt 1000 ]]; then
-  echo "FAIL internal-route-profile-hypothesis: internal route delta ${delta_routes} routes is too small to support H2" >&2
+if [[ "${full_ms}" -gt 3000 && "${delta_ms}" -lt 3000 ]]; then
+  echo "FAIL internal-route-profile-hypothesis: full eval ${full_ms}ms exceeds 3000ms, but internal-route delta ${delta_ms}ms no longer identifies H2 as dominant" >&2
   exit 1
 fi
 

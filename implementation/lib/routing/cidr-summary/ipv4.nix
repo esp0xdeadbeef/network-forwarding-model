@@ -30,23 +30,21 @@ let
           [ r ]
         else
           let
-            last = lib.last acc;
-            rest = lib.take ((builtins.length acc) - 1) acc;
+            last = builtins.head acc;
+            rest = builtins.tail acc;
           in
           if r.start <= (last.end + 1) then
-            rest
-            ++ [
-              (
-                last
+            [
+              (last
                 // {
                   end = if r.end > last.end then r.end else last.end;
-                }
-              )
+                })
             ]
+            ++ rest
           else
-            acc ++ [ r ];
+            [ r ] ++ acc;
     in
-    builtins.foldl' step [ ] sorted;
+    lib.reverseList (builtins.foldl' step [ ] sorted);
 
   rangeToCidrs =
     start: end:
@@ -75,7 +73,7 @@ let
             blockEnd = cur + size - 1;
             item = "${ip.intToIPv4 cur}/${toString prefixLen}";
           in
-          if blockEnd == end then acc ++ [ item ] else go (blockEnd + 1) (acc ++ [ item ]);
+          if blockEnd == end then lib.reverseList ([ item ] ++ acc) else go (blockEnd + 1) ([ item ] ++ acc);
     in
     go start [ ];
 

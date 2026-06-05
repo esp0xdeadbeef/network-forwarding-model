@@ -10,6 +10,7 @@ let
   sourceRows = import ./site-plan/source-rows.nix { inherit lib; };
   groupResolver = import ./site-plan/resolve-groups.nix { inherit lib self; };
   materializer = import ./site-plan/materialize.nix { };
+  coordinator = import ./site-plan/coordinator.nix { };
 
 in
 {
@@ -59,10 +60,62 @@ in
         inherit nodeNames remotePrefixFacts routeRows;
         inherit (rows) remoteGroups;
       };
-      diagnostics = materialized.diagnostics;
+      baseDiagnostics = materialized.diagnostics;
+      completion = coordinator.build {
+        siteId = topo.siteId or null;
+        testedHypothesis = "H2 internal route expansion shared route group planner";
+        submoduleRecords = [
+          {
+            id = "FS-940-HDS-010-SDS-020-SMS-020";
+            name = "route-atom-index";
+            claimsRouteAtomAuthority = true;
+            recordCount = builtins.length (rows.entriesByKind or [ ]);
+          }
+          {
+            id = "FS-940-HDS-010-SDS-020-SMS-030";
+            name = "source-eligibility-matrix";
+            claimsRouteAtomAuthority = false;
+            recordCount = builtins.length (builtins.attrNames (rows.remoteGroups or { }));
+          }
+          {
+            id = "FS-940-HDS-010-SDS-020-SMS-040";
+            name = "next-hop-equivalence-table";
+            claimsRouteAtomAuthority = false;
+            recordCount = baseDiagnostics.nextHopIdentities or 0;
+          }
+          {
+            id = "FS-940-HDS-010-SDS-020-SMS-050";
+            name = "forwarding-equivalence-group-planner";
+            claimsRouteAtomAuthority = false;
+            recordCount = builtins.length routeRows;
+          }
+          {
+            id = "FS-940-HDS-010-SDS-020-SMS-060";
+            name = "route-exception-layer";
+            claimsRouteAtomAuthority = false;
+            recordCount = 0;
+          }
+          {
+            id = "FS-940-HDS-010-SDS-020-SMS-070";
+            name = "one-pass-route-materializer";
+            claimsRouteAtomAuthority = false;
+            recordCount = baseDiagnostics.materializedRouteRows or 0;
+          }
+          {
+            id = "FS-940-HDS-010-SDS-020-SMS-080";
+            name = "route-cardinality-equivalence-diagnostics";
+            claimsRouteAtomAuthority = false;
+            recordCount = (baseDiagnostics.routeAtoms.tenant or 0) + (baseDiagnostics.routeAtoms.overlay or 0) + (baseDiagnostics.routeAtoms.p2p or 0);
+          }
+        ];
+      };
+      diagnostics = baseDiagnostics // {
+        coordinator = completion.diagnostics;
+      };
     in
     trace.emit "routing:internal:site-plan:nodes=${toString diagnostics.nodes}:planner=${diagnostics.planner}:tenantAtoms=${toString diagnostics.routeAtoms.tenant}:overlayAtoms=${toString diagnostics.routeAtoms.overlay}:p2pAtoms=${toString diagnostics.routeAtoms.p2p}" {
       inherit diagnostics;
+      completionRecords = completion.records;
       inherit (materialized) byNode;
     };
 }

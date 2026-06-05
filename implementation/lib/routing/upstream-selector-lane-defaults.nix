@@ -14,8 +14,8 @@ let
     laneUplinkName
     ;
 in
-{
-  addPolicyLaneCoreDefaults =
+rec {
+  policyLaneCoreDefaultPlan =
     { topo
     , nodeName
     , node
@@ -122,14 +122,8 @@ in
         { }
         policyLaneLinks;
     in
-    builtins.foldl'
-      (
-        acc: linkName:
-        let
-          routes = perCoreLink.${linkName};
-        in
-        helpers.addRoutesOnLink acc linkName routes.routes4 routes.routes6
-      )
-      node
-      (builtins.attrNames perCoreLink);
+    perCoreLink;
+
+  addPolicyLaneCoreDefaults =
+    args: helpers.addRoutePlan args.node (policyLaneCoreDefaultPlan args);
 }

@@ -22,6 +22,8 @@ tests=(
   test-semantic-lib-performance-boundary.sh
   test-internal-route-profile-hypothesis.sh
   test-internal-route-site-plan-contract.sh
+  test-internal-route-coordinator-contract.sh
+  test-internal-route-source-group-contract.sh
   test-internal-route-equivalence-contract.sh
   test-overlay-interface-no-peer-null-duplicates.sh
   test-overlay-route-source-lane-contract.sh
@@ -50,6 +52,10 @@ tests=(
   test-dns-service-node-placement.sh
   test-dns-service-requester-lane-routes.sh
   test-compiler-traffic-path-propagation.sh
+  test-fs260-default-site-fabric-chain-handoff.sh
+  test-adjacent-traffic-denial-handoff.sh
+  test-network-labs-wildcard-path-handoff.sh
+  test-network-labs-site-fabric-handoff.sh
   test-transit-ordering-deserializes-compiler-links.sh
   test-overlay-core-access-p2p-contract.sh
   test-overlay-underlay-access-default-routes.sh

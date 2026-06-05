@@ -32,10 +32,10 @@ in
       groupValues = keyFn: xs: builtins.groupBy keyFn xs;
 
       resolveGroup =
-        row:
+        group:
         let
-          nodeName = row.nodeName;
-          dstEntry = row.entry;
+          nodeName = group.nodeName;
+          dstEntry = builtins.head group.entries;
           routeScope = dstEntry.routeScope or null;
           primaryPath = routeGraph.shortestPath { src = nodeName; dst = dstEntry.owner; };
           firstHopHasRealLink =
@@ -119,17 +119,21 @@ in
                 else if dstEntry.family == 6 && via6 == null then
                   null
                 else
-                  { inherit nodeName linkName via4 via6; }
+                  {
+                    inherit nodeName linkName via4 via6;
+                    destinationOwner = dstEntry.owner or null;
+                    hopNode = hop;
+                  }
               )
               candidateLinks
           );
 
       resolveGroupRows =
-        rows:
+        group:
         let
-          resolvedHops = resolveGroup (builtins.head rows);
+          resolvedHops = resolveGroup group;
         in
-        lib.concatMap (resolvedHop: map (row: row.entry // resolvedHop) rows) resolvedHops;
+        lib.concatMap (resolvedHop: map (entry: entry // resolvedHop) group.entries) resolvedHops;
 
       resolvedRows = lib.concatMap
         (key: resolveGroupRows remoteGroups.${key})
@@ -140,7 +144,7 @@ in
         let
           routeScope = e.routeScope or { };
         in
-        "${e.nodeName}|${e.linkName}|${toString e.family}|${toString (e.via4 or "")}|${toString (e.via6 or "")}|${e.kind}|${toString (e.overlay or "")}|${toString (e.peerSite or "")}|${toString (e.sourceFile or "")}|${toString (routeScope.access or "")}|${toString (routeScope.uplink or "")}|${toString (routeScope.serviceName or "")}";
+          "${e.nodeName}|${e.linkName}|${toString e.family}|${toString (e.via4 or "")}|${toString (e.via6 or "")}|${e.kind}|${toString (e.overlay or "")}|${toString (e.peerSite or "")}|${toString (e.sourceFile or "")}|${toString (routeScope.access or "")}|${toString (routeScope.uplink or "")}|${toString (routeScope.serviceName or "")}";
 
       nextHopGroups = groupValues perNextHopKey resolvedRows;
 
@@ -148,6 +152,7 @@ in
         rows:
         let
           sample = builtins.head rows;
+          routeScope = sample.routeScope or { };
           built = routeGroups.build {
             inherit mkRoute4 mkRoute6 mode topo;
             entries = rows;
@@ -156,10 +161,25 @@ in
             via6 = sample.via6;
           };
         in
-        {
-          inherit (sample) nodeName;
-          inherit (built) linkName routes4 routes6;
-        };
+          {
+            inherit (sample) nodeName;
+            inherit (built) linkName routes4 routes6;
+            equivalenceKey = {
+              sourceNode = sample.nodeName;
+              destinationOwner = sample.destinationOwner or null;
+              routeKind = sample.kind;
+              overlay = sample.overlay or null;
+              uplink = routeScope.uplink or null;
+              access = routeScope.access or null;
+              serviceName = routeScope.serviceName or null;
+              hopNode = sample.hopNode or null;
+              linkName = sample.linkName;
+              family = sample.family;
+              via4 = sample.via4 or null;
+              via6 = sample.via6 or null;
+            };
+            diagnostics = built.diagnostics;
+          };
     in
     map (key: buildRouteRow nextHopGroups.${key}) (builtins.attrNames nextHopGroups);
 }

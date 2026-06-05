@@ -120,9 +120,9 @@ in
       defaultReachabilityUplinkNames =
         routeFacts.defaultReachabilityUplinkNames or (topo.uplinkNames or [ ]);
 
-      addDefaultTowardNearestUplinkCore =
+      nearestUplinkCoreDefaultPlan =
         if nearestDefaultTarget == null then
-          node
+          { }
         else
           let
             path = routeGraph.shortestPath {
@@ -156,14 +156,22 @@ in
             skipOverlayGenericDefault = nonOverlayUplinkNames != [ ] && selectedIsOverlayUplink;
           in
           if selectedPath == null || nextHop.linkName == null || skipOverlayGenericDefault then
-            node
+            { }
           else
-            helpers.addRoutesOnLink node nextHop.linkName (nearestDefaultRoute 4 nextHop.via4) (
-              nearestDefaultRoute 6 nextHop.via6
-            );
+            {
+              "${nextHop.linkName}" = {
+                routes4 = nearestDefaultRoute 4 nextHop.via4;
+                routes6 = nearestDefaultRoute 6 nextHop.via6;
+              };
+            };
+
+      addDefaultTowardNearestUplinkCore = helpers.addRoutePlan node nearestUplinkCoreDefaultPlan;
     in
     {
-      inherit addDefaultTowardNearestUplinkCore;
+      inherit addDefaultTowardNearestUplinkCore nearestUplinkCoreDefaultPlan;
+      downstreamSelectorPolicyDefaultPlan = laneDefaults.downstreamSelectorPolicyDefaultPlan passArgs;
+      policyUpstreamSelectorDefaultPlan = laneDefaults.policyUpstreamSelectorDefaultPlan passArgs;
+      upstreamSelectorPolicyLaneCoreDefaultPlan = laneDefaults.policyLaneCoreDefaultPlan passArgs;
       addDownstreamSelectorPolicyLaneDefaults = laneDefaults.addDownstreamSelectorPolicyDefaults passArgs;
       addPolicyUpstreamSelectorLaneDefaults = laneDefaults.addPolicyUpstreamSelectorDefaults passArgs;
       addUpstreamSelectorPolicyLaneCoreDefaults = laneDefaults.addUpstreamSelectorPolicyLaneCoreDefaults passArgs;

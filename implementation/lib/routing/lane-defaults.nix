@@ -7,7 +7,7 @@ let
   routeBuilder = import ./lane-default-route-builder.nix { inherit lib self; };
   laneMetadata = import ./lane-metadata.nix { inherit lib self; };
   upstreamSelectorLaneDefaults = import ./upstream-selector-lane-defaults.nix { inherit lib self; };
-  inherit (routeBuilder) addDefaultsTowardPeer;
+  inherit (routeBuilder) mkDefaultRoutes;
   inherit (laneMetadata)
     defaultMetricForLane
     hasUplinkLane
@@ -25,8 +25,8 @@ let
     || builtins.hasAttr uplinkName (routeFacts.overlayUplinkNameSet or { });
 
 in
-{
-  addDownstreamSelectorPolicyDefaults =
+rec {
+  downstreamSelectorPolicyDefaultPlan =
     { topo
     , nodeName
     , node
@@ -66,28 +66,35 @@ in
           accessName = laneAccessNodeName linkObj;
           uplinks = uplinksForAccess accessName;
           uplinkName = if uplinks == [ ] then null else builtins.head (lib.sort (a: b: a < b) uplinks);
-        in
-        addDefaultsTowardPeer {
-          inherit
-            links
-            linkName
-            mkRoute4
-            mkRoute6
-            ;
-          lane = {
-            access = accessName;
-            uplink = uplinkName;
+          routes = mkDefaultRoutes {
+            inherit
+              mkRoute4
+              mkRoute6
+              ;
+            epTo = link.getEp linkName linkObj policyNodeName;
+            lane = {
+              access = accessName;
+              uplink = uplinkName;
+            };
+            policyOnly = true;
+            reason = "policy-derived-default";
           };
-          node = acc;
-          peerNodeName = policyNodeName;
-          policyOnly = true;
-          reason = "policy-derived-default";
+        in
+        acc
+        // {
+          "${linkName}" = {
+            routes4 = (acc.${linkName}.routes4 or [ ]) ++ routes.routes4;
+            routes6 = (acc.${linkName}.routes6 or [ ]) ++ routes.routes6;
+          };
         }
       )
-      node
+      { }
       laneLinks;
 
-  addPolicyUpstreamSelectorDefaults =
+  addDownstreamSelectorPolicyDefaults =
+    args: helpers.addRoutePlan args.node (downstreamSelectorPolicyDefaultPlan args);
+
+  policyUpstreamSelectorDefaultPlan =
     { topo
     , nodeName
     , node
@@ -133,27 +140,41 @@ in
         then
           acc
         else
-          addDefaultsTowardPeer {
-            inherit
-              links
-              linkName
-              mkRoute4
-              mkRoute6
-              ;
-            lane = {
-              access = laneAccessNodeName links.${linkName};
-              uplink = uplinkName;
+          let
+            linkObj = links.${linkName};
+            routes = mkDefaultRoutes {
+              inherit
+                mkRoute4
+                mkRoute6
+                ;
+              epTo = link.getEp linkName linkObj selectorNodeName;
+              lane = {
+                access = laneAccessNodeName linkObj;
+                uplink = uplinkName;
+              };
+              metric = defaultMetricForLane topo linkObj;
+              policyOnly = true;
+              reason = "policy-derived-default";
             };
-            metric = defaultMetricForLane topo links.${linkName};
-            node = acc;
-            peerNodeName = selectorNodeName;
-            policyOnly = true;
-            reason = "policy-derived-default";
+          in
+          acc
+          // {
+            "${linkName}" = {
+              routes4 = (acc.${linkName}.routes4 or [ ]) ++ routes.routes4;
+              routes6 = (acc.${linkName}.routes6 or [ ]) ++ routes.routes6;
+            };
           }
       )
-      node
+      { }
       laneLinks;
 
-  addUpstreamSelectorPolicyLaneCoreDefaults =
-    upstreamSelectorLaneDefaults.addPolicyLaneCoreDefaults;
+  addPolicyUpstreamSelectorDefaults =
+    args: helpers.addRoutePlan args.node (policyUpstreamSelectorDefaultPlan args);
+
+  inherit (upstreamSelectorLaneDefaults)
+    addPolicyLaneCoreDefaults
+    policyLaneCoreDefaultPlan
+    ;
+
+  addUpstreamSelectorPolicyLaneCoreDefaults = upstreamSelectorLaneDefaults.addPolicyLaneCoreDefaults;
 }

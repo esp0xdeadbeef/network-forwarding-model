@@ -85,5 +85,5 @@ rec {
         epTo = link.getEp linkName linkObj peerNodeName;
       };
     in
-    helpers.addRoutesOnLink node linkName routes.routes4 routes.routes6;
+    helpers.addRoutesOnLinkFromMaterializedRoutes node linkName routes.routes4 routes.routes6;
 }
