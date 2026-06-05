@@ -14,8 +14,12 @@ let
 
   authorityClassOf =
     e:
-    if (e.kind or null) == "runtime-routed-prefix" then
+    if (e.authorityClass or null) != null then
+      toString e.authorityClass
+    else if (e.kind or null) == "runtime-routed-prefix" then
       "routed-client-prefix"
+    else if (e.kind or null) == "routed-public-ipv4" then
+      "routed-public-ipv4"
     else
       "access-subnet-pool";
 
@@ -50,6 +54,7 @@ let
         routeIdentity = routeIdentity;
       }
       // lib.optionalAttrs (entry ? dst) { prefix = entry.dst; }
+      // lib.optionalAttrs ((entry.source or null) != null) { source = entry.source; }
       // lib.optionalAttrs (entry ? sourceFile) {
         sourceFile = entry.sourceFile;
         prefixName = entry.prefixName or null;
@@ -59,6 +64,7 @@ let
       };
     }
     // lib.optionalAttrs (entry ? dst) { prefix = entry.dst; }
+    // lib.optionalAttrs ((entry.source or null) != null) { source = entry.source; }
     // lib.optionalAttrs (entry ? sourceFile) {
       sourceFile = entry.sourceFile;
       prefixName = entry.prefixName or null;

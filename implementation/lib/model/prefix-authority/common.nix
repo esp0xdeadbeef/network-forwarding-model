@@ -30,6 +30,11 @@ let
         exposure = true;
         route = true;
       }
+    else if authorityClass == "routed-public-ipv4" then
+      denyAll // {
+        exposure = true;
+        route = true;
+      }
     else if authorityClass == "host-only-provider-prefix" then
       denyAll // {
         route = true;
@@ -49,6 +54,8 @@ let
       "downstream-client-routing"
     else if authorityClass == "delegated-client-prefix" then
       "downstream-client-delegation"
+    else if authorityClass == "routed-public-ipv4" then
+      "downstream-client-public-ipv4-routing"
     else if authorityClass == "host-only-provider-prefix" then
       "provider-endpoint-host-address"
     else if authorityClass == "nat66-egress-prefix" then

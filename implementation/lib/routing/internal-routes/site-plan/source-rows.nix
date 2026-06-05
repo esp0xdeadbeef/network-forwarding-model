@@ -57,7 +57,7 @@
         entry.owner != nodeName
         && !ownsDst
         && (
-          if entry.kind == "tenant" || entry.kind == "runtime-routed-prefix" then
+          if entry.kind == "tenant" || entry.kind == "runtime-routed-prefix" || entry.kind == "routed-public-ipv4" then
             tenantReachableFromNode nodeName entry
             && !((entry.kind or null) == "runtime-routed-prefix" && nodeRole == "access")
           else if entry.kind == "overlay" then
@@ -74,6 +74,8 @@
           kind = entry.kind or "tenant";
         }
         // lib.optionalAttrs (entry ? dst) { dst = entry.dst; }
+        // lib.optionalAttrs ((entry.authorityClass or null) != null) { authorityClass = entry.authorityClass; }
+        // lib.optionalAttrs ((entry.source or null) != null) { source = entry.source; }
         // lib.optionalAttrs (entry ? sourceFile) {
           sourceFile = entry.sourceFile;
           prefixName = entry.prefixName or null;

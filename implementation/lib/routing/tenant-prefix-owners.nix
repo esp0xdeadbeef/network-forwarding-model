@@ -56,6 +56,9 @@ let
                 netName = e.netName or null;
               }
               // lib.optionalAttrs (e ? dst) { dst = e.dst; }
+              // lib.optionalAttrs ((e.kind or null) != null) { kind = e.kind; }
+              // lib.optionalAttrs ((e.authorityClass or null) != null) { authorityClass = e.authorityClass; }
+              // lib.optionalAttrs ((e.source or null) != null) { source = e.source; }
               // lib.optionalAttrs (e ? sourceFile) {
                 sourceFile = e.sourceFile;
                 prefixName = e.prefixName or null;

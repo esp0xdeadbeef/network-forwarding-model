@@ -43,6 +43,7 @@ let
             kind = t.kind or "tenant";
             name = toString t.name;
             ipv4 = t.ipv4 or null;
+            publicIpv4 = t.publicIpv4 or t.publicIPv4 or null;
             ipv6 = t.ipv6 or null;
             ra6Prefixes = t.ra6Prefixes or [ ];
             routedPrefixes = t.routedPrefixes or [ ];
@@ -63,6 +64,7 @@ let
               kind = t.kind or "tenant";
               name = toString t.name;
               ipv4 = t.ipv4 or null;
+              publicIpv4 = t.publicIpv4 or t.publicIPv4 or null;
               ipv6 = t.ipv6 or null;
               ra6Prefixes = t.ra6Prefixes or [ ];
               routedPrefixes = t.routedPrefixes or [ ];

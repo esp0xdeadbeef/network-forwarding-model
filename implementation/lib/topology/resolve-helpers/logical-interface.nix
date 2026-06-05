@@ -36,7 +36,9 @@ in
       type = "logical";
       carrier = "logical";
       tenant = tenantName;
-      network = { name = tenantName; kind = net.kind or "tenant"; ipv4 = subnet4; ipv6 = subnet6; };
+      network =
+        { name = tenantName; kind = net.kind or "tenant"; ipv4 = subnet4; ipv6 = subnet6; }
+        // lib.optionalAttrs ((net.publicIpv4 or null) != null) { publicIpv4 = net.publicIpv4; };
       gateway = false;
       addr4 = addr4;
       peerAddr4 = null;
@@ -54,6 +56,7 @@ in
         ipv6 = lib.optional (isGatewayAttachment && subnet6 != null) (mkConnectedRoute subnet6);
       };
       ra6Prefixes = map canonicalCidr (net.ra6Prefixes or [ ]);
+      routedPrefixes = net.routedPrefixes or [ ];
       acceptRA = !isGatewayAttachment && subnet6 != null;
       dhcp = !isGatewayAttachment && subnet4 != null;
     };

@@ -25,12 +25,13 @@ in
       let
         sample = builtins.head entries;
         isRuntimeRoutedPrefix = sample.kind == "runtime-routed-prefix";
+      isRoutedPublicIpv4 = sample.kind == "routed-public-ipv4";
       entryDsts = uniqueStrings (map (e: e.dst) (builtins.filter (e: e ? dst) entries));
       entryDstRows = builtins.length (builtins.filter (e: e ? dst) entries);
       aggDst =
         if isRuntimeRoutedPrefix then
           null
-        else if sample.kind == "p2p" then
+        else if sample.kind == "p2p" || isRoutedPublicIpv4 then
           null
         else if mode == "none" && sample.kind != "p2p" then
           null
@@ -38,7 +39,7 @@ in
           helpers.buildTenantAggregate topo sample.family
         else
           null;
-      preserveExactDsts = mode == "none" || sample.kind == "overlay" || sample.kind == "p2p";
+      preserveExactDsts = mode == "none" || sample.kind == "overlay" || sample.kind == "p2p" || isRoutedPublicIpv4;
       summarizedDsts =
         if preserveExactDsts then
           entryDsts
@@ -49,13 +50,26 @@ in
       intentKind =
         if isRuntimeRoutedPrefix then
           "runtime-routed-prefix-return"
+        else if isRoutedPublicIpv4 then
+          "routed-public-ipv4-return"
         else if sample.kind == "overlay" then
           "overlay-reachability"
         else
           "internal-reachability";
-      routeIntent = {
-        kind = intentKind;
+      authorityClass = sample.authorityClass or null;
+      exportReason =
+        if authorityClass == "host-only-provider-prefix" then "host-only-provider-prefix" else "authority-class-allows-downstream-export";
+      downstreamExport = lib.optionalAttrs (authorityClass != null) {
+        downstreamExport = { allowed = authorityClass != "host-only-provider-prefix"; reason = exportReason; };
       };
+      routeIntent =
+        {
+          kind = intentKind;
+        }
+        // lib.optionalAttrs ((sample.owner or null) != null) { accessNode = sample.owner; }
+        // lib.optionalAttrs (authorityClass != null) { inherit authorityClass; }
+        // lib.optionalAttrs ((sample.source or null) != null) { source = sample.source; }
+        // downstreamExport;
       overlayFields =
         lib.optionalAttrs ((sample.overlay or null) != null) {
           overlay = sample.overlay;
@@ -114,6 +128,13 @@ in
                 kind = intentKind;
                 source = "intent-routed-prefix";
                 accessNode = entry.owner;
+              }
+              // lib.optionalAttrs ((entry.authorityClass or null) != null) { authorityClass = entry.authorityClass; }
+              // lib.optionalAttrs ((entry.authorityClass or null) != null) {
+                downstreamExport = {
+                  allowed = (entry.authorityClass or null) != "host-only-provider-prefix";
+                  reason = if (entry.authorityClass or null) == "host-only-provider-prefix" then "host-only-provider-prefix" else "authority-class-allows-downstream-export";
+                };
               };
             } // lib.optionalAttrs ((entry.prefixName or null) != null) { prefixName = entry.prefixName; })
             entries
