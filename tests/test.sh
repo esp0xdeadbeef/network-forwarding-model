@@ -52,6 +52,7 @@ tests=(
   test-lane-default-routes-policy-only.sh
   test-policy-source-scope-contract.sh
   test-fs350-prefix-authority-consumer-eligibility.sh
+  test-fs390-public-ipv4-destination-policy.sh
   test-dns-service-node-placement.sh
   test-dns-service-requester-lane-routes.sh
   test-compiler-traffic-path-propagation.sh
