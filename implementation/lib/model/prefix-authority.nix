@@ -41,6 +41,13 @@ in
           explicit.guaPlacementRequests
         else
           [ ];
+      routeImportConstraintRequests =
+        if builtins.isList (explicit.routeImportConstraints or null) then
+          explicit.routeImportConstraints
+        else if builtins.isList (topo.routeImportConstraints or null) then
+          topo.routeImportConstraints
+        else
+          [ ];
 
       records = common.listToAttrsById (recordsMod.build { inherit tenantPrefixOwners reservations; });
       consumerEligibilityRecords = requestsMod.classify records requests;
@@ -49,6 +56,8 @@ in
       deniedRouteExportPreconditionRecords = lib.filter (record: record.allowed == false) routeExportPreconditionRecords;
       guaPlacementPreconditionRecords = requestsMod.classifyGuaPlacementPreconditions records guaPlacementPreconditionRequests;
       deniedGuaPlacementPreconditionRecords = lib.filter (record: record.allowed == false) guaPlacementPreconditionRecords;
+      routeImportConstraintRecords = requestsMod.classifyRouteImportConstraints records routeImportConstraintRequests;
+      deniedRouteImportConstraintRecords = lib.filter (record: record.allowed == false) routeImportConstraintRecords;
     in
     {
       records = records;
@@ -58,5 +67,7 @@ in
       deniedRouteExportPreconditions = common.listToAttrsById deniedRouteExportPreconditionRecords;
       guaPlacementPreconditions = common.listToAttrsById guaPlacementPreconditionRecords;
       deniedGuaPlacementPreconditions = common.listToAttrsById deniedGuaPlacementPreconditionRecords;
+      routeImportConstraints = common.listToAttrsById routeImportConstraintRecords;
+      deniedRouteImportConstraints = common.listToAttrsById deniedRouteImportConstraintRecords;
     };
 }
