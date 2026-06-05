@@ -10,6 +10,7 @@ let
   overlayResolution = import ./topology/resolve/overlays.nix { inherit lib self; };
   tenantOwnersMod = import ./routing/tenant-prefix-owners.nix { inherit lib self; };
   prefixAuthorityMod = import ./model/prefix-authority.nix { inherit lib self; };
+  publicIpv4DestinationPolicyMod = import ./model/public-ipv4-destination-policy.nix { inherit lib self; };
   graphContext = import ./routing/graph/context.nix { inherit lib self; };
 
   assert_ = cond: msg: if cond then true else throw msg;
@@ -144,10 +145,10 @@ let
     topo = topo1;
     inherit tenantPrefixOwners;
   };
-
   topo2 = topo1 // {
     tenantPrefixOwners = tenantPrefixOwners;
     prefixAuthority = prefixAuthority;
+    publicIpv4DestinationPolicy = publicIpv4DestinationPolicyMod.build topo1;
   };
 
   overlayCoreSelection = import ./routing/overlay-core-selection.nix { inherit lib self; };
