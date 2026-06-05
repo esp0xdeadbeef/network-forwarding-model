@@ -105,10 +105,13 @@ jq -e '
     "routeKind",
     "overlay",
     "uplink",
+    "access",
+    "serviceName",
     "hopNode",
     "linkName",
     "via4",
-    "via6"
+    "via6",
+    "routeIntentClass"
   ])
   and ([
     .diagnostics.nextHopEquivalence.entries[]

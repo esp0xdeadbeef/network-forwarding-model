@@ -34,7 +34,7 @@ in
       mode = helpers.aggregationMode topo;
 
       rows = sourceRows.build {
-        inherit nodeNames remotePrefixFacts;
+        inherit mode nodeNames remotePrefixFacts;
         nodes = topo.nodes or { };
         includeP2p = builtins.getEnv "S88_NFM_PROFILE_SKIP_INTERNAL_P2P" != "1";
         includeTenant = builtins.getEnv "S88_NFM_PROFILE_SKIP_INTERNAL_TENANT" != "1";
@@ -109,7 +109,7 @@ in
           }
         ];
       };
-      diagnostics = baseDiagnostics // {
+      diagnostics = (rows.diagnostics or { }) // baseDiagnostics // {
         coordinator = completion.diagnostics;
       };
     in

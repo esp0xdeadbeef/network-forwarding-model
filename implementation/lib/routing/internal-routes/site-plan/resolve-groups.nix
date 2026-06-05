@@ -177,6 +177,18 @@ in
               family = sample.family;
               via4 = sample.via4 or null;
               via6 = sample.via6 or null;
+              routeIntentClass =
+                if sample.kind == "runtime-routed-prefix" then
+                  "runtime-routed-prefix-return"
+                else if sample.kind == "routed-public-ipv4" then
+                  "routed-public-ipv4-return"
+                else if sample.kind == "overlay" then
+                  "overlay-reachability"
+                else
+                  "internal-reachability";
+              routeAtomIds = map (entry: (entry.routeAtom or { }).id or null) rows;
+              aggregationClass = sample.aggregationClass or null;
+              exceptionClass = sample.exceptionClass or null;
             };
             diagnostics = built.diagnostics;
           };
