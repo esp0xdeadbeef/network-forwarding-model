@@ -9,6 +9,15 @@ if ! [[ "${threshold_ms}" =~ ^[0-9]+$ ]] || [ "${threshold_ms}" -lt 1 ]; then
   exit 1
 fi
 
+repo_revision="$(git -C "${repo_root}" rev-parse HEAD 2>/dev/null || echo unknown)"
+repo_dirty=false
+if ! git -C "${repo_root}" diff --quiet >/dev/null 2>&1 || ! git -C "${repo_root}" diff --cached --quiet >/dev/null 2>&1; then
+  repo_dirty=true
+fi
+locked_revisions="$(jq -r '[.nodes | to_entries[] | select(.value.locked.rev?) | "\(.key)=\(.value.locked.rev)"] | join(",")' "${repo_root}/flake.lock")"
+host_class="$(uname -m)-$(uname -s | tr '[:upper:]' '[:lower:]')"
+excluded_runtime_stages="nix-build,container-image-build,vm-deployment,containerlab-deployment,boot,live-packet-validation,provider-calls,cache-misses"
+
 archive_json="$(mktemp)"
 trap 'rm -f "${archive_json}"' EXIT
 
@@ -143,6 +152,7 @@ for example in "${examples[@]}"; do
   rm -f "${compiled_json}"
 
   if [[ "${rc}" -ne 0 ]]; then
+    echo "BENCH overlay-semantic-eval stage=network-forwarding-model example=${example} status=FAIL elapsed_ms=${elapsed_ms} threshold_ms=${threshold_ms} repo_revision=${repo_revision} repo_dirty=${repo_dirty} locked_revisions=${locked_revisions} timing_method=date_ms host_class=${host_class} cache_state=warm-required command=nix-eval-buildFromCompilerInputs upstream_cardinality=unknown downstream_cardinality=unknown excluded_runtime_stages=${excluded_runtime_stages}" >&2
     echo "FAIL overlay-semantic-eval ${example}: evaluation failed after ${elapsed_ms}ms" >&2
     failed=1
     continue
@@ -151,8 +161,12 @@ for example in "${examples[@]}"; do
   max_routes="$(jq '[.nfmSites[].routes] | max // 0' <<<"${summary}")"
   max_relations="$(jq '[.compilerSites[].relations] | max // 0' <<<"${summary}")"
   max_paths="$(jq '[.compilerSites[].trafficPaths] | max // 0' <<<"${summary}")"
-  printf 'BENCH overlay-semantic-eval example=%s elapsed_ms=%s threshold_ms=%s max_relations=%s max_paths=%s max_routes=%s\n' \
-    "${example}" "${elapsed_ms}" "${threshold_ms}" "${max_relations}" "${max_paths}" "${max_routes}"
+  status=PASS
+  if [ "${elapsed_ms}" -gt "${threshold_ms}" ]; then
+    status=FAIL
+  fi
+  printf 'BENCH overlay-semantic-eval stage=network-forwarding-model example=%s status=%s elapsed_ms=%s threshold_ms=%s repo_revision=%s repo_dirty=%s locked_revisions=%s timing_method=date_ms host_class=%s cache_state=warm-required command=nix-eval-buildFromCompilerInputs upstream_cardinality=max_relations:%s,max_paths:%s downstream_cardinality=max_routes:%s excluded_runtime_stages=%s max_relations=%s max_paths=%s max_routes=%s\n' \
+    "${example}" "${status}" "${elapsed_ms}" "${threshold_ms}" "${repo_revision}" "${repo_dirty}" "${locked_revisions}" "${host_class}" "${max_relations}" "${max_paths}" "${max_routes}" "${excluded_runtime_stages}" "${max_relations}" "${max_paths}" "${max_routes}"
 
   if [ "${elapsed_ms}" -gt "${threshold_ms}" ]; then
     echo "FAIL overlay-semantic-eval ${example}: ${elapsed_ms}ms exceeds ${threshold_ms}ms" >&2
