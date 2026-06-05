@@ -26,6 +26,8 @@ tests=(
   test-internal-route-source-group-contract.sh
   test-internal-route-equivalence-contract.sh
   test-overlay-interface-no-peer-null-duplicates.sh
+  test-fs300-source-lane-route-metadata.sh
+  test-fs300-ineligible-lane-route-rejection.sh
   test-overlay-route-source-lane-contract.sh
   test-aggregation-none-preserves-internal-prefixes.sh
   test-no-parent-relative-imports.sh
