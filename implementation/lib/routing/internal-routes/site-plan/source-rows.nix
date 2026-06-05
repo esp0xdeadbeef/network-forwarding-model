@@ -5,12 +5,73 @@
     { includeOverlay
     , includeP2p
     , includeTenant
+    , mode ? "none"
     , nodeNames
     , nodes
     , remotePrefixFacts
     ,
     }:
     let
+      str = value: if value == null then "" else toString value;
+
+      aggregationClass =
+        entry:
+        if entry ? sourceFile then
+          "runtime-source-file"
+        else if mode == "none" || (entry.kind or null) == "p2p" || (entry.kind or null) == "overlay" || (entry.kind or null) == "routed-public-ipv4" then
+          "exact-only"
+        else
+          "prefix-summary-eligible";
+
+      exceptionClass =
+        entry:
+        if entry ? sourceFile then
+          "runtime-source-file"
+        else if (entry.kind or null) == "p2p" then
+          "point-to-point-exact"
+        else if (entry.overlay or null) != null then
+          "overlay-scope-exact"
+        else if (entry.uplink or null) != null then
+          "selected-uplink-exact"
+        else
+          "none";
+
+      routeAtomId =
+        entry:
+        builtins.concatStringsSep "|" [
+          (str (entry.family or null))
+          (str (entry.owner or null))
+          (str (entry.kind or null))
+          (str (entry.dst or null))
+          (str (entry.sourceFile or null))
+          (str (entry.overlay or null))
+          (str (entry.uplink or null))
+          (str (entry.peerSite or null))
+        ];
+
+      enrichEntry =
+        entry:
+        let
+          atom = {
+            id = routeAtomId entry;
+            family = entry.family or null;
+            destination = entry.dst or null;
+            sourceFile = entry.sourceFile or null;
+            owner = entry.owner or null;
+            kind = entry.kind or null;
+            overlay = entry.overlay or null;
+            uplink = entry.uplink or null;
+            peerSite = entry.peerSite or null;
+            aggregationClass = aggregationClass entry;
+            exceptionClass = exceptionClass entry;
+          };
+        in
+        entry // {
+          routeAtom = atom;
+          aggregationClass = atom.aggregationClass;
+          exceptionClass = atom.exceptionClass;
+        };
+
       tenantReachableFromNode =
         nodeName: entry:
         let
@@ -86,9 +147,11 @@
         // lib.optionalAttrs ((entry.prefixPostfix or null) != null) { prefixPostfix = entry.prefixPostfix; });
 
       entriesByKind =
-        (if includeP2p then remotePrefixFacts.p2pEntries else [ ])
-        ++ (if includeTenant then map normalizeTenantEntry (remotePrefixFacts.tenantOwnerEntries or [ ]) else [ ])
-        ++ (if includeOverlay then remotePrefixFacts.overlayRouteEntries else [ ]);
+        map enrichEntry (
+          (if includeP2p then remotePrefixFacts.p2pEntries else [ ])
+          ++ (if includeTenant then map normalizeTenantEntry (remotePrefixFacts.tenantOwnerEntries or [ ]) else [ ])
+          ++ (if includeOverlay then remotePrefixFacts.overlayRouteEntries else [ ])
+        );
 
       resolutionKey =
         nodeName: entry:
@@ -141,9 +204,56 @@
           serviceScopes;
 
       remoteGroups = builtins.foldl' addEntryGroups { } entriesByKind;
+      remoteGroupValues = builtins.attrValues remoteGroups;
+      eligiblePairCount = builtins.foldl' (acc: group: acc + builtins.length (group.entries or [ ])) 0 remoteGroupValues;
+      rejectedPairCount =
+        (builtins.length entriesByKind * builtins.length nodeNames) - eligiblePairCount;
+      classCounts =
+        builtins.mapAttrs (_: records: builtins.length records) (
+          builtins.groupBy (entry: entry.aggregationClass or "unknown") entriesByKind
+        );
     in
     {
       inherit entriesByKind;
       inherit remoteGroups;
+      diagnostics = {
+        routeAtomIndex = {
+          sms = "FS-940-HDS-010-SDS-020-SMS-020";
+          authority = "site-plan/source-rows";
+          builtBeforeRouteRows = true;
+          atomCount = builtins.length entriesByKind;
+          atoms = map (entry: entry.routeAtom) entriesByKind;
+          aggregationClasses = classCounts;
+          requiredFields = [
+            "id"
+            "family"
+            "destination"
+            "sourceFile"
+            "owner"
+            "kind"
+            "overlay"
+            "uplink"
+            "exceptionClass"
+            "aggregationClass"
+          ];
+        };
+        sourceEligibilityMatrix = {
+          sms = "FS-940-HDS-010-SDS-020-SMS-030";
+          authority = "site-plan/source-rows";
+          groupedOncePerSite = true;
+          keyFields = [
+            "sourceNode"
+            "routeAtomId"
+            "owner"
+            "kind"
+            "overlay"
+            "uplink"
+            "access"
+            "serviceName"
+          ];
+          remoteGroupCount = builtins.length (builtins.attrNames remoteGroups);
+          inherit eligiblePairCount rejectedPairCount;
+        };
+      };
     };
 }

@@ -22,6 +22,7 @@ tests=(
   test-semantic-lib-performance-boundary.sh
   test-internal-route-profile-hypothesis.sh
   test-internal-route-site-plan-contract.sh
+  test-fs940-route-planner-child-atoms.sh
   test-internal-route-coordinator-contract.sh
   test-internal-route-source-group-contract.sh
   test-internal-route-equivalence-contract.sh
