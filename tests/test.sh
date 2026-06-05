@@ -53,6 +53,8 @@ tests=(
   test-lane-default-routes-policy-only.sh
   test-policy-source-scope-contract.sh
   test-fs360-downstream-client-public-prefix-authority.sh
+  test-fs360-public-prefix-return-route-precondition.sh
+  test-fs360-gua-transit-placement-validation.sh
   test-fs380-fs410-route-authority-handoff.sh
   test-fs350-prefix-authority-consumer-eligibility.sh
   test-fs390-public-ipv4-destination-policy.sh
