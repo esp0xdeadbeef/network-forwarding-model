@@ -56,13 +56,23 @@ let
       }
     else
       let
-        parsed = address.parse cidr;
+        parsedExpanded = address.parseExpanded cidr;
       in
-      {
-        start = (address.ipv6Lib.firstAddress parsed)._address;
-        end = (address.ipv6Lib.lastAddress parsed)._address;
-        prefix = parsed.prefixLength;
-      };
+      if parsedExpanded != null then
+        {
+          start = address.firstForPrefix parsedExpanded.address parsedExpanded.prefix;
+          end = address.lastForPrefix parsedExpanded.address parsedExpanded.prefix;
+          prefix = parsedExpanded.prefix;
+        }
+      else
+        let
+          parsed = address.parse cidr;
+        in
+        {
+          start = (address.ipv6Lib.firstAddress parsed)._address;
+          end = (address.ipv6Lib.lastAddress parsed)._address;
+          prefix = parsed.prefixLength;
+        };
 
   mergeRanges =
     ranges:
@@ -74,16 +84,16 @@ let
           [ r ]
         else
           let
-            last = lib.last acc;
-            rest = lib.take ((builtins.length acc) - 1) acc;
+            last = builtins.head acc;
+            rest = builtins.tail acc;
             lastEndNext = inc last.end;
           in
           if le r.start lastEndNext || eq r.start lastEndNext then
-            rest ++ [ (last // { end = max last.end r.end; }) ]
+            [ (last // { end = max last.end r.end; }) ] ++ rest
           else
-            acc ++ [ r ];
+            [ r ] ++ acc;
     in
-    builtins.foldl' step [ ] sorted;
+    lib.reverseList (builtins.foldl' step [ ] sorted);
 
   tz16 =
     n:
@@ -111,7 +121,7 @@ rec {
     if prefixLen == 0 then
       allOnes
     else
-      (address.ipv6Lib.lastAddress (address.parse "${address.render start}/${toString prefixLen}"))._address;
+      address.lastForPrefix start prefixLen;
 
   rangeToCidrs = import (self.outPath + "/implementation/lib/routing/cidr-summary/ipv6-range-to-cidrs.nix") {
     inherit lib;

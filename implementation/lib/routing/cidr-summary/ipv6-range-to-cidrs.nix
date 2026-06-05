@@ -40,6 +40,6 @@ let
         blockEnd = ipv6.prefixEnd cur prefixLen;
         item = "${ipv6.toStringV6 cur}/${toString prefixLen}";
       in
-      if ipv6.eq blockEnd end then acc ++ [ item ] else go (ipv6.inc blockEnd) (acc ++ [ item ]);
+      if ipv6.eq blockEnd end then lib.reverseList ([ item ] ++ acc) else go (ipv6.inc blockEnd) ([ item ] ++ acc);
 in
 go start [ ]

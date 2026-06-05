@@ -1,9 +1,5 @@
 { lib }:
 
-let
-  groupValues = keyFn: xs: builtins.groupBy keyFn xs;
-
-in
 {
   build =
     { includeOverlay
@@ -92,33 +88,60 @@ in
         ++ (if includeTenant then map normalizeTenantEntry (remotePrefixFacts.tenantOwnerEntries or [ ]) else [ ])
         ++ (if includeOverlay then remotePrefixFacts.overlayRouteEntries else [ ]);
 
-      rowsForEntry =
-        entry:
+      resolutionKey =
+        nodeName: entry:
+        let
+          e = entry;
+          routeScope = e.routeScope or { };
+        in
+        "${nodeName}|${toString (e.owner or "")}|${toString (e.kind or "")}|${toString (e.overlay or "")}|${toString (e.peerSite or "")}|${toString (routeScope.access or "")}|${toString (routeScope.uplink or "")}|${toString (routeScope.serviceName or "")}";
+
+      appendEntry =
+        groups: nodeName: entry:
+        let
+          key = resolutionKey nodeName entry;
+          current = groups.${key} or {
+            inherit nodeName;
+            entries = [ ];
+          };
+        in
+        groups
+        // {
+          "${key}" = current // {
+            entries = current.entries ++ [ entry ];
+          };
+        };
+
+      appendScopedRows =
+        groups: eligibleNodeNames: entry:
+        builtins.foldl'
+          (acc: nodeName: appendEntry acc nodeName entry)
+          groups
+          eligibleNodeNames;
+
+      addEntryGroups =
+        groups: entry:
         let
           eligibleNodeNames = builtins.filter (nodeName: sourceEligibleForEntry nodeName entry) nodeNames;
-          baseRows = map (nodeName: { inherit nodeName entry; }) eligibleNodeNames;
           serviceScopes =
             if (entry.kind or null) == "tenant" then
               remotePrefixFacts.serviceRouteScopesByOwner.${entry.owner} or [ ]
             else
               [ ];
-          scopedRows = lib.concatMap
-            (scope: map (nodeName: { inherit nodeName; entry = entry // { routeScope = scope; }; }) eligibleNodeNames)
-            serviceScopes;
+          groupedBase = appendScopedRows groups eligibleNodeNames entry;
         in
-        baseRows ++ scopedRows;
+        builtins.foldl'
+          (
+            acc: scope:
+            appendScopedRows acc eligibleNodeNames (entry // { routeScope = scope; })
+          )
+          groupedBase
+          serviceScopes;
 
-      sourceRows = lib.concatMap rowsForEntry entriesByKind;
-      resolutionKey =
-        row:
-        let
-          e = row.entry;
-          routeScope = e.routeScope or { };
-        in
-        "${row.nodeName}|${toString (e.owner or "")}|${toString (e.kind or "")}|${toString (e.overlay or "")}|${toString (e.peerSite or "")}|${toString (routeScope.access or "")}|${toString (routeScope.uplink or "")}|${toString (routeScope.serviceName or "")}";
+      remoteGroups = builtins.foldl' addEntryGroups { } entriesByKind;
     in
     {
-      inherit entriesByKind sourceRows;
-      remoteGroups = groupValues resolutionKey sourceRows;
+      inherit entriesByKind;
+      inherit remoteGroups;
     };
 }

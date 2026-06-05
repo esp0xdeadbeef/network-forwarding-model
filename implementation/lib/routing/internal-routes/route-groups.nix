@@ -26,6 +26,7 @@ in
         sample = builtins.head entries;
         isRuntimeRoutedPrefix = sample.kind == "runtime-routed-prefix";
       entryDsts = uniqueStrings (map (e: e.dst) (builtins.filter (e: e ? dst) entries));
+      entryDstRows = builtins.length (builtins.filter (e: e ? dst) entries);
       aggDst =
         if isRuntimeRoutedPrefix then
           null
@@ -157,5 +158,17 @@ in
       linkName = if linkName != null then linkName else sample.linkName;
       routes4 = if sample.family == 4 then rawRoutes ++ aggRoute else [ ];
       routes6 = if sample.family == 6 then rawRoutes ++ aggRoute else [ ];
+      diagnostics = {
+        routeAtomCount = builtins.length entries;
+        routeDstAtomCount = entryDstRows;
+        exactOnlyCount = if preserveExactDsts then builtins.length summarizedDsts else 0;
+        exactDeduplicationCount =
+          if preserveExactDsts then entryDstRows - builtins.length summarizedDsts else 0;
+        prefixSummaryCandidateCount =
+          if preserveExactDsts || isRuntimeRoutedPrefix then 0 else builtins.length entryDsts;
+        rejectedAggregationCount =
+          if aggDst == null && !isRuntimeRoutedPrefix then builtins.length entryDsts else 0;
+        finalMaterializedRouteCount = builtins.length rawRoutes + builtins.length aggRoute;
+      };
     };
 }

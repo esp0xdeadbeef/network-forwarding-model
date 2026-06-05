@@ -90,6 +90,37 @@ jq -e '
   and (.diagnostics.planner == "scratch-site-wide")
   and (.diagnostics.usesExistingPerNodeExpansion == false)
   and (.diagnostics.nextHopIdentities > 0)
+  and (.diagnostics.forwardingEquivalenceKeys > 0)
+  and (.diagnostics.exactOnlyCount > 0)
+  and (.diagnostics.exactDeduplicationCount >= 0)
+  and (.diagnostics.prefixSummaryCandidateCount >= 0)
+  and (.diagnostics.rejectedAggregationCount >= 0)
+  and (.diagnostics.finalMaterializedRouteCount == .materializedRouteRows)
+  and (.diagnostics.materializer.source == "finished-site-plan")
+  and (.diagnostics.materializer.perInterfaceNormalizationAuthoritative == false)
+  and (.diagnostics.materializer.routeRows == .diagnostics.forwardingEquivalenceKeys)
+  and (.diagnostics.nextHopEquivalence.keyFields == [
+    "sourceNode",
+    "destinationOwner",
+    "routeKind",
+    "overlay",
+    "uplink",
+    "hopNode",
+    "linkName",
+    "via4",
+    "via6"
+  ])
+  and ([
+    .diagnostics.nextHopEquivalence.entries[]
+    | select(
+        (.sourceNode // null) == null
+        or (.destinationOwner // null) == null
+        or (.routeKind // null) == null
+        or (.hopNode // null) == null
+        or (.linkName // null) == null
+        or (((.via4 // null) == null) and ((.via6 // null) == null))
+      )
+    ] | length == 0)
   and (.diagnostics.nodes > 0)
   and (.plannedNodeCount == .diagnostics.nodes)
   and (.materializedRouteRows > 100)

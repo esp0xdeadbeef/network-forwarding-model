@@ -57,6 +57,12 @@ in
       );
 
       remoteByNode = remotePrefixFacts.remoteByNode or { };
+      routeDiagnostics = map (row: row.diagnostics or { }) routeRows;
+      countDiagnostic = field: sum (map (diag: diag.${field} or 0) routeDiagnostics);
+      exactOnlyCount = countDiagnostic "exactOnlyCount";
+      prefixSummaryCandidateCount = countDiagnostic "prefixSummaryCandidateCount";
+      rejectedAggregationCount = countDiagnostic "rejectedAggregationCount";
+      finalMaterializedRouteCount = countDiagnostic "finalMaterializedRouteCount";
       diagnostics = {
         planner = "scratch-site-wide";
         usesExistingPerNodeExpansion = false;
@@ -71,6 +77,35 @@ in
           p2p = countRemoteByKind remoteByNode "p2p";
         };
         nextHopIdentities = builtins.length (builtins.attrNames remoteGroups);
+        forwardingEquivalenceKeys = builtins.length routeRows;
+        exactOnlyCount = exactOnlyCount;
+        exactDeduplicationCount = countDiagnostic "exactDeduplicationCount";
+        prefixSummaryCandidateCount = prefixSummaryCandidateCount;
+        rejectedAggregationCount = rejectedAggregationCount;
+        finalMaterializedRouteCount = finalMaterializedRouteCount;
+        materializer = {
+          source = "finished-site-plan";
+          perInterfaceNormalizationAuthoritative = false;
+          routeRows = builtins.length routeRows;
+          exactOnlyCount = exactOnlyCount;
+          prefixSummaryCandidateCount = prefixSummaryCandidateCount;
+          rejectedAggregationCount = rejectedAggregationCount;
+          finalMaterializedRouteCount = finalMaterializedRouteCount;
+        };
+        nextHopEquivalence = {
+          keyFields = [
+            "sourceNode"
+            "destinationOwner"
+            "routeKind"
+            "overlay"
+            "uplink"
+            "hopNode"
+            "linkName"
+            "via4"
+            "via6"
+          ];
+          entries = map (row: row.equivalenceKey or { }) routeRows;
+        };
         materializedRouteRows =
           builtins.foldl'
             (acc: row: acc + builtins.length (row.routes4 or [ ]) + builtins.length (row.routes6 or [ ]))

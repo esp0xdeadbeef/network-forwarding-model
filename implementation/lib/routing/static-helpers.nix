@@ -34,6 +34,21 @@ let
   };
   inherit (routeNormalization) normalizeRouteList dedupeRoutes;
 
+  rawIfaceRoutes =
+    iface:
+    if iface ? routes && builtins.isAttrs iface.routes then
+      {
+        ipv4 = iface.routes.ipv4 or [ ];
+        ipv6 = iface.routes.ipv6 or [ ];
+      }
+    else
+      {
+        ipv4 = iface.routes4 or [ ];
+        ipv6 = iface.routes6 or [ ];
+      };
+
+  withoutPreserveDst = map (route: builtins.removeAttrs route [ "preserveDst" ]);
+
   addRoutesOnLink =
     node: linkName: add4: add6:
     let
@@ -48,6 +63,25 @@ let
           routes = {
             ipv4 = normalizeRouteList 4 (curRoutes.ipv4 ++ add4);
             ipv6 = normalizeRouteList 6 (curRoutes.ipv6 ++ add6);
+          };
+        };
+      };
+    };
+
+  addRoutesOnLinkFromMaterializedRoutes =
+    node: linkName: add4: add6:
+    let
+      ifs = node.interfaces or { };
+      cur = ifs.${linkName} or { };
+      curRoutes = rawIfaceRoutes cur;
+    in
+    node
+    // {
+      interfaces = ifs // {
+        "${linkName}" = cur // {
+          routes = {
+            ipv4 = normalizeRouteList 4 ((withoutPreserveDst curRoutes.ipv4) ++ add4);
+            ipv6 = normalizeRouteList 6 ((withoutPreserveDst curRoutes.ipv6) ++ add6);
           };
         };
       };
@@ -92,6 +126,7 @@ in
     mkRoute6
     dedupeRoutes
     addRoutesOnLink
+    addRoutesOnLinkFromMaterializedRoutes
     addRoutePlan
     allNodeNames
     summarizeCidrs
