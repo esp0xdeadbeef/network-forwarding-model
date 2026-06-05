@@ -45,6 +45,7 @@ tests=(
   test-dedicated-lanes.sh
   test-p2p-link-realization.sh
   test-p2p-route-next-hop-peer-contract.sh
+  test-fs500-route-next-hop-p2p-namespace-split.sh
   test-access-tenant-gateway-host-addresses.sh
   test-tenant-client-attachments.sh
   test-p2p-specific-underlay-return-routes.sh
@@ -80,6 +81,7 @@ tests=(
   test-example-overlay-wan-return.sh
   test-overlay-peer-sites.sh
   test-external-ingress-uplink-defaults.sh
+  test-fs510-external-ingress-p2p-namespace-split.sh
   test-service-source-uplink-lanes.sh
   test-dual-wan-branch-overlay.sh
   test-overlay-access-lane-warning.sh
