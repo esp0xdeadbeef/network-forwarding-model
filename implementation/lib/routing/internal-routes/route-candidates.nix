@@ -49,6 +49,26 @@ let
         )
         candidates;
 
+  nonOverlayPreferredCandidates =
+    lib.filter
+      (
+        lname:
+        ((links.${lname}.overlay or null) == null)
+      )
+      preferredCandidates;
+
+  routePreferredCandidates =
+    if !isOverlay && !isP2p && nonOverlayPreferredCandidates != [ ] then
+      nonOverlayPreferredCandidates
+    else
+      preferredCandidates;
+
+  routePreferredAccessCandidates =
+    if routePreferredCandidates == [ ] || preferredAccessCandidates == [ ] then
+      [ ]
+    else
+      builtins.filter (lname: builtins.elem lname preferredAccessCandidates) routePreferredCandidates;
+
   preferredAccessSet = lib.unique (map toString (lib.filter (x: x != null) preferredAccessNodes));
 
   preferredAccessCandidates =
@@ -75,10 +95,10 @@ let
 in
 if preferScopedLane then
   scopedCandidates
-else if isOverlay && preferredCandidates != [ ] && preferredAccessCandidates != [ ] then
-  builtins.filter (lname: builtins.elem lname preferredAccessCandidates) preferredCandidates
-else if (isOverlay || isP2p) && preferredCandidates != [ ] then
-  preferredCandidates
+else if routePreferredAccessCandidates != [ ] then
+  routePreferredAccessCandidates
+else if routePreferredCandidates != [ ] then
+  routePreferredCandidates
 else if isOverlay && preferredAccessCandidates != [ ] then
   preferredAccessCandidates
 else if isP2p && candidates != [ ] then
