@@ -2,6 +2,9 @@
 
 let
   helpers = import (self.outPath + "/implementation/lib/routing/static-helpers.nix") { inherit lib self; };
+  defaultRoutePolicy = import (self.outPath + "/implementation/lib/routing/default-route-policy.nix") {
+    inherit lib;
+  };
   link = import (self.outPath + "/implementation/lib/topology/link-utils.nix") { inherit lib self; };
   routeCandidates = import (self.outPath + "/implementation/lib/routing/internal-routes/route-candidates.nix");
   routeGroups = import (self.outPath + "/implementation/lib/routing/internal-routes/route-groups.nix") {
@@ -56,6 +59,20 @@ in
               lib.filter
                 (uplinkName: builtins.elem coreName (routeFacts.uplinkCoreNamesByUplink.${uplinkName} or [ ]))
                 (builtins.attrNames (routeFacts.uplinkCoreNamesByUplink or { }));
+            tenantDefaultUplinks =
+              if dstEntry.kind == "tenant" && (dstEntry.owner or null) != null then
+                defaultRoutePolicy.anyTrafficDefaultUplinksForAccess topo dstEntry.owner
+              else
+                [ ];
+            tenantNonOverlayDefaultUplinks =
+              lib.filter
+                (uplinkName: builtins.elem uplinkName (routeFacts.nonOverlayUplinkNames or [ ]))
+                tenantDefaultUplinks;
+            tenantPreferredDefaultUplinks =
+              if tenantNonOverlayDefaultUplinks != [ ] then
+                tenantNonOverlayDefaultUplinks
+              else
+                tenantDefaultUplinks;
             preferredUplinks =
               if routeScope != null && (routeScope.uplink or null) != null then
                 [ routeScope.uplink ]
@@ -63,6 +80,8 @@ in
                 [ dstEntry.overlay ]
               else if dstEntry.kind == "p2p" && builtins.hasAttr (dstEntry.owner or "") (routeFacts.uplinkCoreSet or { }) then
                 uplinksForCore dstEntry.owner
+              else if tenantPreferredDefaultUplinks != [ ] then
+                tenantPreferredDefaultUplinks
               else if builtins.hasAttr (dstEntry.owner or "") (routeFacts.uplinkCoreSet or { }) then
                 topo.uplinkNames or [ ]
               else
