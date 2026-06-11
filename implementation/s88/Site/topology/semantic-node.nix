@@ -22,6 +22,14 @@ let
       attrsOrEmpty
       ;
   };
+  nat44Egress = import ./semantic-node/nat44-egress.nix {
+    inherit
+      lib
+      sortedUnique
+      listOrEmpty
+      attrsOrEmpty
+      ;
+  };
 
   ifaceUplinkName =
     iface:
@@ -80,6 +88,7 @@ let
       nodeSpecificUplinks = sortedUnique ((declaredUplinksForNode node) ++ interfaceUplinks);
       eligibleUplinks = if nodeSpecificUplinks != [ ] then nodeSpecificUplinks else siteUplinkNames;
       nat66ByUplink = nat66Egress.forUplinks site eligibleUplinks (attrsOrEmpty (node.uplinks or null));
+      nat44ByUplink = nat44Egress.forUplinks site eligibleUplinks (attrsOrEmpty (node.uplinks or null));
 
       effectiveUplinks = if eligible then eligibleUplinks else sortedUnique interfaceUplinks;
       effectiveWanInterfaces =
@@ -101,6 +110,7 @@ let
         explicit = true;
         externalDomains = if eligible then siteExternalDomains else [ ];
         nat66 = nat66ByUplink;
+        nat44 = nat44ByUplink;
         uplinks = effectiveUplinks;
         upstreamSelection = upstreamSelection;
         wanInterfaces = effectiveWanInterfaces;

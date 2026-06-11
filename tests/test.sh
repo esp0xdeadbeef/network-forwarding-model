@@ -63,6 +63,7 @@ tests=(
   test-fs480-route-import-constraint-validation.sh
   test-fs350-prefix-authority-consumer-eligibility.sh
   test-fs390-public-ipv4-destination-policy.sh
+  test-FS-380-HDS-010-SDS-010-SMS-020-nat44-egress.sh
   test-dns-service-node-placement.sh
   test-dns-service-requester-lane-routes.sh
   test-compiler-traffic-path-propagation.sh
