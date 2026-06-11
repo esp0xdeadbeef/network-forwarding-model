@@ -78,6 +78,11 @@ rec {
             };
             policyOnly = true;
             reason = "policy-derived-default";
+            relationIds =
+              if uplinkName != null then
+                defaultRoutePolicy.relationIdsForAccessUplink topo accessName uplinkName
+              else null;
+            direction = "outbound";
           };
         in
         acc
@@ -155,6 +160,8 @@ rec {
               metric = defaultMetricForLane topo linkObj;
               policyOnly = true;
               reason = "policy-derived-default";
+              relationIds = defaultRoutePolicy.relationIdsForAccessUplink topo (laneAccessNodeName linkObj) uplinkName;
+              direction = "outbound";
             };
           in
           acc

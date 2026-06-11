@@ -95,4 +95,30 @@ in
     accessName != null
     && uplinkName != null
     && builtins.elem uplinkName (anyTrafficDefaultUplinksForAccess topo accessName);
+
+  relationIdsForAccessUplink =
+    topo: accessName: uplinkName:
+    let
+      pathDestinationUplinks' =
+        destination:
+        if (destination.kind or null) != "external" then
+          [ ]
+        else if builtins.isList (destination.uplinks or null) then
+          map toString destination.uplinks
+        else if (destination.name or null) != null then
+          [ (toString destination.name) ]
+        else
+          [ ];
+    in
+    lib.unique (
+      map (path: path.relationId or null) (
+        lib.filter
+          (path:
+            (path.action or null) == "allow"
+            && builtins.elem accessName (pathNodes path)
+            && builtins.elem uplinkName (pathDestinationUplinks' (path.destination or { }))
+          )
+          (topo.trafficPaths or [ ])
+      )
+    );
 }

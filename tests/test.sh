@@ -69,6 +69,7 @@ tests=(
   test-compiler-traffic-path-propagation.sh
   test-fs260-default-site-fabric-chain-handoff.sh
   test-adjacent-traffic-denial-handoff.sh
+  test-fs180-fs270-selector-relation-authority.sh
   test-network-labs-wildcard-path-handoff.sh
   test-network-labs-site-fabric-handoff.sh
   test-transit-ordering-deserializes-compiler-links.sh
