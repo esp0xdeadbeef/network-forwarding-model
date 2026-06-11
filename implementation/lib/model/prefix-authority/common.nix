@@ -48,6 +48,10 @@ let
       denyAll // {
         translation = true;
       }
+    else if authorityClass == "private-ipv4-egress-prefix" then
+      denyAll // {
+        translation = true;
+      }
     else if
       authorityClass == "wan-address"
       || authorityClass == "uplink-address"
@@ -75,6 +79,8 @@ let
       "provider-endpoint-host-address"
     else if authorityClass == "nat66-egress-prefix" then
       "translation-egress-source"
+    else if authorityClass == "private-ipv4-egress-prefix" then
+      "ipv4-translation-egress-source"
     else if authorityClass == "wan-address" then
       "wan-host-address"
     else if authorityClass == "uplink-address" then
