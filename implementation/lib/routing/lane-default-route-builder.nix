@@ -13,11 +13,19 @@ rec {
     , lane ? null
     , policyOnly ? false
     , reason ? null
+    , relationIds ? null
+    , direction ? null
     ,
     }:
     let
       via4 = if epTo ? addr4 && epTo.addr4 != null then helpers.stripMask epTo.addr4 else null;
       via6 = if epTo ? addr6 && epTo.addr6 != null then helpers.stripMask epTo.addr6 else null;
+
+      mkRouteWith =
+        route:
+        route
+        // lib.optionalAttrs (relationIds != null && relationIds != [ ]) { inherit relationIds; }
+        // lib.optionalAttrs (direction != null) { inherit direction; };
     in
     {
       routes4 =
@@ -25,7 +33,7 @@ rec {
           [ ]
         else
           [
-            (mkRoute4 {
+            (mkRouteWith (mkRoute4 {
               dst = helpers.default4;
               inherit
                 lane
@@ -36,14 +44,14 @@ rec {
                 ;
               proto = "default";
               intentKind = "default-reachability";
-            })
+            }))
           ];
       routes6 =
         if via6 == null then
           [ ]
         else
           [
-            (mkRoute6 {
+            (mkRouteWith (mkRoute6 {
               dst = helpers.default6;
               inherit
                 lane
@@ -54,7 +62,7 @@ rec {
                 ;
               proto = "default";
               intentKind = "default-reachability";
-            })
+            }))
           ];
     };
 
@@ -69,6 +77,8 @@ rec {
     , lane ? null
     , policyOnly ? false
     , reason ? null
+    , relationIds ? null
+    , direction ? null
     ,
     }:
     let
@@ -81,6 +91,8 @@ rec {
           mkRoute4
           mkRoute6
           reason
+          relationIds
+          direction
           ;
         epTo = link.getEp linkName linkObj peerNodeName;
       };

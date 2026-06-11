@@ -109,6 +109,8 @@ rec {
                     metric = defaultMetricForLane topo policyLink;
                     policyOnly = true;
                     reason = "policy-derived-default";
+                    relationIds = defaultRoutePolicy.relationIdsForAccessUplink topo (laneAccessNodeName policyLink) uplinkName;
+                    direction = "outbound";
                   };
             in
             acc
