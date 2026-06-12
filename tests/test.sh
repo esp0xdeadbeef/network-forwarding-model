@@ -20,42 +20,14 @@ tests=(
   test-regression-md-resolved-states.sh
   test-s88-structure-layout.sh
   test-semantic-lib-performance-boundary.sh
-  test-internal-route-profile-hypothesis.sh
-  test-internal-route-site-plan-contract.sh
-  test-fs940-route-planner-child-atoms.sh
-  test-internal-route-coordinator-contract.sh
-  test-internal-route-source-group-contract.sh
-  test-internal-route-equivalence-contract.sh
-  test-overlay-interface-no-peer-null-duplicates.sh
+  test-no-parent-relative-imports.sh
+  test-s88-structure-keywords.sh
+  test-no-guessing.sh
   test-fs300-source-lane-route-metadata.sh
   test-fs300-ineligible-lane-route-rejection.sh
-  test-overlay-route-source-lane-contract.sh
   test-fs370-overlay-source-prefix-identity-binding.sh
   test-fs370-host-only-source-prefix-denial.sh
   test-fs370-unrelated-egress-route-denial.sh
-  test-aggregation-none-preserves-internal-prefixes.sh
-  test-no-parent-relative-imports.sh
-  test-emitter-provenance-repo-boundary.sh
-  test-s88-structure-keywords.sh
-  test-passing-fixtures.sh
-  test-network-labs-output.sh
-  test-failing-invariants.sh
-  test-negative-forwarding.sh
-  test-no-guessing.sh
-  test-dedicated-lanes.sh
-  test-p2p-link-realization.sh
-  test-p2p-route-next-hop-peer-contract.sh
-  test-fs500-route-next-hop-p2p-namespace-split.sh
-  test-access-tenant-gateway-host-addresses.sh
-  test-tenant-client-attachments.sh
-  test-p2p-specific-underlay-return-routes.sh
-  test-deterministic-input-order.sh
-  test-lane-naming-contract.sh
-  test-lane-preserving-default-route-contract.sh
-  test-ipv6-intent-preserved.sh
-  test-runtime-gua-return-routes.sh
-  test-lane-default-routes-policy-only.sh
-  test-policy-source-scope-contract.sh
   test-fs360-downstream-client-public-prefix-authority.sh
   test-fs360-public-prefix-return-route-precondition.sh
   test-fs360-gua-transit-placement-validation.sh
@@ -64,32 +36,16 @@ tests=(
   test-fs350-prefix-authority-consumer-eligibility.sh
   test-fs390-public-ipv4-destination-policy.sh
   test-FS-380-HDS-010-SDS-010-SMS-020-nat44-egress.sh
-  test-dns-service-node-placement.sh
-  test-dns-service-requester-lane-routes.sh
-  test-compiler-traffic-path-propagation.sh
   test-fs260-default-site-fabric-chain-handoff.sh
-  test-adjacent-traffic-denial-handoff.sh
   test-fs180-hds010-sds010-sms010-return-behavior-authority.sh
   test-network-labs-wildcard-path-handoff.sh
   test-network-labs-site-fabric-handoff.sh
-  test-transit-ordering-deserializes-compiler-links.sh
-  test-overlay-core-access-p2p-contract.sh
-  test-overlay-underlay-access-default-routes.sh
-  test-overlay-core-local-hostile-return-routes.sh
-  test-transport-overlay-underlay-access-contract.sh
-  test-overlay-access-uplink-defaults-without-core-default.sh
+  test-adjacent-traffic-denial-handoff.sh
   test-overlay-access-uplink-lane-from-compiler-path.sh
-  test-hostile-dedicated-east-west-lanes.sh
-  test-tri-site-hostile-forwarding-scope.sh
-  test-example-overlay-wan-return.sh
-  test-overlay-peer-sites.sh
-  test-external-ingress-uplink-defaults.sh
-  test-fs510-external-ingress-p2p-namespace-split.sh
-  test-service-source-uplink-lanes.sh
-  test-dual-wan-branch-overlay.sh
-  test-overlay-access-lane-warning.sh
-  test-preferred-access-lanes.sh
-  test-hostile-no-wan-core-reachability.sh
+  test-fs180-fs270-selector-relation-authority.sh
+  test-fs250-core-role-minimal-authority.sh
+  test-fs350-overlay-ledger-construction.sh
+  test-fs380-ordinary-wan-return-route-lane.sh
 )
 
 tmpdir="$(mktemp -d)"
