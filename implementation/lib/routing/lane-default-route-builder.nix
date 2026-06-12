@@ -15,6 +15,7 @@ rec {
     , reason ? null
     , relationIds ? null
     , direction ? null
+    , returnBehavior ? null
     ,
     }:
     let
@@ -25,7 +26,8 @@ rec {
         route:
         route
         // lib.optionalAttrs (relationIds != null && relationIds != [ ]) { inherit relationIds; }
-        // lib.optionalAttrs (direction != null) { inherit direction; };
+        // lib.optionalAttrs (direction != null) { inherit direction; }
+        // lib.optionalAttrs (returnBehavior != null) { inherit returnBehavior; };
     in
     {
       routes4 =
@@ -79,6 +81,7 @@ rec {
     , reason ? null
     , relationIds ? null
     , direction ? null
+    , returnBehavior ? null
     ,
     }:
     let
@@ -93,6 +96,7 @@ rec {
           reason
           relationIds
           direction
+          returnBehavior
           ;
         epTo = link.getEp linkName linkObj peerNodeName;
       };
