@@ -111,6 +111,7 @@ rec {
                     reason = "policy-derived-default";
                     relationIds = defaultRoutePolicy.relationIdsForAccessUplink topo (laneAccessNodeName policyLink) uplinkName;
                     direction = "outbound";
+                    returnBehavior = defaultRoutePolicy.returnBehaviorForAccessUplink topo (laneAccessNodeName policyLink) uplinkName;
                   };
             in
             acc

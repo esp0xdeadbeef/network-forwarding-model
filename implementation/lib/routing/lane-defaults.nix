@@ -83,6 +83,10 @@ rec {
                 defaultRoutePolicy.relationIdsForAccessUplink topo accessName uplinkName
               else null;
             direction = "outbound";
+            returnBehavior =
+              if uplinkName != null then
+                defaultRoutePolicy.returnBehaviorForAccessUplink topo accessName uplinkName
+              else null;
           };
         in
         acc
@@ -162,6 +166,7 @@ rec {
               reason = "policy-derived-default";
               relationIds = defaultRoutePolicy.relationIdsForAccessUplink topo (laneAccessNodeName linkObj) uplinkName;
               direction = "outbound";
+              returnBehavior = defaultRoutePolicy.returnBehaviorForAccessUplink topo (laneAccessNodeName linkObj) uplinkName;
             };
           in
           acc

@@ -86,16 +86,6 @@ let
         ++ relationDefaultUplinksForAccess topo accessName
       )
     );
-in
-{
-  inherit anyTrafficDefaultUplinksForAccess;
-
-  accessMayUseDefault =
-    topo: accessName: uplinkName:
-    accessName != null
-    && uplinkName != null
-    && builtins.elem uplinkName (anyTrafficDefaultUplinksForAccess topo accessName);
-
   relationIdsForAccessUplink =
     topo: accessName: uplinkName:
     let
@@ -121,4 +111,20 @@ in
           (topo.trafficPaths or [ ])
       )
     );
+in
+{
+  inherit anyTrafficDefaultUplinksForAccess relationIdsForAccessUplink;
+
+  accessMayUseDefault =
+    topo: accessName: uplinkName:
+    accessName != null
+    && uplinkName != null
+    && builtins.elem uplinkName (anyTrafficDefaultUplinksForAccess topo accessName);
+
+  returnBehaviorForAccessUplink =
+    topo: accessName: uplinkName:
+    let
+      ids = relationIdsForAccessUplink topo accessName uplinkName;
+    in
+    if ids == [ ] then null else "symmetric";
 }
