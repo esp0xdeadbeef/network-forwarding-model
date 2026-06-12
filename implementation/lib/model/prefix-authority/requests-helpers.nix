@@ -8,6 +8,10 @@ let
   interfaceKindOf =
     request:
     toString (request.interfaceKind or request.kind or request.interfaceRole or request.role or "unknown");
+
+  authorityAssigned =
+    authority:
+    authority != null && (authority.reservationState or "assigned") == "assigned";
 in
 {
   clientPublicAuthorityClasses = [
@@ -29,9 +33,7 @@ in
     idx: r:
     toString (r.id or r.name or "request-${toString idx}");
 
-  authorityAssigned =
-    authority:
-    authority != null && (authority.reservationState or "assigned") == "assigned";
+  inherit authorityAssigned;
 
   authorityConsumerAllowed =
     authority: consumer:
