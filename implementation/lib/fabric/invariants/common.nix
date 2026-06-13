@@ -34,7 +34,6 @@ let
       || (v.kind or null) == "container"
       || (v.type or null) == "container"
       || (v.container or false) == true
-      || v ? networkNamespace
     );
 
   containersOf =

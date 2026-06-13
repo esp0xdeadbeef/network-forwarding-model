@@ -101,10 +101,10 @@ let
       };
     };
 
-  rewriteVlanId =
+  rewriteAllocationGroup =
     iface:
-    if vid != null && (iface.kind or null) == "p2p" && (iface.vlanId or null) != null then
-      iface // { vlanId = iface.vlanId + vid; }
+    if vid != null && (iface.kind or null) == "p2p" && (iface.allocationGroup or null) != null then
+      iface // { allocationGroup = iface.allocationGroup + vid; }
     else
       iface;
 
@@ -116,7 +116,7 @@ let
 
   enrichedInterfaces = lib.mapAttrs
     (
-      _: iface: sanitizeIface (scopeTenantRoutes (rewriteVlanId iface))
+      _: iface: sanitizeIface (scopeTenantRoutes (rewriteAllocationGroup iface))
     )
     ifaces0;
 

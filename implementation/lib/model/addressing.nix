@@ -59,7 +59,7 @@ let
   transitHextet =
     tvid:
     if tvid < 0 || tvid > 255 then
-      throw "addressing: transit vlanId ${toString tvid} out of range (0..255)"
+      throw "addressing: transit allocationGroup ${toString tvid} out of range (0..255)"
     else
       "ff${zpad 2 (toHex tvid)}";
 
@@ -152,13 +152,13 @@ in
 {
   inherit transitHextet hostCidr;
 
-  mkTenantV4 = { v4Base, vlanId }: hostCidr 1 "${v4Base}.${toString vlanId}.0/24";
+  mkTenantV4 = { v4Base, allocationGroup }: hostCidr 1 "${v4Base}.${toString allocationGroup}.0/24";
 
-  mkTenantV6 = { ulaPrefix, vlanId }: hostCidr 1 "${ulaPrefix}:${toString vlanId}::/64";
+  mkTenantV6 = { ulaPrefix, allocationGroup }: hostCidr 1 "${ulaPrefix}:${toString allocationGroup}::/64";
 
   mkP2P4 =
     { v4Base
-    , vlanId
+    , allocationGroup
     , node
     , members
     ,
@@ -169,18 +169,18 @@ in
     if idx < 0 || idx > 1 then
       throw "p2p requires exactly 2 members and node must be a member"
     else
-      hostCidr (idx + 1) "${v4Base}.${toString vlanId}.0/31";
+      hostCidr (idx + 1) "${v4Base}.${toString allocationGroup}.0/31";
 
   mkP2P6 =
     { ulaPrefix
-    , vlanId
+    , allocationGroup
     , node
     , members
     ,
     }:
     let
       idx = nodeIndex node members;
-      base = "${ulaPrefix}:${transitHextet vlanId}::/127";
+      base = "${ulaPrefix}:${transitHextet allocationGroup}::/127";
     in
     if idx < 0 || idx > 1 then
       throw "p2p requires exactly 2 members and node must be a member"
