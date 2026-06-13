@@ -71,6 +71,40 @@ It is the boundary where compiled network behavior becomes **forwarding-executab
 
 ---
 
+# Spec Chain
+
+The forwarding model is owned by the following GAMP trace chain. All behavior requirements
+originate from the URS, flow through FS, and are refined by HDS → SDS → SMS
+before reaching this repository.
+
+## Primary Chain: Forwarding Structure
+
+| Layer | ID | Description |
+|-------|----|-------------|
+| URS   | L162-175 | Default Site Fabric — logical chain, core/access host-facing interface pairs, policy-point transit |
+| FS    | FS-181 | Closed-World Policy Authority Set — derive network behavior from closed set of authority records, resolve ingress/egress path mappings from dependency graph |
+| FS    | FS-255 | Core Role Host-Facing Interface Pair — exactly two host-facing interfaces per core role |
+| FS    | FS-260 | Default Site Fabric Chain — canonical staged traversal preserved as platform-neutral forwarding structure |
+| FS    | FS-265 | Access Role Host-Facing Interface Pair — exactly two host-facing interfaces per access role |
+| FS    | FS-350 | Prefix Subdivision and Reservation Authority — deterministic, auditable prefix subdivision |
+| HDS   | Derived per FS item | Hardware design constraints for forwarding pipeline |
+| SDS   | Derived per HDS item | Software design, interface architecture, forwarding stage boundaries |
+
+### Pipeline
+
+```
+network-labs (intent + inventory) → network-compiler → NFM → CPM → renderers
+```
+
+Required input: compiler output (platform-independent normalized site payload).
+Output: deterministic forwarding structure — lane identities, overlay reachability, route intent classes.
+
+### Owning Repository
+
+Construction tests: `network-forwarding-model/tests/`
+
+---
+
 # What this project does
 
 The forwarding model takes the compiler’s canonical staged site model and turns it into a deterministic forwarding description.
