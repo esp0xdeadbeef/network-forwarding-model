@@ -31,15 +31,23 @@ let
     site:
     let
       cc = site.communicationContract or { };
-    in
-    {
-      allowedRelations =
+      rawRelations =
         if cc ? allowedRelations then
           cc.allowedRelations
         else if cc ? relations then
           cc.relations
         else
           [ ];
+    in
+    {
+      allowedRelations = builtins.map
+        (rel:
+          if (rel.action or null) == "allow" then
+            rel // { returnBehavior = "symmetric"; }
+          else
+            rel
+        )
+        rawRelations;
       services = cc.services or [ ];
       trafficTypes = cc.trafficTypes or [ ];
     };
