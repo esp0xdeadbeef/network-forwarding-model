@@ -86,6 +86,7 @@ let
         ++ relationDefaultUplinksForAccess topo accessName
       )
     );
+
   relationIdsForAccessUplink =
     topo: accessName: uplinkName:
     let
@@ -111,15 +112,6 @@ let
           (topo.trafficPaths or [ ])
       )
     );
-in
-{
-  inherit anyTrafficDefaultUplinksForAccess relationIdsForAccessUplink;
-
-  accessMayUseDefault =
-    topo: accessName: uplinkName:
-    accessName != null
-    && uplinkName != null
-    && builtins.elem uplinkName (anyTrafficDefaultUplinksForAccess topo accessName);
 
   matchingRelationsForAccessUplink =
     topo: accessName: uplinkName:
@@ -130,6 +122,16 @@ in
     builtins.filter
       (rel: builtins.elem (rel.id or null) ids)
       rels;
+
+in
+{
+  inherit anyTrafficDefaultUplinksForAccess relationIdsForAccessUplink;
+
+  accessMayUseDefault =
+    topo: accessName: uplinkName:
+    accessName != null
+    && uplinkName != null
+    && builtins.elem uplinkName (anyTrafficDefaultUplinksForAccess topo accessName);
 
   returnBehaviorForAccessUplink =
     topo: accessName: uplinkName:
