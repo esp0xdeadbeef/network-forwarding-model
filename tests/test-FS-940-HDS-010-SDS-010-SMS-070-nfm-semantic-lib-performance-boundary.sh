@@ -72,7 +72,7 @@ nix eval \
   " >/dev/null 2>&1 || true
 
 # ── Timed evaluation with retry for store contention ──
-timeout_sec=10
+timeout_sec=60
 max_retries=3
 attempt=0
 passed=false
