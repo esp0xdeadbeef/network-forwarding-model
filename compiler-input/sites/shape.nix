@@ -46,7 +46,7 @@ let
             rel
           else if rel ? returnBehavior then
             rel
-          else if rel ? bidirectional && rel.bidirectional then
+          else if (rel ? bidirectional && rel.bidirectional) || ((rel.trafficType or null) == "any") then
             rel // { returnBehavior = "symmetric"; }
           else
             rel
