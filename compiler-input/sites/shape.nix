@@ -42,7 +42,11 @@ let
     {
       allowedRelations = builtins.map
         (rel:
-          if (rel.action or null) == "allow" then
+          if (rel.action or null) != "allow" then
+            rel
+          else if rel ? returnBehavior then
+            rel
+          else if rel ? bidirectional && rel.bidirectional then
             rel // { returnBehavior = "symmetric"; }
           else
             rel
