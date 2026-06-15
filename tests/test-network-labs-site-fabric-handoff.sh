@@ -31,7 +31,7 @@ paths_json="$(
 )"
 
 compiler_path="$(printf '%s' "${paths_json}" | jq -r '.compiler')"
-labs_path="$(printf '%s' "${paths_json}" | jq -r '.labs')"
+labs_path="${repo_root}/tests/fixtures"
 
 collect_projection() {
   local example="$1"
