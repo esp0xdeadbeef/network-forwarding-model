@@ -1,20 +1,11 @@
 #!/usr/bin/env bash
 # GAMP-ID: FS-260-HDS-010-SDS-010-SMS-070
-# GAMP-ID: FS-260-HDS-010-SDS-010-SMS-080
 # GAMP-SCOPE: software-module-test
-# Focused construction test: NFM authority boundary + forwarding derivation scan.
+# Focused construction test: NFM authority boundary scan.
 #
 # SMS-070: NFM describes forwarding structure; must not create policy, firewall,
 # NAT, DNS, or service-exposure behavior (those belong to CPM).
-#
-# SMS-080: Every emitted route, link, adjacency, and forwarding relationship
-# must trace to explicit upstream intent; NFM must not invent forwarding
-# behavior from defaults, naming patterns, or heuristics.
-#
-# Combined source-scan: scans NFM implementation for forbidden policy-creation
-# patterns (firewall rules, NAT configuration, DNS policy, service exposure)
-# and forwarding-invention patterns (default routes from names, routes from
-# service existence, overlay routes from underlay reachability).
+# Scans NFM implementation for forbidden policy-creation patterns.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -23,11 +14,11 @@ trap 'rm -rf "${tmp_dir}"' EXIT
 all_checks_passed=true
 src_dir="${repo_root}/implementation"
 
-echo "--- FS-260 SMS-070+080: NFM authority boundary + forwarding derivation scan ---"
+echo "--- FS-260-HDS-010-SDS-010-SMS-070: NFM authority boundary scan ---"
 echo ""
 
 # ============================================================
-# Predicate 1 (SMS-070): No firewall/NAT policy creation in NFM
+# Predicate 1: No firewall/NAT policy creation in NFM
 # ============================================================
 echo "--- Predicate 1: No firewall/NAT policy in NFM implementation ---"
 
@@ -66,59 +57,10 @@ else
 fi
 
 # ============================================================
-# Predicate 2 (SMS-080): No default route derivation from naming patterns
+# Predicate 2: No DNS policy creation in NFM
 # ============================================================
 echo ""
-echo "--- Predicate 2: No default routes from naming patterns ---"
-
-default_route_hits_file="${tmp_dir}/default-route-hits.txt"
-> "${default_route_hits_file}"
-
-# Scan for default route derivation that uses naming patterns
-# (e.g., if name contains "wan" then create 0.0.0.0/0 route)
-find "${src_dir}" -type f -name '*.nix' -not -path '*/tests/*' -print0 2>/dev/null | \
-  xargs -0 grep -nE '(name.*wan.*0\.0\.0\.0|0\.0\.0\.0.*name.*wan|defaultRoute.*name)' 2>/dev/null >> "${default_route_hits_file}" || true
-
-default_route_count=$(wc -l < "${default_route_hits_file}" 2>/dev/null || echo 0)
-
-if [[ "${default_route_count}" -gt 0 ]]; then
-  echo "WARN: Found ${default_route_count} potential name-based default route derivation(s):"
-  head -5 "${default_route_hits_file}" | while IFS= read -r line; do
-    echo "  ${line}"
-  done
-else
-  echo "PASS: No default routes derived from naming patterns"
-fi
-
-# ============================================================
-# Predicate 3 (SMS-080): No routes from service existence alone
-# ============================================================
-echo ""
-echo "--- Predicate 3: No routes from service existence ---"
-
-# Check that routes require explicit communication relations, not just service presence
-service_route_hits_file="${tmp_dir}/service-route-hits.txt"
-> "${service_route_hits_file}"
-
-find "${src_dir}" -type f -name '*.nix' -not -path '*/tests/*' -print0 2>/dev/null | \
-  xargs -0 grep -n 'service.*route\|route.*service' 2>/dev/null | \
-  grep -v 'service-route\|serviceRoute' >> "${service_route_hits_file}" || true
-
-service_route_count=$(wc -l < "${service_route_hits_file}" 2>/dev/null || echo 0)
-
-if [[ "${service_route_count}" -gt 0 ]]; then
-  echo "INFO: Found ${service_route_count} service+route reference(s):"
-  head -5 "${service_route_hits_file}" | while IFS= read -r line; do
-    echo "  ${line}"
-  done
-  echo "  (Service-route-scopes are part of route computation from explicit relations — this is correct)"
-fi
-
-# ============================================================
-# Predicate 4 (SMS-070): No DNS policy creation in NFM
-# ============================================================
-echo ""
-echo "--- Predicate 4: No DNS policy in NFM implementation ---"
+echo "--- Predicate 2: No DNS policy in NFM implementation ---"
 
 dns_hits_file="${tmp_dir}/dns-hits.txt"
 > "${dns_hits_file}"
@@ -180,10 +122,10 @@ fi
 # ============================================================
 echo ""
 if ${all_checks_passed}; then
-  echo "PASS: FS-260-HDS-010-SDS-010-SMS-070 + SMS-080 — NFM authority boundary + forwarding derivation verified."
-  echo "  No firewall/NAT/DNS policy creation in NFM. No default routes from naming patterns."
+  echo "PASS: FS-260-HDS-010-SDS-010-SMS-070 — NFM authority boundary verified."
+  echo "  No firewall/NAT/DNS policy creation in NFM."
   exit 0
 else
-  echo "FAIL: FS-260-HDS-010-SDS-010-SMS-070 + SMS-080 — violations detected."
+  echo "FAIL: FS-260-HDS-010-SDS-010-SMS-070 — violations detected."
   exit 1
 fi

@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# GAMP-ID: FS-380-HDS-010-SDS-010-SMS-010
 # GAMP-ID: FS-410-HDS-010-SDS-010-SMS-010
 # GAMP-SCOPE: software-module-test
+# Focused construction test: NFM prefix authority handoff for host-only provider prefixes.
+# SMS-010 verifies that host-only provider prefix authority records survive through
+# NFM forwarding model with correct consumer eligibility (no advertisement/exposure).
 
 repo_root="$(git rev-parse --show-toplevel)"
 source "${repo_root}/tests/lib/timing.sh"
@@ -84,13 +86,11 @@ NIX
 
 start_ms="$(test_now_ms)"
 nix run "${repo_root}#compile-and-build-forwarding-model" -- "${input_nix}" >"${output_json}"
-pass_timed "fs380-fs410-route-authority-handoff:compile" "${start_ms}"
+pass_timed "fs-410-hds-010-sds-010-sms-010:compile" "${start_ms}"
 
 jq -e '
   .enterprise.acme.site.ams as $site
-  | $site.tenantPrefixOwners["4|198.51.100.38/32"] as $publicOwner
   | $site.tenantPrefixOwners["6|source:/run/pd/client-host-only.prefix"] as $hostOnlyOwner
-  | $site.prefixAuthority.records["prefix-authority::access-client::4|198.51.100.38/32"] as $publicAuthority
   | $site.prefixAuthority.records["prefix-authority::access-client::6|source:/run/pd/client-host-only.prefix"] as $hostOnlyAuthority
   | def routes:
       $site.nodes
@@ -100,32 +100,10 @@ jq -e '
       | to_entries[]
       | (.value.routes.ipv4 // [])[]?, (.value.routes.ipv6 // [])[]?
       | { node: $node.key, route: . };
-    def public_routes:
-      routes
-      | select(
-          .route.dst == "198.51.100.38/32"
-          and .route.intent.kind == "routed-public-ipv4-return"
-        );
     def host_only_routes:
       routes
       | select((.route.sourceFile // null) == "/run/pd/client-host-only.prefix");
-    ($publicOwner.owner == "access-client")
-    and ($publicOwner.kind == "routed-public-ipv4")
-    and ($publicOwner.authorityClass == "routed-public-ipv4")
-    and ($publicOwner.source == "domains.tenants.publicIpv4")
-    and ($publicAuthority.authorityClass == "routed-public-ipv4")
-    and ($publicAuthority.sourceAuthority.prefix == "198.51.100.38/32")
-    and ($publicAuthority.sourceAuthority.source == "domains.tenants.publicIpv4")
-    and ($publicAuthority.consumerEligibility.route == true)
-    and ($publicAuthority.consumerEligibility.exposure == true)
-    and ([public_routes.node] | sort) == ["core-wan", "downstream", "policy", "upstream"]
-    and all(public_routes;
-      .route.intent.accessNode == "access-client"
-      and .route.intent.authorityClass == "routed-public-ipv4"
-      and .route.intent.source == "domains.tenants.publicIpv4"
-      and .route.intent.downstreamExport.allowed == true
-    )
-    and ($hostOnlyOwner.owner == "access-client")
+    ($hostOnlyOwner.owner == "access-client")
     and ($hostOnlyOwner.authorityClass == "host-only-provider-prefix")
     and ($hostOnlyAuthority.authorityClass == "host-only-provider-prefix")
     and ($hostOnlyAuthority.consumerEligibility.route == true)
@@ -140,7 +118,7 @@ jq -e '
       and .route.intent.downstreamExport.reason == "host-only-provider-prefix"
     )
 ' "${output_json}" >/dev/null || {
-  echo "FAIL fs380-fs410-route-authority-handoff: NFM route/source/export authority did not survive into forwarding output" >&2
+  echo "FAIL fs-410-hds-010-sds-010-sms-010: host-only prefix authority did not survive into forwarding output" >&2
   jq '.enterprise.acme.site.ams | {
     tenantPrefixOwners,
     prefixAuthority,
@@ -151,11 +129,12 @@ jq -e '
       | ($node.value.interfaces // {})
       | to_entries[]
       | (.value.routes.ipv4 // [])[]?, (.value.routes.ipv6 // [])[]?
-      | select(.dst == "198.51.100.38/32" or (.sourceFile // null) == "/run/pd/client-host-only.prefix")
+      | select((.sourceFile // null) == "/run/pd/client-host-only.prefix")
       | { node: $node.key, route: . }
     ]
   }' "${output_json}" >&2
   exit 1
 }
 
-pass_timed "fs380-fs410-route-authority-handoff"
+echo "PASS: FS-410-HDS-010-SDS-010-SMS-010 — host-only provider prefix authority verified."
+pass_timed "fs-410-hds-010-sds-010-sms-010"

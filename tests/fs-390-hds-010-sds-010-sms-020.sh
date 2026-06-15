@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# GAMP-ID: FS-390-HDS-010-SDS-010-SMS-010
 # GAMP-ID: FS-390-HDS-010-SDS-010-SMS-020
-# GAMP-ID: FS-390-HDS-010-SDS-010-SMS-030
 # GAMP-SCOPE: software-module-test
+# Focused construction test: broad WAN denial for model-owned public IPv4.
+# SMS-020 verifies that broad-WAN relations are correctly denied for
+# model-owned public IPv4 destinations (enterprise-client, locally-owned,
+# provider-owned, public-ingress) but allowed for generic internet.
 
 repo_root="$(git rev-parse --show-toplevel)"
 source "${repo_root}/tests/lib/timing.sh"
@@ -158,49 +160,28 @@ NIX
 
 start_ms="$(test_now_ms)"
 nix run "${repo_root}#compile-and-build-forwarding-model" -- "${input_nix}" >"${output_json}"
-pass_timed "fs390-public-ipv4-destination-policy:compile" "${start_ms}"
+pass_timed "fs-390-hds-010-sds-010-sms-020:compile" "${start_ms}"
 
 jq -e '
   .enterprise.acme.site.ams.publicIpv4DestinationPolicy as $policy
-  | $policy.destinationClasses["public-ipv4-destination::198.51.100.10"] as $enterpriseClient
-  | $policy.destinationClasses["public-ipv4-destination::198.51.100.11"] as $tenantService
-  | $policy.destinationClasses["public-ipv4-destination::198.51.100.12"] as $localOwned
-  | $policy.destinationClasses["public-ipv4-destination::198.51.100.13"] as $providerOwned
-  | $policy.destinationClasses["public-ipv4-destination::198.51.100.14"] as $publicIngress
-  | $policy.destinationClasses["public-ipv4-destination::93.184.216.34"] as $genericWan
   | [
       $policy.broadWanDenials[]
       | select(.reason == "broad-wan-does-not-authorize-model-owned-public-ipv4")
       | .relationId
     ] as $deniedRelations
-  | [
-      $policy.shortcutAuthorizations[]
-      | select(.reason == "explicit-public-service-or-ingress-policy")
-      | .relationId
-    ] as $authorizedRelations
-  | ($enterpriseClient.destinationClass == "enterprise-client")
-    and ($tenantService.destinationClass == "tenant-service")
-    and ($localOwned.destinationClass == "locally-owned-routed")
-    and ($providerOwned.destinationClass == "provider-owned")
-    and ($publicIngress.destinationClass == "public-ingress")
-    and ($genericWan.destinationClass == "generic-wan-internet")
-    and ($genericWan.genericWanInternet == true)
-    and ($enterpriseClient.modelOwned == true)
-    and ($genericWan.modelOwned == false)
-    and ($authorizedRelations == [ "explicit-service-shortcut" ])
-    and ($deniedRelations | sort) == ([
+  | ($deniedRelations | sort) == ([
       "broad-wan-to-enterprise-client-public",
       "broad-wan-to-local-owned-public",
       "broad-wan-to-provider-owned-public",
       "broad-wan-to-public-ingress-owned-public"
     ] | sort)
     and ([ $policy.broadWanDenials[] | select(.relationId == "ordinary-public-internet") ] | length == 0)
-    and ([ $policy.broadWanDenials[] | select(.relationId == "explicit-service-shortcut") ] | length == 0)
     and ([ $policy.diagnostics[] | select(.relatedDenial != null) ] | length == 4)
 ' "${output_json}" >/dev/null || {
-  echo "FAIL fs390-public-ipv4-destination-policy: public IPv4 destination policy did not satisfy FS-390 SMS-010/020/030" >&2
-  jq '.enterprise.acme.site.ams.publicIpv4DestinationPolicy' "${output_json}" >&2
+  echo "FAIL fs-390-hds-010-sds-010-sms-020: broad WAN denial incorrect" >&2
+  jq '.enterprise.acme.site.ams.publicIpv4DestinationPolicy.broadWanDenials' "${output_json}" >&2
   exit 1
 }
 
-pass_timed "fs390-public-ipv4-destination-policy"
+echo "PASS: FS-390-HDS-010-SDS-010-SMS-020 — broad WAN denial verified."
+pass_timed "fs-390-hds-010-sds-010-sms-020"

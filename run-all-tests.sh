@@ -18,15 +18,17 @@ if ! [[ "${MAX_JOBS}" =~ ^[0-9]+$ ]] || [[ "${MAX_JOBS}" -lt 1 ]]; then
 fi
 
 # ── Auto-discover all test files ──
+# SMS-090: trace-chain named tests use fs-*.sh prefix
+# Guard/infrastructure tests use test-*.sh prefix
 TESTS=()
-for f in "${TEST_DIR}"/test-*.sh; do
+for f in "${TEST_DIR}"/fs-*.sh "${TEST_DIR}"/test-*.sh; do
   if [[ -f "$f" && -x "$f" ]]; then
     TESTS+=("$(basename "$f")")
   fi
 done
 
 if [[ ${#TESTS[@]} -eq 0 ]]; then
-  echo "No executable test-*.sh files found in ${TEST_DIR}" >&2
+  echo "No executable test files found in ${TEST_DIR}" >&2
   exit 1
 fi
 
