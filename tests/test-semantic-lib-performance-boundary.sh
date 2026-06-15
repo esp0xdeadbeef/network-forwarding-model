@@ -21,12 +21,7 @@ EOF
   exit 1
 fi
 
-archive_json="$(mktemp)"
-trap 'rm -f "${archive_json}"' EXIT
-
-nix flake archive --json "path:${repo_root}" >"${archive_json}"
-labs_root="$(jq -er '.inputs["network-labs"].path' "${archive_json}")"
-intent="${labs_root}/examples/s-router-overlay-dns-lane-policy/intent.nix"
+intent="${repo_root}/tests/fixtures/examples/s-router-overlay-dns-lane-policy/intent.nix"
 
 start_ms="$(date +%s%3N)"
 timeout 10 \

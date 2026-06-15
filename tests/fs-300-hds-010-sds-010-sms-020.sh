@@ -6,13 +6,10 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 source "${repo_root}/tests/lib/timing.sh"
 
-archive_json="$(mktemp)"
 output_json="$(mktemp)"
-trap 'rm -f "${archive_json}" "${output_json}"' EXIT
+trap 'rm -f "${output_json}"' EXIT
 
-nix flake archive --json "path:${repo_root}" >"${archive_json}"
-labs_root="$(jq -er '.inputs["network-labs"].path' "${archive_json}")"
-intent="${labs_root}/examples/s-router-overlay-dns-lane-policy/intent.nix"
+intent="${repo_root}/tests/fixtures/examples/s-router-overlay-dns-lane-policy/intent.nix"
 
 start_ms="$(test_now_ms)"
 nix run "${repo_root}#compile-and-build-forwarding-model" -- "${intent}" >"${output_json}"
