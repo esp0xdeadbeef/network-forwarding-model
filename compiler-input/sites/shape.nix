@@ -46,8 +46,15 @@ let
             rel
           else if rel ? returnBehavior then
             rel
-          else if (rel ? bidirectional && rel.bidirectional) || ((rel.trafficType or null) == "any") then
+          else if (rel ? bidirectional && rel.bidirectional) then
             rel // { returnBehavior = "symmetric"; }
+          else if (rel.trafficType or null) == "any" then
+            let fromKind = (rel.from or {}).kind or null;
+                toKind = (rel.to or {}).kind or null;
+            in if fromKind == "tenant-set" && toKind == "tenant-set" then
+              rel  # local tenant-to-tenant: one-way by default per FS-640/FS-620
+            else
+              rel // { returnBehavior = "symmetric"; }
           else
             rel
         )
