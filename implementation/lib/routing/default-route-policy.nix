@@ -113,16 +113,6 @@ let
       )
     );
 
-  matchingRelationsForAccessUplink =
-    topo: accessName: uplinkName:
-    let
-      ids = relationIdsForAccessUplink topo accessName uplinkName;
-      rels = (topo.communicationContract or { }).allowedRelations or [ ];
-    in
-    builtins.filter
-      (rel: builtins.elem (rel.id or null) ids)
-      rels;
-
 in
 {
   inherit anyTrafficDefaultUplinksForAccess relationIdsForAccessUplink;
@@ -136,12 +126,7 @@ in
   returnBehaviorForAccessUplink =
     topo: accessName: uplinkName:
     let
-      matching = matchingRelationsForAccessUplink topo accessName uplinkName;
-      hasSymmetricRel = builtins.any
-        (rel:
-          (rel ? returnBehavior && rel.returnBehavior == "symmetric")
-          || (rel ? bidirectional && rel.bidirectional))
-        matching;
+      ids = relationIdsForAccessUplink topo accessName uplinkName;
     in
-    if hasSymmetricRel then "symmetric" else null;
+    if ids == [ ] then null else "symmetric";
 }
