@@ -28,7 +28,7 @@ tests=(
   test-fs370-overlay-source-prefix-identity-binding.sh
   test-fs370-host-only-source-prefix-denial.sh
   test-fs370-unrelated-egress-route-denial.sh
-  test-fs370-sms060-access-tenant-internet-forwarding.sh
+  fs-370-hds-010-sds-010-sms-060.sh
   test-fs370-sms070-core-forwarding-chain.sh
   test-fs370-sms080-upstream-selector-default-route.sh
   test-fs370-sms090-core-return-path-routing.sh
