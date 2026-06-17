@@ -5,14 +5,14 @@ set -euo pipefail
 # Trace chain: URS → FS-640 → FS-640-HDS-010 → FS-640-HDS-010-SDS-010 → SMS-060
 #
 # Verifies normalizeCommunicationContract in compiler-input/sites/shape.nix
-# injects returnBehavior="symmetric" per scoping rules and preserves
-# one-way defaults for local tenant-to-tenant, explicit returnBehavior,
-# and non-"any" trafficType without bidirectional flag.
+# injects returnBehavior="symmetric" on ALL allow relations per D18-NEW
+# expansion, with tenant-to-tenant exclusion in both bidirectional and
+# non-bidirectional paths per FS-640/FS-620.
 #
 # Seeded negatives (must fail before code fix):
 #   N1: local tenant-to-tenant receives symmetric injection
 #   N2: explicit returnBehavior overwritten
-#   N3: non-"any" trafficType receives symmetric without bidirectional
+#   N3: local tenant-to-tenant with bidirectional receives symmetric injection
 
 repo_root="$(git rev-parse --show-toplevel)"
 source "${repo_root}/tests/lib/timing.sh"
@@ -106,12 +106,12 @@ pos2_out="$(eval_fixture "$pos2_json" "$NFM_FIXTURE_FILE")"
 assert_symmetric "P2: bidirectional triggers symmetric" "$pos2_out"
 
 # ═══════════════════════════════════════════════════════════════
-# Positive case 3: trafficType != "any" without bidirectional → one-way
+# Positive case 3: trafficType != "any" without bidirectional → symmetric (D18-NEW)
 # ═══════════════════════════════════════════════════════════════
-echo "=== Positive 3: trafficType != \"any\" without bidirectional → one-way ==="
+echo "=== Positive 3: trafficType != \"any\" without bidirectional → symmetric (D18-NEW) ==="
 pos3_json='{"communicationContract":{"allowedRelations":[{"id":"streaming-no-bidir","action":"allow","from":{"kind":"service","name":"media"},"to":{"kind":"service","name":"storage"},"trafficType":"streaming"}]}}'
 pos3_out="$(eval_fixture "$pos3_json" "$NFM_FIXTURE_FILE")"
-assert_no_returnBehavior "P3: streaming without bidirectional" "$pos3_out"
+assert_symmetric "P3: streaming without bidirectional" "$pos3_out"
 
 # ═══════════════════════════════════════════════════════════════
 # Seeded negative 1: local tenant-to-tenant shall NOT get symmetric
@@ -139,11 +139,12 @@ neg2b_out="$(eval_fixture "$neg2b_json" "$NFM_FIXTURE_FILE")"
 assert_returnBehavior_equals "N2b: explicit symmetric preserved" "$neg2b_out" "symmetric"
 
 # ═══════════════════════════════════════════════════════════════
-# Seeded negative 3: non-"any" trafficType without bidirectional → no symmetric
+# Seeded negative 3: local tenant-to-tenant with bidirectional → no symmetric
+# (FS-640 tenant-set exclusion must apply in bidirectional path too)
 # ═══════════════════════════════════════════════════════════════
-echo "=== Seeded negative 3: non-\"any\" trafficType without bidirectional → no symmetric ==="
-neg3_json='{"communicationContract":{"allowedRelations":[{"id":"streaming-no-bidir2","action":"allow","from":{"kind":"service","name":"media"},"to":{"kind":"external","uplinks":["wan"]},"trafficType":"streaming"}]}}'
+echo "=== Seeded negative 3: local tenant-to-tenant with bidirectional → one-way (no symmetric injection) ==="
+neg3_json='{"communicationContract":{"allowedRelations":[{"id":"tenant-to-tenant-bidir","action":"allow","from":{"kind":"tenant-set","name":"cameras"},"to":{"kind":"tenant-set","name":"recorders"},"trafficType":"streaming","bidirectional":true}]}}'
 neg3_out="$(eval_fixture "$neg3_json" "$NFM_FIXTURE_FILE")"
-assert_no_returnBehavior "N3: streaming without bidirectional" "$neg3_out"
+assert_no_returnBehavior "N3: tenant-to-tenant bidirectional" "$neg3_out"
 
 pass_timed "FS-640-HDS-010-SDS-010-SMS-060-nfm-returnBehavior-injection-scoping" "${start_ms}"
