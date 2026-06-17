@@ -31,7 +31,7 @@ tests=(
   test-fs370-host-only-source-prefix-denial.sh
   test-fs370-unrelated-egress-route-denial.sh
   fs-370-hds-010-sds-010-sms-060.sh
-  test-fs370-sms070-core-forwarding-chain.sh
+  fs-370-hds-010-sds-010-sms-070.sh
   test-fs370-sms080-upstream-selector-default-route.sh
   test-fs370-sms090-core-return-path-routing.sh
   test-fs370-sms100-shared-iface-ip-rule-priority.sh
