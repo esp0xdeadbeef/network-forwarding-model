@@ -43,7 +43,7 @@ tests=(
   test-fs350-prefix-authority-consumer-eligibility.sh
   test-fs390-public-ipv4-destination-policy.sh
   test-FS-380-HDS-010-SDS-010-SMS-020-nat44-egress.sh
-  test-fs260-default-site-fabric-chain-handoff.sh
+  fs-260-hds-010-sds-010-sms-010.sh
   test-fs180-hds010-sds010-sms010-return-behavior-authority.sh
   test-network-labs-wildcard-path-handoff.sh
   test-network-labs-site-fabric-handoff.sh
