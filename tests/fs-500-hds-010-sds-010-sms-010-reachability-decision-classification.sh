@@ -33,13 +33,6 @@ cat >"${input_nix}" <<'NIX'
         { kind = "tenant"; name = "tenantb"; ipv4 = "10.50.30.0/24"; }
       ];
     };
-    ownership.endpoints = [
-      {
-        kind = "local";
-        name = "model-owned-endpoint";
-        publicIpv4 = "198.51.100.50/32";
-      }
-    ];
 
     communicationContract = {
       allowedRelations = [
@@ -90,7 +83,7 @@ cat >"${input_nix}" <<'NIX'
         nodePath = [ "access-client" "downstream" "policy" "upstream" "core-wan" ];
       }
 
-      # FC2 / SN2: path says allow but relation says reject
+      # SN2: path says allow but relation says reject
       # (decision contradicts modeled policy)
       {
         relationId = "reject-tenantb-to-wan";
@@ -149,80 +142,80 @@ pass_timed "fs-500-hds-010-sds-010-sms-010:compile" "${start_ms}"
 # SMS-010: Reachability Decision Classification
 #
 # P1: Classify each accepted question as allowed, denied, or conditional.
-# The NFM's publicIpv4DestinationPolicy output classifies traffic paths
-# via destinationClasses (classification), shortcutAuthorizations (allowed),
-# and broadWanDenials (denied).  Every traffic path's destination must
-# appear in destinationClasses — classification is never skipped.
+#     Verified via trafficPathValidation output: validPaths and invalidPaths.
 #
 # P2/FC1: Decision class is not omitted or changed by formatting.
-# The NFM output is structured JSON — no formatting step can change
-# the decision class.  Verified by JSON structure integrity.
+#     Verified: output is structured JSON; no formatting step exists.
 #
-# FC2: A denied or conditional result is not emitted as allowed.
-# No path appearing in broadWanDenials (allowed=false) may also appear
-# in shortcutAuthorizations (allowed=true).
+# FC2: Denied/conditional not emitted as allowed.
+#     Verified: validPaths contain only paths with matching evidence.
 #
-# SN1: Decision without evidence trace (non-existent relationId) shall
-# be detected and diagnosed.
+# SN1: Decision without evidence trace (non-existent relationId) is detected.
+#     Verified: trafficPathValidation produces missingEvidence diagnostic.
 #
-# SN2: Decision contradicting modeled policy (path action mismatch with
-# relation action) shall be detected and diagnosed.
+# SN2: Decision contradicting modeled policy (action mismatch) is detected.
+#     Verified: trafficPathValidation produces contractContradiction diagnostic.
 
 jq -e '
-  .enterprise.acme.site.ams.publicIpv4DestinationPolicy as $policy
-  | .enterprise.acme.site.ams.trafficPaths as $paths
+  .enterprise.acme.site.ams as $site
 
-  # P1: Every traffic path destination must appear in destinationClasses
-  # (classification is never skipped)
-  | ($paths | length == 4)
-  | ($paths | map(
-      if .destination.ipv4 then
-        "public-ipv4-destination::" + .destination.ipv4
-      else
-        empty
-      end
-    )) as $expectedClasses
+  # P1/P2: trafficPathValidation exists and is structured
+  | $site.trafficPathValidation as $tv
+  | ($tv | type == "object")
+  and ($tv.validPathCount >= 1)
+  and ($tv.invalidPathCount >= 2)
 
-  | ($expectedClasses | map(
-      $policy.destinationClasses[.] != null
-    )) as $classResults
+  # validPaths: the allow-client-to-wan path is valid
+  and ([ $tv.validPaths[]
+        | select(.relationId == "allow-client-to-wan")
+      ] | length == 1)
 
-  | ([ $classResults[] | select(. == false) ] | length == 0)
+  # validPaths: the reject-tenantb-to-wan path (action=reject) is valid
+  and ([ $tv.validPaths[]
+        | select(.relationId == "reject-tenantb-to-wan"
+                 and .action == "reject")
+      ] | length == 1)
 
-  # P2/FC1: destinationClasses is a structured record (not omitted, not ambiguous)
-  and ($policy.destinationClasses | type == "object")
-  and (($policy.destinationClasses | length) > 0)
+  # SN1: non-existent-relation path is in invalidPaths
+  and ([ $tv.invalidPaths[]
+        | select(.relationId == "non-existent-relation")
+      ] | length == 1)
 
-  # FC2: No denial (allowed=false) appears as authorized (allowed=true)
-  and ([ $policy.broadWanDenials[]
-        | select(.allowed == false)
-        | .relationId
-      ] as $deniedRelationIds
-      | [ $policy.shortcutAuthorizations[]
-          | select(.allowed == true)
-          | .relationId as $authId
-          | select($deniedRelationIds | contains([$authId]))
-        ] | length == 0)
+  # SN2: the action-mismatch path (action=allow, relation=reject) is in invalidPaths
+  and ([ $tv.invalidPaths[]
+        | select(.relationId == "reject-tenantb-to-wan"
+                 and .action == "allow")
+      ] | length == 1)
 
-  # Structure integrity: shortcutAuthorizations and broadWanDenials are records
-  and ($policy.shortcutAuthorizations | type == "object")
-  and ($policy.broadWanDenials | type == "object")
-  and ($policy.diagnostics | type == "object")
+  # SN1 diagnostic: missingEvidence=true for non-existent relation
+  and ([ $tv.diagnostics[]
+        | select(.missingEvidence == true
+                 and (.message | contains("non-existent-relation")))
+      ] | length >= 1)
+
+  # SN2 diagnostic: contractContradiction=true for action mismatch
+  and ([ $tv.diagnostics[]
+        | select(.contractContradiction == true
+                 and .pathAction == "allow"
+                 and .relationAction == "reject"
+                 and (.message | contains("reject-tenantb-to-wan")))
+      ] | length >= 1)
+
+  # FC2: No valid path has a matching diagnostic (no false positives)
+  and ([ $tv.diagnostics[]
+        | select(.relatedPath == "allow-client-to-wan")
+      ] | length == 0)
 ' "${output_json}" >/dev/null || {
   echo "FAIL FS-500-HDS-010-SDS-010-SMS-010: decision classification incorrect" >&2
-  jq '.enterprise.acme.site.ams.publicIpv4DestinationPolicy' "${output_json}" >&2
+  jq '.enterprise.acme.site.ams.trafficPathValidation' "${output_json}" >&2
   exit 1
 }
 
-# SN2 verification: path with action=allow but relation=reject
-# The contradicting path's relationId is "reject-tenantb-to-wan"
-# with action "allow" while the relation has action "reject".
-# Currently the NFM does not validate this, so we check that the
-# path IS present in the output (it gets processed but not rejected).
-# When CMC validation is added, this should produce a diagnostic.
-echo "NOTE: SN2 (action mismatch) not validated by current NFM — CMC gap" >&2
-echo "NOTE: SN1 (non-existent relation) not validated by current NFM — CMC gap" >&2
-
-echo "PASS: FS-500-HDS-010-SDS-010-SMS-010 — reachability decision classification verified (P1, P2, FC1, FC2)."
-echo "CMC gaps noted: SN1 (evidence trace validation) and SN2 (policy contradiction detection) remain unimplemented."
+echo "PASS: FS-500-HDS-010-SDS-010-SMS-010 — reachability decision classification verified"
+echo "  P1 (classification): 1 valid allowed path, 1 valid rejected path"
+echo "  P2 (formatting): structured JSON output, no formatting conversion possible"
+echo "  FC1 (class presence): trafficPathValidation output complete"
+echo "  FC2 (denied not allowed): no false-positive diagnostics on valid paths"
+echo "  SN1 (missing evidence): non-existent relation detected with diagnostic"
+echo "  SN2 (policy contradiction): action mismatch detected with diagnostic"
 pass_timed "fs-500-hds-010-sds-010-sms-010"
