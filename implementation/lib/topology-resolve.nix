@@ -11,6 +11,7 @@ let
   tenantOwnersMod = import ./routing/tenant-prefix-owners.nix { inherit lib self; };
   prefixAuthorityMod = import ./model/prefix-authority.nix { inherit lib self; };
   publicIpv4DestinationPolicyMod = import ./model/public-ipv4-destination-policy.nix { inherit lib self; };
+  trafficPathValidationMod = import ./model/traffic-path-validation.nix { inherit lib self; };
   graphContext = import ./routing/graph/context.nix { inherit lib self; };
 
   assert_ = cond: msg: if cond then true else throw msg;
@@ -149,6 +150,7 @@ let
     tenantPrefixOwners = tenantPrefixOwners;
     prefixAuthority = prefixAuthority;
     publicIpv4DestinationPolicy = publicIpv4DestinationPolicyMod.build topo1;
+    trafficPathValidation = trafficPathValidationMod.validate topo1;
   };
 
   overlayCoreSelection = import ./routing/overlay-core-selection.nix { inherit lib self; };
