@@ -9,6 +9,14 @@
 let
   clean = v: if v == null then null else builtins.replaceStrings [ " " ] [ "" ] (toString v);
 
+  # uniqueBy is not available in all nixpkgs versions; define it locally.
+  # Deduplicates a list by a key function, preserving first-occurrence order.
+  uniqueBy = f: list:
+    builtins.foldl' (acc: x:
+      let key = f x; in
+      if builtins.elem key (map f acc) then acc else acc ++ [ x ]
+    ) [ ] list;
+
   matchesRelation =
     path: relation:
     let
@@ -85,7 +93,7 @@ in
       allRelations =
         (topo.communicationContract or { }).allowedRelations or [ ]
         ++ (topo.communicationContract or { }).relations or [ ];
-      uniqueRelations = lib.uniqueBy (r: clean r.id or null) allRelations;
+      uniqueRelations = uniqueBy (r: clean r.id or null) allRelations;
 
       diagnosticsList = lib.filter
         (x: x != null)
