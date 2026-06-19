@@ -28,12 +28,12 @@ tests=(
   test-fs300-source-lane-route-metadata.sh
   test-fs300-ineligible-lane-route-rejection.sh
   test-fs370-overlay-source-prefix-identity-binding.sh
-  test-fs370-host-only-source-prefix-denial.sh
+  fs-370-hds-010-sds-010-sms-030.sh
   test-fs370-unrelated-egress-route-denial.sh
   fs-370-hds-010-sds-010-sms-060.sh
   fs-370-hds-010-sds-010-sms-070.sh
   test-fs370-sms080-upstream-selector-default-route.sh
-  test-fs370-sms090-core-return-path-routing.sh
+  fs-370-hds-010-sds-010-sms-090.sh
   test-fs370-sms100-shared-iface-ip-rule-priority.sh
   test-fs360-downstream-client-public-prefix-authority.sh
   test-fs360-public-prefix-return-route-precondition.sh
