@@ -19,6 +19,7 @@ tests=(
   test-nix-file-loc.sh
   test-regression-md-resolved-states.sh
   test-s88-structure-layout.sh
+  test-layer-entry-warning-contract.sh
   test-FS-940-HDS-010-SDS-010-SMS-070-nfm-semantic-lib-performance-boundary.sh
   test-FS-940-HDS-010-SDS-020-SMS-040-next-hop-equivalence-table.sh
   test-FS-940-HDS-010-SDS-020-SMS-080-route-cardinality-equivalence-diagnostics.sh
