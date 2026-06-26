@@ -55,6 +55,7 @@ tests=(
   test-fs350-overlay-ledger-construction.sh
   test-fs380-ordinary-wan-return-route-lane.sh
   fs-500-hds-010-sds-010-sms-010-reachability-decision-classification.sh
+  fs-500-hds-010-sds-010-sms-030-decision-reason-diagnostic.sh
 )
 
 tmpdir="$(mktemp -d)"
