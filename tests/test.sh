@@ -30,7 +30,7 @@ tests=(
   test-fs300-ineligible-lane-route-rejection.sh
   test-fs370-overlay-source-prefix-identity-binding.sh
   fs-370-hds-010-sds-010-sms-030.sh
-  test-fs370-unrelated-egress-route-denial.sh
+  fs-370-hds-010-sds-010-sms-040.sh
   fs-370-hds-010-sds-010-sms-060.sh
   fs-370-hds-010-sds-010-sms-070.sh
   test-fs370-sms080-upstream-selector-default-route.sh
