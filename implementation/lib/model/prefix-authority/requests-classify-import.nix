@@ -1,6 +1,8 @@
 { lib, helpers }:
 
 let
+  diagnostics = import ./requests-classify-import-diagnostics.nix { inherit lib; };
+
   inherit (helpers)
     requestId
     authorityAssigned
@@ -65,6 +67,10 @@ let
       exportRequested = fieldOrNull request [ "exportRequested" "attemptExport" "requestedExport" ];
       exportEligible = fieldOrNull request [ "exportEligible" "allowedExport" ];
       rejectionBehavior = fieldOrNull request [ "rejectionBehavior" "rejectBehavior" ];
+      conflictType = fieldOrNull request [ "conflictType" "routeConflictType" ];
+      conflictSource = fieldOrNull request [ "conflictSource" "conflictingSource" ];
+      authorityFreeRouteAsAllowed = (request.authorityFreeRouteAsAllowed or false) == true;
+      gampId = toString (request.gampId or "FS-480-HDS-010-SDS-010-SMS-020");
       allowedPrefixMatch = routePrefix != null && builtins.elem (toString routePrefix) allowedPrefixes;
       sourceAllowed = sourcePeerOrProvider != null && builtins.elem (toString sourcePeerOrProvider) allowedSources;
       purposeAllowed = routePurpose != null && builtins.elem (toString routePurpose) allowedPurposes;
@@ -126,14 +132,49 @@ let
           "missing-rejection-behavior"
         else
           "allowed";
+      diagnosticCode =
+        diagnostics.codeFor {
+          inherit
+            allowed
+            authority
+            authorityFreeRouteAsAllowed
+            reason
+            conflictType
+            ;
+        };
+      diagnostic =
+        diagnostics.recordFor {
+          inherit
+            allowed
+            diagnosticCode
+            reason
+            authorityId
+            routePrefix
+            sourcePeerOrProvider
+            routePurpose
+            destinationOwner
+            conflictType
+            conflictSource
+            ;
+        };
+      reachabilityClassification =
+        diagnostics.reachabilityClassificationFor {
+          inherit
+            allowed
+            diagnosticCode
+            ;
+        };
     in
     {
       id = requestId idx request;
-      gampId = "FS-480-HDS-010-SDS-010-SMS-020";
+      gampId = gampId;
       inherit
         allowed
         consumer
         reason
+        diagnostic
+        diagnosticCode
+        reachabilityClassification
         ;
       authorityId = authorityId;
       authorityClass = authorityClass;

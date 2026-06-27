@@ -40,7 +40,10 @@ tests=(
   fs-360-hds-010-sds-010-sms-020.sh
   fs-360-hds-010-sds-010-sms-030.sh
   fs-380-hds-010-sds-010-sms-010.sh
+  fs-480-hds-010-sds-010-sms-010.sh
   fs-480-hds-010-sds-010-sms-020.sh
+  fs-480-hds-010-sds-010-sms-030.sh
+  fs-480-hds-010-sds-010-sms-040.sh
   test-fs350-prefix-authority-consumer-eligibility.sh
   fs-390-hds-010-sds-010-sms-010.sh
   fs-390-hds-010-sds-010-sms-020.sh
