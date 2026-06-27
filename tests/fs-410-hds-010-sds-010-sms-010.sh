@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 # GAMP-ID: FS-410-HDS-010-SDS-010-SMS-010
+# GAMP-ID: FS-410-HDS-010-SDS-010-SMS-020
+# GAMP-ID: FS-410-HDS-010-SDS-010-SMS-040
 # GAMP-SCOPE: software-module-test
 # Focused construction test: NFM prefix authority handoff for host-only provider prefixes.
 # SMS-010 verifies that host-only provider prefix authority records survive through
 # NFM forwarding model with correct consumer eligibility (no advertisement/exposure).
+# SMS-020 verifies host-only /128 facts stay host-only authority.
+# SMS-040 verifies host-only authority is denied downstream export.
 
 repo_root="$(git rev-parse --show-toplevel)"
 source "${repo_root}/tests/lib/timing.sh"
