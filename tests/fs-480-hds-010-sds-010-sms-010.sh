@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# GAMP-ID: FS-480-HDS-010-SDS-010-SMS-020
+# GAMP-ID: FS-480-HDS-010-SDS-010-SMS-010
 # GAMP-SCOPE: software-module-test
 
 repo_root="$(git rev-parse --show-toplevel)"
@@ -39,12 +39,13 @@ cat >"${input_nix}" <<'NIX'
 
     prefixAuthority.routeImportConstraints = [
       {
-        id = "allow-owned-public-import";
+        id = "explicit-authority-owned-service-import";
+        gampId = "FS-480-HDS-010-SDS-010-SMS-010";
         authorityId = "prefix-authority::access-client::4|198.51.100.48/32";
         routePrefix = "198.51.100.48/32";
         allowedPrefixes = [ "198.51.100.48/32" ];
-        sourcePeerOrProvider = "provider-a";
-        allowedSources = [ "provider-a" ];
+        sourcePeerOrProvider = "bgp-provider-a";
+        allowedSources = [ "bgp-provider-a" ];
         routePurpose = "owned-public-service-prefix";
         allowedPurposes = [ "owned-public-service-prefix" ];
         destinationOwner = "access-client";
@@ -56,36 +57,38 @@ cat >"${input_nix}" <<'NIX'
         rejectionBehavior = "reject";
       }
       {
-        id = "deny-scope-overflow";
-        authorityId = "prefix-authority::access-client::4|198.51.100.48/32";
-        routePrefix = "198.51.100.48/32";
-        allowedPrefixes = [ "198.51.100.48/32" ];
-        sourcePeerOrProvider = "provider-a";
-        allowedSources = [ "provider-a" ];
+        id = "bgp-learned-owned-service-without-authority";
+        gampId = "FS-480-HDS-010-SDS-010-SMS-010";
+        authorityId = "prefix-authority::missing::4|198.51.100.49/32";
+        routePrefix = "198.51.100.49/32";
+        allowedPrefixes = [ "198.51.100.49/32" ];
+        sourcePeerOrProvider = "bgp-provider-a";
+        allowedSources = [ "bgp-provider-a" ];
         routePurpose = "owned-public-service-prefix";
         allowedPurposes = [ "owned-public-service-prefix" ];
         destinationOwner = "access-client";
         allowedDestinationOwners = [ "access-client" ];
         maximumScope = "site";
+        routeScope = "site";
+        exportRequested = true;
+        exportEligible = true;
+        rejectionBehavior = "reject";
+      }
+      {
+        id = "provider-default-route-without-authority";
+        gampId = "FS-480-HDS-010-SDS-010-SMS-010";
+        authorityId = "prefix-authority::missing::4|0.0.0.0/0";
+        routePrefix = "0.0.0.0/0";
+        allowedPrefixes = [ "0.0.0.0/0" ];
+        sourcePeerOrProvider = "bgp-provider-a";
+        allowedSources = [ "bgp-provider-a" ];
+        routePurpose = "wan-internet";
+        allowedPurposes = [ "wan-internet" ];
+        destinationOwner = "provider-a";
+        allowedDestinationOwners = [ "provider-a" ];
+        maximumScope = "provider";
         routeScope = "provider";
         exportRequested = false;
-        exportEligible = true;
-        rejectionBehavior = "reject";
-      }
-      {
-        id = "deny-unauthorized-export";
-        authorityId = "prefix-authority::access-client::4|198.51.100.48/32";
-        routePrefix = "198.51.100.48/32";
-        allowedPrefixes = [ "198.51.100.48/32" ];
-        sourcePeerOrProvider = "provider-a";
-        allowedSources = [ "provider-a" ];
-        routePurpose = "owned-public-service-prefix";
-        allowedPurposes = [ "owned-public-service-prefix" ];
-        destinationOwner = "access-client";
-        allowedDestinationOwners = [ "access-client" ];
-        maximumScope = "site";
-        routeScope = "site";
-        exportRequested = true;
         exportEligible = false;
         rejectionBehavior = "reject";
       }
@@ -126,49 +129,43 @@ NIX
 
 start_ms="$(test_now_ms)"
 nix run "${repo_root}#compile-and-build-forwarding-model" -- "${input_nix}" >"${output_json}"
-pass_timed "fs480-route-import-constraint-validation:compile" "${start_ms}"
+pass_timed "fs480-runtime-route-import-authority:compile" "${start_ms}"
 
 jq -e '
   .enterprise.acme.site.ams.prefixAuthority as $pa
-  | $pa.routeImportConstraints["allow-owned-public-import"] as $allow
-  | $pa.deniedRouteImportConstraints["deny-scope-overflow"] as $scopeDenied
-  | $pa.deniedRouteImportConstraints["deny-unauthorized-export"] as $exportDenied
-  | ($allow.gampId == "FS-480-HDS-010-SDS-010-SMS-020")
+  | $pa.routeImportConstraints["explicit-authority-owned-service-import"] as $allow
+  | $pa.deniedRouteImportConstraints["bgp-learned-owned-service-without-authority"] as $missingOwned
+  | $pa.deniedRouteImportConstraints["provider-default-route-without-authority"] as $missingDefault
+  | ($allow.gampId == "FS-480-HDS-010-SDS-010-SMS-010")
     and ($allow.allowed == true)
     and ($allow.authorityClass == "routed-public-ipv4")
-    and ($allow.authorityOwner == "access-client")
     and ($allow.routePrefix == "198.51.100.48/32")
-    and ($allow.allowedPrefixes == ["198.51.100.48/32"])
-    and ($allow.sourcePeerOrProvider == "provider-a")
-    and ($allow.allowedSources == ["provider-a"])
+    and ($allow.sourcePeerOrProvider == "bgp-provider-a")
     and ($allow.routePurpose == "owned-public-service-prefix")
-    and ($allow.allowedPurposes == ["owned-public-service-prefix"])
     and ($allow.destinationOwner == "access-client")
-    and ($allow.allowedDestinationOwners == ["access-client"])
-    and ($allow.maximumScope == "site")
-    and ($allow.routeScope == "site")
-    and ($allow.exportRequested == true)
-    and ($allow.exportEligible == true)
-    and ($allow.rejectionBehavior == "reject")
     and ($allow.diagnostic == null)
     and ($allow.diagnosticCode == null)
     and ($allow.reachabilityClassification == "allowed")
-    and ($scopeDenied.allowed == false)
-    and ($scopeDenied.reason == "maximum-scope-exceeded")
-    and ($scopeDenied.diagnosticCode == "ROUTE_IMPORT_SCOPE_EXCEEDED")
-    and ($scopeDenied.reachabilityClassification == "denied")
-    and ($scopeDenied.routeScope == "provider")
-    and ($scopeDenied.maximumScope == "site")
-    and ($exportDenied.allowed == false)
-    and ($exportDenied.reason == "unauthorized-export")
-    and ($exportDenied.diagnosticCode == "UNAUTHORIZED_ROUTE_EXPORT")
-    and ($exportDenied.reachabilityClassification == "denied")
-    and ($exportDenied.exportRequested == true)
-    and ($exportDenied.exportEligible == false)
+    and ($pa.routeImportConstraints["bgp-learned-owned-service-without-authority"].allowed == false)
+    and ($missingOwned.allowed == false)
+    and ($missingOwned.gampId == "FS-480-HDS-010-SDS-010-SMS-010")
+    and ($missingOwned.diagnosticCode == "MISSING_ROUTE_IMPORT_AUTHORITY")
+    and ($missingOwned.reachabilityClassification == "ambiguous")
+    and ($missingOwned.diagnostic.code == "MISSING_ROUTE_IMPORT_AUTHORITY")
+    and ($missingOwned.diagnostic.routePrefix == "198.51.100.49/32")
+    and ($missingOwned.diagnostic.sourcePeerOrProvider == "bgp-provider-a")
+    and ($missingOwned.diagnostic.routePurpose == "owned-public-service-prefix")
+    and ($pa.routeImportConstraints["provider-default-route-without-authority"].allowed == false)
+    and ($missingDefault.allowed == false)
+    and ($missingDefault.gampId == "FS-480-HDS-010-SDS-010-SMS-010")
+    and ($missingDefault.diagnosticCode == "MISSING_ROUTE_IMPORT_AUTHORITY")
+    and ($missingDefault.reachabilityClassification == "ambiguous")
+    and ($missingDefault.diagnostic.routePrefix == "0.0.0.0/0")
+    and ($missingDefault.diagnostic.routePurpose == "wan-internet")
 ' "${output_json}" >/dev/null || {
-  echo "FAIL fs480-route-import-constraint-validation: route-import constraints did not satisfy FS-480 SMS-020" >&2
+  echo "FAIL fs480-runtime-route-import-authority: learned routes were accepted without explicit import authority" >&2
   jq '.enterprise.acme.site.ams.prefixAuthority' "${output_json}" >&2
   exit 1
 }
 
-pass_timed "fs480-route-import-constraint-validation"
+pass_timed "fs480-runtime-route-import-authority"
