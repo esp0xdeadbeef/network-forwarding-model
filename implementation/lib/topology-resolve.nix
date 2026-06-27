@@ -8,6 +8,7 @@ let
   interfaceResolution = import ./topology/resolve/interfaces.nix { inherit lib self; };
   linkValidation = import ./topology/resolve/link-validation.nix { inherit lib self; };
   overlayResolution = import ./topology/resolve/overlays.nix { inherit lib self; };
+  overlayUnderlayVirtualEdgesMod = import ./topology/resolve/overlay-underlay-virtual-edges.nix { inherit lib self; };
   tenantOwnersMod = import ./routing/tenant-prefix-owners.nix { inherit lib self; };
   prefixAuthorityMod = import ./model/prefix-authority.nix { inherit lib self; };
   publicIpv4DestinationPolicyMod = import ./model/public-ipv4-destination-policy.nix { inherit lib self; };
@@ -153,38 +154,7 @@ let
     trafficPathValidation = trafficPathValidationMod.validate topo1;
   };
 
-  overlayCoreSelection = import ./routing/overlay-core-selection.nix { inherit lib self; };
-  tenantAttachments = node:
-    lib.filter (tenant: tenant != null) (
-      map
-        (attachment:
-          if (attachment.kind or null) == "tenant" then toString (attachment.name or null) else null)
-        (node.attachments or [ ])
-    );
-  sharesTenantAttachment = left: right:
-    let
-      leftTenants = tenantAttachments left;
-      rightTenants = tenantAttachments right;
-    in
-    builtins.any (tenant: builtins.elem tenant rightTenants) leftTenants;
-  overlayUnderlayVirtualEdges =
-    let
-      nodesForGraph = topo2.nodes or { };
-      overlayCores = overlayCoreSelection.overlayTerminatingCores topo2;
-      edgesForCore = coreName:
-        let
-          core = nodesForGraph.${coreName} or { };
-          accessNodes = overlayCoreSelection.underlayAccessNodesForCore topo2 coreName;
-        in
-        map
-          (accessName: [ coreName accessName ])
-          (lib.filter
-            (accessName:
-              builtins.hasAttr accessName nodesForGraph
-              && sharesTenantAttachment core nodesForGraph.${accessName})
-            accessNodes);
-    in
-    lib.unique (lib.concatMap edgesForCore overlayCores);
+  overlayUnderlayVirtualEdges = overlayUnderlayVirtualEdgesMod topo2;
 
   resolveLoopbacks = import ./routing/resolve-loopbacks.nix { inherit lib self; };
   routingStatic = import ./routing/static/attach.nix { inherit lib self; };

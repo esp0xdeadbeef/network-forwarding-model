@@ -36,46 +36,6 @@ let
 
   nodes = routed.nodes or { };
 
-  corePrefix = "${fabricHostResolved}-";
-  isCoreContext = lib.hasPrefix corePrefix requestedNode;
-
-  parts = lib.splitString "-" requestedNode;
-  lastPart = if parts == [ ] then "" else lib.last parts;
-
-  haveVidSuffix = isCoreContext && (builtins.match "^[0-9]+$" lastPart != null);
-
-  vid = if haveVidSuffix then lib.toInt lastPart else null;
-
-  _assertContextSuffix =
-    if isCoreContext && (lib.length parts) >= 4 && !haveVidSuffix then
-      throw "node-context: invalid core context node '${requestedNode}': expected numeric vlan suffix"
-    else
-      true;
-
-  tenant4Dst = if vid == null then null else "${routed.tenantV4Base}.${toString vid}.0/24";
-  tenant6Dst = if vid == null then null else "${routed.ulaPrefix}:${toString vid}::/64";
-
-  keepTenantRoute4 = r: if vid == null then true else (r ? dst) && r.dst == tenant4Dst;
-  keepTenantRoute6 = r: if vid == null then true else (r ? dst) && r.dst == tenant6Dst;
-
-  scopeTenantRoutes =
-    iface:
-    if vid == null then
-      iface
-    else if (iface.kind or null) == "p2p" then
-      let
-        rs = ifaceRoutes iface;
-      in
-      iface
-      // {
-        routes = {
-          ipv4 = builtins.filter keepTenantRoute4 rs.ipv4;
-          ipv6 = builtins.filter keepTenantRoute6 rs.ipv6;
-        };
-      }
-    else
-      iface;
-
   isDefault4 = r: (r ? dst) && r.dst == "0.0.0.0/0";
   isDefault6 = r: (r ? dst) && r.dst == "::/0";
 
@@ -101,13 +61,6 @@ let
       };
     };
 
-  rewriteAllocationGroup =
-    iface:
-    if vid != null && (iface.kind or null) == "p2p" && (iface.allocationGroup or null) != null then
-      iface // { allocationGroup = iface.allocationGroup + vid; }
-    else
-      iface;
-
   ifaces0 =
     if nodes ? "${requestedNode}" && (nodes.${requestedNode} ? interfaces) then
       nodes.${requestedNode}.interfaces
@@ -116,7 +69,7 @@ let
 
   enrichedInterfaces = lib.mapAttrs
     (
-      _: iface: sanitizeIface (scopeTenantRoutes (rewriteAllocationGroup iface))
+      _: iface: sanitizeIface iface
     )
     ifaces0;
 
@@ -129,8 +82,8 @@ let
       throw "node-context: link '${linkName}' not found on node '${requestedNode}'";
 
 in
-builtins.seq _assertContextSuffix (sanitize {
+sanitize {
   node = requestedNode;
   link = linkName;
   config = selected;
-})
+}
