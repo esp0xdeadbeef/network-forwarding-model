@@ -26,34 +26,36 @@ tests=(
   test-no-parent-relative-imports.sh
   test-s88-structure-keywords.sh
   test-no-guessing.sh
-  test-fs300-source-lane-route-metadata.sh
-  test-fs300-ineligible-lane-route-rejection.sh
-  test-fs370-overlay-source-prefix-identity-binding.sh
+  fs-300-hds-010-sds-010-sms-020.sh
+  fs-300-hds-010-sds-010-sms-030.sh
+  fs-370-hds-010-sds-010-sms-020.sh
   fs-370-hds-010-sds-010-sms-030.sh
   fs-370-hds-010-sds-010-sms-040.sh
   fs-370-hds-010-sds-010-sms-060.sh
   fs-370-hds-010-sds-010-sms-070.sh
-  test-fs370-sms080-upstream-selector-default-route.sh
+  fs-370-hds-010-sds-010-sms-080.sh
   fs-370-hds-010-sds-010-sms-090.sh
-  test-fs370-sms100-shared-iface-ip-rule-priority.sh
-  test-fs360-downstream-client-public-prefix-authority.sh
-  test-fs360-public-prefix-return-route-precondition.sh
-  test-fs360-gua-transit-placement-validation.sh
-  test-fs380-fs410-route-authority-handoff.sh
-  test-fs480-route-import-constraint-validation.sh
+  fs-370-hds-010-sds-010-sms-100.sh
+  fs-360-hds-010-sds-010-sms-010.sh
+  fs-360-hds-010-sds-010-sms-020.sh
+  fs-360-hds-010-sds-010-sms-030.sh
+  fs-380-hds-010-sds-010-sms-010.sh
+  fs-480-hds-010-sds-010-sms-020.sh
   test-fs350-prefix-authority-consumer-eligibility.sh
-  test-fs390-public-ipv4-destination-policy.sh
+  fs-390-hds-010-sds-010-sms-010.sh
+  fs-390-hds-010-sds-010-sms-020.sh
+  fs-390-hds-010-sds-010-sms-030.sh
+  fs-410-hds-010-sds-010-sms-010.sh
   test-FS-380-HDS-010-SDS-010-SMS-020-nat44-egress.sh
   fs-260-hds-010-sds-010-sms-010.sh
   test-fs180-hds010-sds010-sms010-return-behavior-authority.sh
-  test-network-labs-wildcard-path-handoff.sh
+  fs-180-hds-010-sds-010-sms-030.sh
   test-network-labs-site-fabric-handoff.sh
-  test-adjacent-traffic-denial-handoff.sh
-  test-overlay-access-uplink-lane-from-compiler-path.sh
+  fs-180-hds-010-sds-010-sms-020.sh
+  fs-460-hds-010-sds-010-sms-010.sh
   test-fs180-fs270-selector-relation-authority.sh
   test-fs250-core-role-minimal-authority.sh
-  test-fs350-overlay-ledger-construction.sh
-  test-fs380-ordinary-wan-return-route-lane.sh
+  fs-350-hds-010-sds-010-sms-030.sh
   fs-500-hds-010-sds-010-sms-010-reachability-decision-classification.sh
   fs-500-hds-010-sds-010-sms-020-decision-type-preservation.sh
   fs-500-hds-010-sds-010-sms-030-decision-reason-diagnostic.sh
