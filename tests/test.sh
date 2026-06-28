@@ -62,6 +62,7 @@ tests=(
   fs-500-hds-010-sds-010-sms-010-reachability-decision-classification.sh
   fs-500-hds-010-sds-010-sms-020-decision-type-preservation.sh
   fs-500-hds-010-sds-010-sms-030-decision-reason-diagnostic.sh
+  fs-520-hds-010-sds-010-sms-010-runtime-route-import-explanation.sh
 )
 
 tmpdir="$(mktemp -d)"

@@ -16,8 +16,20 @@ in
       ifNames = builtins.attrNames ifs;
 
       routesForInterface =
-        iface:
+        ifName: iface:
         let
+          uplinkName = toString (iface.upstream or (iface.uplink or ifName));
+          learnedIntent = dst: {
+            kind = "uplink-learned-reachability";
+            source = "explicit-uplink";
+            routeSource = "explicit-uplink";
+            sourcePeerOrProvider = uplinkName;
+            routePurpose = if dst == helpers.default4 || dst == helpers.default6 then "wan-internet" else "provider-prefix";
+            maximumScope = "provider";
+            rejectionBehavior = "reject";
+            routeAvailabilityOnly = true;
+            policyAuthority = false;
+          };
           prefixRoutes4 =
             if (iface.peerAddr4 or null) == null then
               [ ]
@@ -30,6 +42,7 @@ in
                     via4 = helpers.stripMask iface.peerAddr4;
                     proto = "uplink";
                     intentKind = "uplink-learned-reachability";
+                    intent = learnedIntent dst;
                   }
                 )
                 (iface.uplinkRoutes4 or [ ]);
@@ -46,6 +59,7 @@ in
                     via6 = helpers.stripMask iface.peerAddr6;
                     proto = "uplink";
                     intentKind = "uplink-learned-reachability";
+                    intent = learnedIntent dst;
                   }
                 )
                 (iface.uplinkRoutes6 or [ ]);
@@ -89,7 +103,7 @@ in
       (
         acc: ifName:
         let
-          routes = routesForInterface ifs.${ifName};
+          routes = routesForInterface ifName ifs.${ifName};
         in
         if routes.routes4 == [ ] && routes.routes6 == [ ] then
           acc

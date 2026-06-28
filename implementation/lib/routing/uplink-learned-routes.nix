@@ -20,12 +20,14 @@ let
           (r: {
             family = 4;
             dst = r.dst or null;
+            sourcePeerOrProvider = toString (ifs.${ifName}.upstream or (ifs.${ifName}.uplink or ifName));
           })
           (lib.filter (r: (r.proto or null) == "uplink" && (r ? dst)) rs.ipv4))
         ++ (map
           (r: {
             family = 6;
             dst = r.dst or null;
+            sourcePeerOrProvider = toString (ifs.${ifName}.upstream or (ifs.${ifName}.uplink or ifName));
           })
           (lib.filter (r: (r.proto or null) == "uplink" && (r ? dst)) rs.ipv6));
     in
@@ -86,6 +88,7 @@ in
                   e
                   // {
                     linkName = nextHop.linkName;
+                    routeSourceNode = core;
                     via4 = if e.family == 4 then nextHop.via4 else null;
                     via6 = if e.family == 6 then nextHop.via6 else null;
                   }
@@ -112,6 +115,18 @@ in
                       via4 = e.via4;
                       proto = "uplink";
                       intentKind = "uplink-learned-reachability";
+                      intent = {
+                        kind = "uplink-learned-reachability";
+                        source = "explicit-uplink";
+                        routeSource = "explicit-uplink";
+                        sourcePeerOrProvider = e.sourcePeerOrProvider or "uplink";
+                        routeSourceNode = e.routeSourceNode or null;
+                        routePurpose = "provider-prefix";
+                        maximumScope = "provider";
+                        rejectionBehavior = "reject";
+                        routeAvailabilityOnly = true;
+                        policyAuthority = false;
+                      };
                     })
                   ]
                 else
@@ -125,6 +140,18 @@ in
                       via6 = e.via6;
                       proto = "uplink";
                       intentKind = "uplink-learned-reachability";
+                      intent = {
+                        kind = "uplink-learned-reachability";
+                        source = "explicit-uplink";
+                        routeSource = "explicit-uplink";
+                        sourcePeerOrProvider = e.sourcePeerOrProvider or "uplink";
+                        routeSourceNode = e.routeSourceNode or null;
+                        routePurpose = "provider-prefix";
+                        maximumScope = "provider";
+                        rejectionBehavior = "reject";
+                        routeAvailabilityOnly = true;
+                        policyAuthority = false;
+                      };
                     })
                   ]
                 else
