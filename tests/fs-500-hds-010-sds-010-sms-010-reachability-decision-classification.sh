@@ -37,6 +37,14 @@ cat >"${input_nix}" <<'NIX'
     communicationContract = {
       allowedRelations = [
         {
+          id = "reject-client-to-backup-wan";
+          priority = 90;
+          from = { kind = "tenant"; name = "client"; };
+          to = { kind = "external"; uplinks = [ "backup-wan" ]; };
+          trafficType = "any";
+          action = "reject";
+        }
+        {
           id = "allow-client-to-wan";
           priority = 100;
           from = { kind = "tenant"; name = "client"; };
@@ -54,6 +62,14 @@ cat >"${input_nix}" <<'NIX'
         }
       ];
       relations = [
+        {
+          id = "reject-client-to-backup-wan";
+          priority = 90;
+          from = { kind = "tenant"; name = "client"; };
+          to = { kind = "external"; uplinks = [ "backup-wan" ]; };
+          trafficType = "any";
+          action = "reject";
+        }
         {
           id = "allow-client-to-wan";
           priority = 100;
@@ -80,6 +96,17 @@ cat >"${input_nix}" <<'NIX'
         action = "allow";
         source = { kind = "tenant"; name = "client"; };
         destination = { kind = "public-ipv4"; ipv4 = "93.184.216.34"; };
+        nodePath = [ "access-client" "downstream" "policy" "upstream" "core-wan" ];
+      }
+
+      # Regression: relationId must be authoritative. A broad reject with the
+      # same source/external endpoint shape but a different ID must not capture
+      # this path through source/destination fallback matching.
+      {
+        relationId = "allow-client-to-wan";
+        action = "allow";
+        source = { kind = "tenant"; name = "client"; };
+        destination = { kind = "external"; uplinks = [ "wan" ]; };
         nodePath = [ "access-client" "downstream" "policy" "upstream" "core-wan" ];
       }
 
@@ -168,7 +195,7 @@ jq -e '
   # validPaths: the allow-client-to-wan path is valid
   and ([ $tv.validPaths[]
         | select(.relationId == "allow-client-to-wan")
-      ] | length == 1)
+      ] | length == 2)
 
   # validPaths: the reject-tenantb-to-wan path (action=reject) is valid
   and ([ $tv.validPaths[]
@@ -212,7 +239,7 @@ jq -e '
 }
 
 echo "PASS: FS-500-HDS-010-SDS-010-SMS-010 — reachability decision classification verified"
-echo "  P1 (classification): 1 valid allowed path, 1 valid rejected path"
+echo "  P1 (classification): 2 valid allowed paths, 1 valid rejected path"
 echo "  P2 (formatting): structured JSON output, no formatting conversion possible"
 echo "  FC1 (class presence): trafficPathValidation output complete"
 echo "  FC2 (denied not allowed): no false-positive diagnostics on valid paths"

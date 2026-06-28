@@ -20,20 +20,23 @@ let
   matchesRelation =
     path: relation:
     let
+      pathRelationId = clean (path.relationId or null);
+      relationId = clean (relation.id or null);
       pathSrc = path.source or { };
       relFrom = relation.from or { };
       pathDest = path.destination or { };
       relTo = relation.to or { };
     in
-    # Match by ID first (strongest signal)
-    (clean (path.relationId or null)) == (clean (relation.id or null))
-    # Fallback: match by source/destination kind+name
-    || (
+    # A declared relationId is authoritative. Falling back after an ID miss can
+    # bind a path to an unrelated broad deny relation with the same endpoints.
+    if pathRelationId != null && pathRelationId != "" then
+      pathRelationId == relationId
+    else
       (clean (pathSrc.kind or null)) == (clean (relFrom.kind or null))
       && (clean (pathSrc.name or null)) == (clean (relFrom.name or null))
       && (clean (pathDest.kind or null)) == (clean (relTo.kind or null))
       && (clean (pathDest.name or null)) == (clean (relTo.name or null))
-    );
+    ;
 
   findMatchingRelation =
     path: relations:
