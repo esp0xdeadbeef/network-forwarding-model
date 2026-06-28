@@ -57,65 +57,91 @@ trap - EXIT
 
 intent="${repo_root}/tests/fixtures/examples/s-router-overlay-dns-lane-policy/intent.nix"
 
+eval_expr="
+  let
+    flake = builtins.getFlake \"path:${repo_root}\";
+    out = flake.libBySystem.x86_64-linux.buildFromCompilerInputPath \"${intent}\";
+  in
+    builtins.length (builtins.attrNames (out.enterprise or {}))
+"
+
 # ── Concurrent-load isolation: prefire (warm Nix store) ──
 # Populate the Nix store for the fixture before the timed evaluation so
 # the timed window does not pay cold-store population cost under contention.
-nix eval \
-  --extra-experimental-features 'nix-command flakes' \
-  --impure \
-  --expr "
-    let
-      flake = builtins.getFlake \"path:${repo_root}\";
-      out = flake.libBySystem.x86_64-linux.buildFromCompilerInputPath \"${intent}\";
-    in
-      builtins.length (builtins.attrNames (out.enterprise or {}))
-  " >/dev/null 2>&1 || true
+prefire_timeout_sec=120
+prefire_start_ms="$(date +%s%3N)"
+set +e
+timeout "${prefire_timeout_sec}" \
+  nix eval \
+    --extra-experimental-features 'nix-command flakes' \
+    --impure \
+    --expr "${eval_expr}" >/dev/null
+prefire_rc=$?
+set -e
+prefire_end_ms="$(date +%s%3N)"
+prefire_elapsed_ms=$((prefire_end_ms - prefire_start_ms))
+
+if [[ ${prefire_rc} -ne 0 ]]; then
+  echo "FAIL semantic lib performance boundary: prefire could not populate overlay example within ${prefire_elapsed_ms}ms (exit ${prefire_rc})" >&2
+  exit "${prefire_rc}"
+fi
 
 # ── Timed evaluation with retry for store contention ──
-timeout_sec=60
-max_retries=3
-attempt=0
-passed=false
-elapsed_ms=0
+run_timed_eval_with_retry() {
+  local label="$1"
+  local force_first_timeout="${2:-0}"
+  local attempt=0
+  local elapsed_ms=0
+  local rc=1
+  local start_ms
+  local end_ms
+  local timeout_sec
+  local -a attempt_timeouts=(60 10)
 
-while [[ $attempt -le $max_retries ]]; do
-  start_ms="$(date +%s%3N)"
-  timeout ${timeout_sec} \
-    nix eval \
-      --extra-experimental-features 'nix-command flakes' \
-      --impure \
-      --expr "
-        let
-          flake = builtins.getFlake \"path:${repo_root}\";
-          out = flake.libBySystem.x86_64-linux.buildFromCompilerInputPath \"${intent}\";
-        in
-          builtins.length (builtins.attrNames (out.enterprise or {}))
-      " >/dev/null
-  rc=$?
-  end_ms="$(date +%s%3N)"
-  elapsed_ms=$((end_ms - start_ms))
+  while [[ "${attempt}" -lt "${#attempt_timeouts[@]}" ]]; do
+    timeout_sec="${attempt_timeouts[${attempt}]}"
+    start_ms="$(date +%s%3N)"
+    set +e
+    if [[ "${force_first_timeout}" == "1" && "${attempt}" == "0" ]]; then
+      timeout 1 bash -c 'sleep 2' >/dev/null
+      rc=$?
+    else
+      timeout "${timeout_sec}" \
+        nix eval \
+          --extra-experimental-features 'nix-command flakes' \
+          --impure \
+          --expr "${eval_expr}" >/dev/null
+      rc=$?
+    fi
+    set -e
+    end_ms="$(date +%s%3N)"
+    elapsed_ms=$((end_ms - start_ms))
 
-  if [[ $rc -eq 0 ]]; then
-    passed=true
-    break
-  fi
+    if [[ ${rc} -eq 0 ]]; then
+      printf '%s\n' "${elapsed_ms}"
+      return 0
+    fi
 
-  if [[ $rc -eq 124 ]]; then
-    # Timeout — check Nix store contention before retry
-    nix store ping >/dev/null 2>&1 || true
-    sleep 2
-  else
-    # Non-timeout failure is terminal
-    echo "FAIL semantic lib performance boundary: overlay example semantic build failed after ${elapsed_ms}ms (exit ${rc})" >&2
-    exit ${rc}
-  fi
+    if [[ ${rc} -eq 124 ]]; then
+      nix store ping >/dev/null 2>&1 || true
+      sleep 2
+      attempt=$((attempt + 1))
+      continue
+    fi
 
-  attempt=$((attempt + 1))
-done
+    echo "FAIL semantic lib performance boundary: ${label} overlay example semantic build failed after ${elapsed_ms}ms (exit ${rc})" >&2
+    return "${rc}"
+  done
 
-if [[ "${passed}" == "true" ]]; then
+  echo "FAIL semantic lib performance boundary: ${label} overlay example semantic build timed out after retry (last attempt ${elapsed_ms}ms)" >&2
+  return 1
+}
+
+# Seeded negative: the first attempt times out, but the warm retry must pass.
+run_timed_eval_with_retry "seeded-timeout-retry" 1 >/dev/null
+
+if elapsed_ms="$(run_timed_eval_with_retry "real-boundary" 0)"; then
   echo "PASS semantic-lib-performance-boundary ${elapsed_ms}ms"
 else
-  echo "FAIL semantic lib performance boundary: overlay example semantic build timed out after ${max_retries} retries (last attempt ${elapsed_ms}ms)" >&2
-  exit 1
+  exit "$?"
 fi
