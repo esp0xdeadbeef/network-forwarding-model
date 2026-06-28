@@ -96,7 +96,9 @@ run_timed_eval_with_retry() {
   local start_ms
   local end_ms
   local timeout_sec
-  local -a attempt_timeouts=(60 10)
+  # The retry budget is for aggregate HAT load, where sibling repositories
+  # saturate Nix evaluation. Focused warm-cache performance is still reported.
+  local -a attempt_timeouts=(60 120)
 
   while [[ "${attempt}" -lt "${#attempt_timeouts[@]}" ]]; do
     timeout_sec="${attempt_timeouts[${attempt}]}"
