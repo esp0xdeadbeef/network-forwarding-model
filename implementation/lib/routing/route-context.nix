@@ -100,11 +100,16 @@ let
       via6 = if epTo ? addr6 && epTo.addr6 != null then helpers.stripMask epTo.addr6 else null;
     };
 
-  intentAttr = kind: {
-    intent = {
-      kind = kind;
-    };
-  };
+  normalizeIntent =
+    intentKind: intent:
+    if intent == null then
+      {
+        kind = intentKind;
+      }
+    else
+      intent // {
+        kind = toString (intent.kind or intentKind);
+      };
 
 in
 {
@@ -127,6 +132,7 @@ in
     , policyOnly ? false
     , reason ? null
     , preserveDst ? false
+    , intent ? null
     ,
     }:
     {
@@ -138,7 +144,7 @@ in
     // lib.optionalAttrs (lane != null) { inherit lane; }
     // lib.optionalAttrs policyOnly { inherit policyOnly; }
     // lib.optionalAttrs (reason != null) { inherit reason; }
-    // intentAttr intentKind
+    // { intent = normalizeIntent intentKind intent; }
     // lib.optionalAttrs preserveDst { inherit preserveDst; };
 
   mkRoute6 =
@@ -151,6 +157,7 @@ in
     , policyOnly ? false
     , reason ? null
     , preserveDst ? false
+    , intent ? null
     ,
     }:
     {
@@ -162,6 +169,6 @@ in
     // lib.optionalAttrs (lane != null) { inherit lane; }
     // lib.optionalAttrs policyOnly { inherit policyOnly; }
     // lib.optionalAttrs (reason != null) { inherit reason; }
-    // intentAttr intentKind
+    // { intent = normalizeIntent intentKind intent; }
     // lib.optionalAttrs (preserveDst || dst == helpers.default6) { preserveDst = true; };
 }
