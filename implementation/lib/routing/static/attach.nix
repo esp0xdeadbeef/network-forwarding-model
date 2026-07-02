@@ -6,6 +6,18 @@ let
   overlayNearestDefaults = import (self.outPath + "/implementation/lib/routing/overlay-nearest-defaults.nix") {
     inherit lib self;
   };
+  selectorDefaultRouteGuard =
+    import (self.outPath + "/implementation/lib/routing/static/selector-default-route-guard.nix") {
+      inherit lib self;
+    };
+  coreReturnRouteGuard =
+    import (self.outPath + "/implementation/lib/routing/static/core-return-route-guard.nix") {
+      inherit lib self;
+    };
+  sharedInterfacePolicyGuard =
+    import (self.outPath + "/implementation/lib/routing/static/shared-interface-policy-guard.nix") {
+      inherit lib self;
+    };
 in
 rec {
   attachWith =
@@ -33,8 +45,12 @@ rec {
         else
           lib.mapAttrs (nodeRoutes.addUplinkLearnedToSelector ctx1) nodes1;
       nodes3 = lib.mapAttrs (overlayNearestDefaults.strip topo1) nodes2;
+      topoFinal = topo1 // { nodes = nodes3; };
+      _selectorDefaultRoutes = selectorDefaultRouteGuard.validate topoFinal;
+      _coreReturnRoutes = coreReturnRouteGuard.validate topoFinal;
+      _sharedInterfacePolicy = sharedInterfacePolicyGuard.validate topoFinal;
     in
-    topo1 // { nodes = nodes3; };
+    builtins.seq _selectorDefaultRoutes (builtins.seq _coreReturnRoutes (builtins.seq _sharedInterfacePolicy topoFinal));
 
   attach = topo: attachWith { inherit topo; };
 }

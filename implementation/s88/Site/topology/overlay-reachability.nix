@@ -76,6 +76,13 @@ let
           tenantPrefixes.prefixesOfSite peerSite;
       terminateOn = lib.unique (overlayTargetNamesFrom overlay);
       explicitPrefixes = explicitPrefixesOf overlay;
+      explicitPrefixValues = explicitPrefixes.ipv4 ++ explicitPrefixes.ipv6;
+      peerLabel = if peerSiteRef == null then "<none>" else toString peerSiteRef;
+      explicitPrefixesAreBound =
+        if explicitPrefixValues == [ ] then
+          true
+        else
+          throw "overlay-source-prefix-unbound: overlay '${overlayName}' peer '${peerLabel}' declares explicit prefixes ${builtins.toJSON explicitPrefixValues}; model those prefixes as peer tenant ownership or overlay node addresses before exporting overlay reachability";
       underlayAccess = overlayUnderlayAccessOf overlay;
       overlayNodePrefixes =
         if peerSite == null then
@@ -96,12 +103,16 @@ let
         routes4 = normalizedPrefixRoutes {
           inherit overlayName peerSiteRef;
           family = 4;
-          prefixes = lib.unique (peerPrefixes.ipv4 ++ overlayNodePrefixes.ipv4 ++ explicitPrefixes.ipv4);
+          prefixes = builtins.seq explicitPrefixesAreBound (
+            lib.unique (peerPrefixes.ipv4 ++ overlayNodePrefixes.ipv4 ++ explicitPrefixes.ipv4)
+          );
         };
         routes6 = normalizedPrefixRoutes {
           inherit overlayName peerSiteRef;
           family = 6;
-          prefixes = lib.unique (peerPrefixes.ipv6 ++ overlayNodePrefixes.ipv6 ++ explicitPrefixes.ipv6);
+          prefixes = builtins.seq explicitPrefixesAreBound (
+            lib.unique (peerPrefixes.ipv6 ++ overlayNodePrefixes.ipv6 ++ explicitPrefixes.ipv6)
+          );
         };
       };
     };

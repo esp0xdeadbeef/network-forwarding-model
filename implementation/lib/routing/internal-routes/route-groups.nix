@@ -2,12 +2,7 @@
 
 let
   helpers = import (self.outPath + "/implementation/lib/routing/static-helpers.nix") { inherit lib self; };
-  uniqueStrings =
-    xs:
-    builtins.attrNames (builtins.listToAttrs (map (x: {
-      name = x;
-      value = true;
-    }) xs));
+  uniqueStrings = xs: builtins.attrNames (builtins.listToAttrs (map (x: { name = x; value = true; }) xs));
 
 in
 {
@@ -119,24 +114,34 @@ in
       rawRoutes =
         if isRuntimeRoutedPrefix then
           map
-            (entry: {
-              family = 6;
-              sourceFile = entry.sourceFile;
-              proto = if (entry.overlay or null) != null then "overlay" else "internal";
-              via6 = if via6 != null then via6 else entry.via6;
-              intent = {
-                kind = intentKind;
-                source = "intent-routed-prefix";
-                accessNode = entry.owner;
-              }
-              // lib.optionalAttrs ((entry.authorityClass or null) != null) { authorityClass = entry.authorityClass; }
-              // lib.optionalAttrs ((entry.authorityClass or null) != null) {
-                downstreamExport = {
-                  allowed = (entry.authorityClass or null) != "host-only-provider-prefix";
-                  reason = if (entry.authorityClass or null) == "host-only-provider-prefix" then "host-only-provider-prefix" else "authority-class-allows-downstream-export";
+            (
+              entry:
+              let
+                family = entry.family or sample.family;
+                nextHop =
+                  if family == 4 then
+                    { via4 = if via4 != null then via4 else entry.via4; }
+                  else
+                    { via6 = if via6 != null then via6 else entry.via6; };
+              in
+              {
+                inherit family;
+                sourceFile = entry.sourceFile;
+                proto = if (entry.overlay or null) != null then "overlay" else "internal";
+                intent = {
+                  kind = intentKind;
+                  source = "intent-routed-prefix";
+                  accessNode = entry.owner;
+                }
+                // lib.optionalAttrs ((entry.authorityClass or null) != null) { authorityClass = entry.authorityClass; }
+                // lib.optionalAttrs ((entry.authorityClass or null) != null) {
+                  downstreamExport = {
+                    allowed = (entry.authorityClass or null) != "host-only-provider-prefix";
+                    reason = if (entry.authorityClass or null) == "host-only-provider-prefix" then "host-only-provider-prefix" else "authority-class-allows-downstream-export";
+                  };
                 };
-              };
-            } // lib.optionalAttrs ((entry.prefixName or null) != null) { prefixName = entry.prefixName; })
+              } // nextHop // lib.optionalAttrs ((entry.prefixName or null) != null) { prefixName = entry.prefixName; }
+            )
             entries
         else if preserveExactDsts && sample.family == 4 then
           map mkExactRoute4 summarizedDsts
@@ -185,10 +190,8 @@ in
         exactOnlyCount = if preserveExactDsts then builtins.length summarizedDsts else 0;
         exactDeduplicationCount =
           if preserveExactDsts then entryDstRows - builtins.length summarizedDsts else 0;
-        prefixSummaryCandidateCount =
-          if preserveExactDsts || isRuntimeRoutedPrefix then 0 else builtins.length entryDsts;
-        rejectedAggregationCount =
-          if aggDst == null && !isRuntimeRoutedPrefix then builtins.length entryDsts else 0;
+        prefixSummaryCandidateCount = if preserveExactDsts || isRuntimeRoutedPrefix then 0 else builtins.length entryDsts;
+        rejectedAggregationCount = if aggDst == null && !isRuntimeRoutedPrefix then builtins.length entryDsts else 0;
         finalMaterializedRouteCount = builtins.length rawRoutes + builtins.length aggRoute;
       };
     };

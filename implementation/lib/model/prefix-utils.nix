@@ -9,18 +9,11 @@ let
   mkConnectedRoute = dst: {
     dst = canonicalCidr dst;
     proto = "connected";
-    intent = {
-      kind = "connected-reachability";
-    };
+    intent.kind = "connected-reachability";
   };
 
   networksOf =
-    { extraExcluded ? [
-        "containers"
-        "uplinks"
-      ]
-    ,
-    }:
+    { extraExcluded ? [ "containers" "uplinks" ], }:
     network.networksOfNode { inherit extraExcluded; };
 
   prefixEntriesFromIfaces =
@@ -63,11 +56,24 @@ let
     let
       nets = (networksOf { }) node;
       netNames = builtins.attrNames nets;
-      runtimeAuthorityClass =
+  routedPrefixFamily =
+    p:
+    let
+      family = toString (p.family or "ipv6");
+    in
+    if family == "4" || family == "ipv4" then 4 else 6;
+
+  hostOnlyPrefixLengthFor = family: if family == 4 then 32 else 128; defaultRoutedPrefixLengthFor = family: if family == 4 then 32 else 64;
+
+  runtimeAuthorityClass =
         p:
+        let
+          family = routedPrefixFamily p;
+          hostOnlyLength = hostOnlyPrefixLengthFor family;
+        in
         if (p.authorityClass or null) != null then
           toString p.authorityClass
-        else if (p.perTenantPrefixLength or null) == 128 then
+        else if (p.perTenantPrefixLength or null) == hostOnlyLength then
           "host-only-provider-prefix"
         else
           "routed-client-prefix";
@@ -106,19 +112,26 @@ let
             })
             (lib.optionals ownsPrefix (net.ra6Prefixes or [ ])))
           (map
-            (p: {
-              family = 6;
-              sourceFile = p.sourceFile;
-              prefixName = p.name or null;
-              netName = netName;
-              kind = "runtime-routed-prefix";
-              authorityClass = runtimeAuthorityClass p;
-              delegatedPrefixLength = p.delegatedPrefixLength or 64;
-              perTenantPrefixLength = p.perTenantPrefixLength or 64;
-              slot = p.slot or 0;
-            } // lib.optionalAttrs ((p.prefixPostfix or null) != null) {
-              prefixPostfix = p.prefixPostfix;
-            })
+            (
+              p:
+              let
+                family = routedPrefixFamily p;
+                defaultPrefixLength = defaultRoutedPrefixLengthFor family;
+              in
+              {
+                inherit family;
+                sourceFile = p.sourceFile;
+                prefixName = p.name or null;
+                inherit netName;
+                kind = "runtime-routed-prefix";
+                authorityClass = runtimeAuthorityClass p;
+                delegatedPrefixLength = p.delegatedPrefixLength or defaultPrefixLength;
+                perTenantPrefixLength = p.perTenantPrefixLength or defaultPrefixLength;
+                slot = p.slot or 0;
+              } // lib.optionalAttrs ((p.prefixPostfix or null) != null) {
+                prefixPostfix = p.prefixPostfix;
+              }
+            )
             (lib.optionals ownsPrefix (
               lib.filter (p: builtins.isAttrs p && (p.sourceFile or null) != null) (net.routedPrefixes or [ ])
             )))
@@ -126,8 +139,7 @@ let
       )
       netNames;
 
-  ownConnectedPrefixes =
-    node:
+  ownConnectedPrefixes = node:
     builtins.foldl' (acc: e: if e ? dst then acc // { "${toString e.family}|${e.dst}" = true; } else acc) { } (
       prefixEntriesFromIfaces node ++ prefixEntriesFromNetworks node
     );
@@ -183,14 +195,5 @@ let
 
 in
 {
-  inherit
-    canonicalCidr
-    mkConnectedRoute
-    networksOf
-    prefixEntriesFromIfaces
-    prefixEntriesFromNetworks
-    ownConnectedPrefixes
-    prefixSetFromP2pIfaces
-    prefixSetFromNetworks
-    ;
+  inherit canonicalCidr mkConnectedRoute networksOf prefixEntriesFromIfaces prefixEntriesFromNetworks ownConnectedPrefixes prefixSetFromP2pIfaces prefixSetFromNetworks;
 }
