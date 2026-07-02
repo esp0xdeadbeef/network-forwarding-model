@@ -35,6 +35,15 @@ cat >"${input_nix}" <<'NIX'
           routedPrefixes = [
             {
               allocation = "runtime";
+              family = "ipv4";
+              name = "client-host-only-v4";
+              delegatedPrefixLength = 32;
+              perTenantPrefixLength = 32;
+              slot = 0;
+              sourceFile = "/run/pd/client-host-only-v4.prefix";
+            }
+            {
+              allocation = "runtime";
               family = "ipv6";
               name = "client-host-only";
               delegatedPrefixLength = 128;
@@ -86,9 +95,20 @@ pass_timed "fs370-host-only-source-prefix-denial:compile" "${start_ms}"
 
 jq -e '
   .enterprise.acme.site.ams as $site
-  | $site.tenantPrefixOwners["6|source:/run/pd/client-host-only.prefix"] as $hostOnlyOwner
-  | $site.prefixAuthority.records["prefix-authority::access-client::6|source:/run/pd/client-host-only.prefix"] as $hostOnlyAuthority
-  | def host_only_routes:
+  | $site.tenantPrefixOwners["4|source:/run/pd/client-host-only-v4.prefix"] as $hostOnlyV4Owner
+  | $site.tenantPrefixOwners["6|source:/run/pd/client-host-only.prefix"] as $hostOnlyV6Owner
+  | $site.prefixAuthority.records["prefix-authority::access-client::4|source:/run/pd/client-host-only-v4.prefix"] as $hostOnlyV4Authority
+  | $site.prefixAuthority.records["prefix-authority::access-client::6|source:/run/pd/client-host-only.prefix"] as $hostOnlyV6Authority
+  | def host_only_v4_routes:
+      $site.nodes
+      | to_entries[]
+      | . as $node
+      | ($node.value.interfaces // {})
+      | to_entries[]
+      | (.value.routes.ipv4 // [])[]?
+      | { node: $node.key, route: . }
+      | select((.route.sourceFile // null) == "/run/pd/client-host-only-v4.prefix");
+  def host_only_v6_routes:
       $site.nodes
       | to_entries[]
       | . as $node
@@ -97,15 +117,30 @@ jq -e '
       | (.value.routes.ipv6 // [])[]?
       | { node: $node.key, route: . }
       | select((.route.sourceFile // null) == "/run/pd/client-host-only.prefix");
-  ($hostOnlyOwner.owner == "access-client")
-  and ($hostOnlyOwner.authorityClass == "host-only-provider-prefix")
-  and ($hostOnlyAuthority.authorityClass == "host-only-provider-prefix")
-  and ($hostOnlyAuthority.childPurpose == "provider-endpoint-host-address")
-  and ($hostOnlyAuthority.consumerEligibility.route == true)
-  and ($hostOnlyAuthority.consumerEligibility.assignment == false)
-  and ($hostOnlyAuthority.consumerEligibility.exposure == false)
-  and ([host_only_routes.node] | sort) == ["core-wan", "downstream", "policy", "upstream"]
-  and all(host_only_routes;
+  ($hostOnlyV4Owner.owner == "access-client")
+  and ($hostOnlyV4Owner.authorityClass == "host-only-provider-prefix")
+  and ($hostOnlyV4Authority.authorityClass == "host-only-provider-prefix")
+  and ($hostOnlyV4Authority.childPurpose == "provider-endpoint-host-address")
+  and ($hostOnlyV4Authority.consumerEligibility.route == true)
+  and ($hostOnlyV4Authority.consumerEligibility.assignment == false)
+  and ($hostOnlyV4Authority.consumerEligibility.exposure == false)
+  and ([host_only_v4_routes.node] | sort) == ["core-wan", "downstream", "policy", "upstream"]
+  and all(host_only_v4_routes;
+    .route.intent.kind == "runtime-routed-prefix-return"
+    and .route.intent.accessNode == "access-client"
+    and .route.intent.authorityClass == "host-only-provider-prefix"
+    and .route.intent.downstreamExport.allowed == false
+    and .route.intent.downstreamExport.reason == "host-only-provider-prefix"
+  )
+  and ($hostOnlyV6Owner.owner == "access-client")
+  and ($hostOnlyV6Owner.authorityClass == "host-only-provider-prefix")
+  and ($hostOnlyV6Authority.authorityClass == "host-only-provider-prefix")
+  and ($hostOnlyV6Authority.childPurpose == "provider-endpoint-host-address")
+  and ($hostOnlyV6Authority.consumerEligibility.route == true)
+  and ($hostOnlyV6Authority.consumerEligibility.assignment == false)
+  and ($hostOnlyV6Authority.consumerEligibility.exposure == false)
+  and ([host_only_v6_routes.node] | sort) == ["core-wan", "downstream", "policy", "upstream"]
+  and all(host_only_v6_routes;
     .route.intent.kind == "runtime-routed-prefix-return"
     and .route.intent.accessNode == "access-client"
     and .route.intent.authorityClass == "host-only-provider-prefix"
@@ -124,7 +159,10 @@ jq -e '
       | ($node.value.interfaces // {})
       | to_entries[]
       | (.value.routes.ipv6 // [])[]?
-      | select((.sourceFile // null) == "/run/pd/client-host-only.prefix")
+      | select(
+          (.sourceFile // null) == "/run/pd/client-host-only-v4.prefix"
+          or (.sourceFile // null) == "/run/pd/client-host-only.prefix"
+        )
       | { node: $node.key, route: . }
     ]
   }' "${output_json}" >&2

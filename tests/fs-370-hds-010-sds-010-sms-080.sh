@@ -8,8 +8,10 @@ set -euo pipefail
 # default route toward the core node with proto=default, single nexthop.
 #
 # Seeded negatives:
-#   - Multi-nexthop default route (ECMP) would fail the single-nexthop check
-#   - Default route with null via4 would fail
+#   - Multi-nexthop default route (ECMP) fails the single-nexthop check
+#   - Default route with null via4 fails
+#   - Selector default route bypassing the core fabric chain fails closed
+#   - Missing selector default route with internet egress requirement fails closed
 
 repo_root="$(git rev-parse --show-toplevel)"
 source "${repo_root}/tests/lib/timing.sh"
@@ -18,6 +20,40 @@ trap 'rm -rf "${tmpdir}"' EXIT
 
 input_nix="${tmpdir}/compiler-output.nix"
 output_json="${tmpdir}/out.json"
+
+expect_compile_failure() {
+  local name="$1"
+  local fixture="$2"
+  shift 2
+
+  local -a env_args=()
+  if [[ "${1:-}" == "--env" ]]; then
+    env_args+=("$2")
+    shift 2
+  fi
+
+  local out_file="${tmpdir}/${name}.out"
+  local err_file="${tmpdir}/${name}.err"
+  local start_ms
+  start_ms="$(test_now_ms)"
+
+  if env "${env_args[@]}" nix run "${repo_root}#compile-and-build-forwarding-model" -- "${fixture}" >"${out_file}" 2>"${err_file}"; then
+    echo "FAIL ${name}: expected compile failure" >&2
+    jq '.' "${out_file}" >&2 || cat "${out_file}" >&2
+    exit 1
+  fi
+
+  local pattern
+  for pattern in "$@"; do
+    if ! rg -q -- "${pattern}" "${err_file}"; then
+      echo "FAIL ${name}: missing expected diagnostic pattern: ${pattern}" >&2
+      sed -n '1,180p' "${err_file}" >&2
+      exit 1
+    fi
+  done
+
+  pass_timed "${name}" "${start_ms}"
+}
 
 cat >"${input_nix}" <<'NIX'
 {
@@ -133,5 +169,87 @@ jq -e '
   echo "FAIL fs370-sms080: upstream-selector default route via4 must be a single IP address (not a subnet or multi-nexthop)" >&2
   exit 1
 }
+
+bypass_core_intent="${tmpdir}/bypass-core.nix"
+cat >"${bypass_core_intent}" <<'NIX'
+{
+  sites.acme.ams = {
+    addressPools = {
+      local.ipv4 = "10.37.0.0/24";
+      p2p.ipv4 = "10.37.1.0/24";
+      p2p.ipv6 = "fd42:370::/118";
+    };
+
+    attachments = [
+      { unit = "access-client"; kind = "tenant"; name = "client"; }
+    ];
+
+    domains = {
+      externals = [ { kind = "external"; name = "wan"; } ];
+      tenants = [
+        { kind = "tenant"; name = "client"; ipv4 = "10.37.20.0/24"; ipv6 = "fd42:370:20::/64"; }
+      ];
+    };
+
+    communicationContract.relations = [
+      { id = "allow-client-to-wan"; priority = 100;
+        from = { kind = "tenant"; name = "client"; };
+        to = { kind = "external"; uplinks = [ "wan" ]; };
+        trafficType = "any"; action = "allow"; }
+    ];
+
+    transit.ordering = [
+      [ "access-client" "downstream" ]
+      [ "downstream" "policy" ]
+      [ "policy" "upstream" ]
+      [ "upstream" "core-wan" ]
+    ];
+
+    links.selector-bypass = {
+      kind = "p2p";
+      endpoints = {
+        upstream = {
+          addr4 = "10.37.9.0/31";
+          interfaceData.routes4 = [
+            {
+              dst = "0.0.0.0/0";
+              via4 = "10.37.9.1";
+              proto = "default";
+              intent = { kind = "default-reachability"; };
+              lane = { access = "access-client"; uplink = "wan"; };
+            }
+          ];
+        };
+        policy = { addr4 = "10.37.9.1/31"; };
+      };
+    };
+
+    units = {
+      access-client.role = "access";
+      downstream.role = "downstream-selector";
+      policy.role = "policy";
+      upstream.role = "upstream-selector";
+      core-wan = { role = "core"; uplinks.wan.ipv4 = [ "0.0.0.0/0" ]; uplinks.wan.ipv6 = [ "::/0" ]; };
+    };
+  };
+}
+NIX
+
+expect_compile_failure \
+  "fs370-sms080-upstream-selector-default-route:seeded-negative-bypass-core" \
+  "${bypass_core_intent}" \
+  "selector-default-route-bypasses-core" \
+  "selector-bypass" \
+  "access-client" \
+  "client"
+
+expect_compile_failure \
+  "fs370-sms080-upstream-selector-default-route:seeded-negative-missing-default" \
+  "${input_nix}" \
+  --env "S88_NFM_PROFILE_SKIP_NEAREST_DEFAULTS=1" \
+  "selector-default-route-missing" \
+  "access=access-client" \
+  "tenant=client" \
+  "uplink=wan"
 
 pass_timed "fs370-sms080-upstream-selector-default-route"

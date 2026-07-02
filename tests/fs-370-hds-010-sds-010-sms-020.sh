@@ -6,10 +6,39 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 source "${repo_root}/tests/lib/timing.sh"
 
-output_json="$(mktemp)"
-trap 'rm -f "${output_json}"' EXIT
+tmpdir="$(mktemp -d)"
+output_json="${tmpdir}/output.json"
+trap 'rm -rf "${tmpdir}"' EXIT
 
 intent="${repo_root}/tests/fixtures/examples/s-router-overlay-dns-lane-policy/intent.nix"
+
+expect_compile_failure() {
+  local name="$1"
+  local fixture="$2"
+  shift 2
+
+  local out_file="${tmpdir}/${name}.out"
+  local err_file="${tmpdir}/${name}.err"
+  local start_ms
+  start_ms="$(test_now_ms)"
+
+  if nix run "${repo_root}#compile-and-build-forwarding-model" -- "${fixture}" >"${out_file}" 2>"${err_file}"; then
+    echo "FAIL ${name}: expected compile failure" >&2
+    jq '.' "${out_file}" >&2 || cat "${out_file}" >&2
+    exit 1
+  fi
+
+  local pattern
+  for pattern in "$@"; do
+    if ! rg -q -- "${pattern}" "${err_file}"; then
+      echo "FAIL ${name}: missing expected diagnostic pattern: ${pattern}" >&2
+      sed -n '1,160p' "${err_file}" >&2
+      exit 1
+    fi
+  done
+
+  pass_timed "${name}" "${start_ms}"
+}
 
 start_ms="$(test_now_ms)"
 nix run "${repo_root}#compile-and-build-forwarding-model" -- "${intent}" >"${output_json}"
@@ -99,3 +128,79 @@ jq -e '
 }
 
 pass_timed "fs370-overlay-source-prefix-identity-binding"
+
+unbound_overlay_prefix_intent="${tmpdir}/unbound-overlay-prefix.nix"
+cat >"${unbound_overlay_prefix_intent}" <<EOF
+let
+  base = import ${intent};
+  siteA = base.esp0xdeadbeef."site-a";
+  overlays =
+    map
+      (
+        overlay:
+          if (overlay.name or null) == "east-west" then
+            overlay // {
+              prefixes = {
+                ipv4 = [ "198.18.222.0/24" ];
+                ipv6 = [ "2001:db8:370::/64" ];
+              };
+            }
+          else
+            overlay
+      )
+      siteA.transport.overlays;
+in
+base // {
+  esp0xdeadbeef = base.esp0xdeadbeef // {
+    "site-a" = siteA // {
+      transport = siteA.transport // {
+        inherit overlays;
+      };
+    };
+  };
+}
+EOF
+
+expect_compile_failure \
+  "fs370-overlay-source-prefix-identity-binding:seeded-negative-unbound-prefix" \
+  "${unbound_overlay_prefix_intent}" \
+  "overlay-source-prefix-unbound" \
+  "east-west" \
+  "198\\.18\\.222\\.0/24" \
+  "2001:db8:370::/64"
+
+conflicting_prefix_owner_intent="${tmpdir}/conflicting-prefix-owner.nix"
+cat >"${conflicting_prefix_owner_intent}" <<EOF
+let
+  base = import ${intent};
+  siteB = base.espbranch."site-b";
+  prefixes =
+    map
+      (
+        prefix:
+          if (prefix.name or null) == "branch" then
+            prefix // {
+              ipv4 = "10.70.10.0/24";
+            }
+          else
+            prefix
+      )
+      siteB.ownership.prefixes;
+in
+base // {
+  espbranch = base.espbranch // {
+    "site-b" = siteB // {
+      ownership = siteB.ownership // {
+        inherit prefixes;
+      };
+    };
+  };
+}
+EOF
+
+expect_compile_failure \
+  "fs370-overlay-source-prefix-identity-binding:seeded-negative-conflicting-prefix" \
+  "${conflicting_prefix_owner_intent}" \
+  "10\\.70\\.10\\.0/24" \
+  "branch" \
+  "hostile"

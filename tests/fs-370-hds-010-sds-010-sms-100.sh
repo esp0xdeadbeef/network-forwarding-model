@@ -12,6 +12,8 @@ set -euo pipefail
 # Seeded negatives:
 #   - Route without lane metadata on shared interface
 #   - Route without direction for policy-governed traffic
+#   - Lower-priority lane captures another lane's tenant prefix
+#   - Default-route catch-all appears on a shared source interface
 
 repo_root="$(git rev-parse --show-toplevel)"
 source "${repo_root}/tests/lib/timing.sh"
@@ -20,6 +22,34 @@ trap 'rm -rf "${tmpdir}"' EXIT
 
 input_nix="${tmpdir}/compiler-output.nix"
 output_json="${tmpdir}/out.json"
+
+expect_compile_failure() {
+  local name="$1"
+  local fixture="$2"
+  shift 2
+
+  local out_file="${tmpdir}/${name}.out"
+  local err_file="${tmpdir}/${name}.err"
+  local start_ms
+  start_ms="$(test_now_ms)"
+
+  if nix run "${repo_root}#compile-and-build-forwarding-model" -- "${fixture}" >"${out_file}" 2>"${err_file}"; then
+    echo "FAIL ${name}: expected compile failure" >&2
+    jq '.' "${out_file}" >&2 || cat "${out_file}" >&2
+    exit 1
+  fi
+
+  local pattern
+  for pattern in "$@"; do
+    if ! rg -q -- "${pattern}" "${err_file}"; then
+      echo "FAIL ${name}: missing expected diagnostic pattern: ${pattern}" >&2
+      sed -n '1,180p' "${err_file}" >&2
+      exit 1
+    fi
+  done
+
+  pass_timed "${name}" "${start_ms}"
+}
 
 cat >"${input_nix}" <<'NIX'
 {
@@ -142,5 +172,133 @@ jq -e '
   jq '[.enterprise.acme.site.ams.nodes | to_entries[] | .value.interfaces // {} | to_entries[] | .value.routes.ipv4[]? | select(.policyOnly == true) | {node, dst, lane, direction}]' "${output_json}" >&2
   exit 1
 }
+
+shared_default_catchall_intent="${tmpdir}/shared-default-catchall.nix"
+cat >"${shared_default_catchall_intent}" <<'NIX'
+{
+  sites.acme.ams = {
+    addressPools = {
+      local.ipv4 = "10.37.0.0/24";
+      p2p.ipv4 = "10.37.1.0/24";
+      p2p.ipv6 = "fd42:370::/118";
+    };
+    attachments = [
+      { unit = "access-a"; kind = "tenant"; name = "a"; }
+      { unit = "access-b"; kind = "tenant"; name = "b"; }
+    ];
+    domains = {
+      externals = [ { kind = "external"; name = "wan"; } ];
+      tenants = [
+        { kind = "tenant"; name = "a"; ipv4 = "10.37.20.0/24"; ipv6 = "fd42:370:20::/64"; }
+        { kind = "tenant"; name = "b"; ipv4 = "10.37.30.0/24"; ipv6 = "fd42:370:30::/64"; }
+      ];
+    };
+    communicationContract.relations = [
+      { id = "allow-a-to-wan"; priority = 100; from = { kind = "tenant"; name = "a"; }; to = { kind = "external"; uplinks = [ "wan" ]; }; trafficType = "any"; action = "allow"; }
+      { id = "allow-b-to-wan"; priority = 110; from = { kind = "tenant"; name = "b"; }; to = { kind = "external"; uplinks = [ "wan" ]; }; trafficType = "any"; action = "allow"; }
+    ];
+    transit.ordering = [
+      [ "access-a" "downstream" ]
+      [ "access-b" "downstream" ]
+      [ "downstream" "policy" ]
+      [ "policy" "upstream" ]
+      [ "upstream" "core-wan" ]
+    ];
+    links.shared-source = {
+      kind = "p2p";
+      endpoints = {
+        policy = {
+          addr4 = "10.37.9.0/31";
+          interfaceData.routes4 = [
+            { dst = "0.0.0.0/0"; via4 = "10.37.9.1"; proto = "default"; policyOnly = true; metric = 2000; lane = { access = "access-a"; uplink = "wan"; }; direction = "return"; intent = { kind = "default-reachability"; }; }
+            { dst = "10.37.30.0/24"; via4 = "10.37.9.1"; proto = "internal"; policyOnly = true; metric = 2010; lane = { access = "access-b"; uplink = "wan"; }; direction = "return"; intent = { kind = "internal-reachability"; }; }
+          ];
+        };
+        upstream = { addr4 = "10.37.9.1/31"; };
+      };
+    };
+    units = {
+      access-a.role = "access";
+      access-b.role = "access";
+      downstream.role = "downstream-selector";
+      policy.role = "policy";
+      upstream.role = "upstream-selector";
+      core-wan = { role = "core"; uplinks.wan.ipv4 = [ "0.0.0.0/0" ]; uplinks.wan.ipv6 = [ "::/0" ]; };
+    };
+  };
+}
+NIX
+
+priority_inversion_intent="${tmpdir}/priority-inversion.nix"
+cat >"${priority_inversion_intent}" <<'NIX'
+{
+  sites.acme.ams = {
+    addressPools = {
+      local.ipv4 = "10.37.0.0/24";
+      p2p.ipv4 = "10.37.1.0/24";
+      p2p.ipv6 = "fd42:370::/118";
+    };
+    attachments = [
+      { unit = "access-a"; kind = "tenant"; name = "a"; }
+      { unit = "access-b"; kind = "tenant"; name = "b"; }
+    ];
+    domains = {
+      externals = [ { kind = "external"; name = "wan"; } ];
+      tenants = [
+        { kind = "tenant"; name = "a"; ipv4 = "10.37.20.0/24"; ipv6 = "fd42:370:20::/64"; }
+        { kind = "tenant"; name = "b"; ipv4 = "10.37.30.0/24"; ipv6 = "fd42:370:30::/64"; }
+      ];
+    };
+    communicationContract.relations = [
+      { id = "allow-a-to-wan"; priority = 100; from = { kind = "tenant"; name = "a"; }; to = { kind = "external"; uplinks = [ "wan" ]; }; trafficType = "any"; action = "allow"; }
+      { id = "allow-b-to-wan"; priority = 110; from = { kind = "tenant"; name = "b"; }; to = { kind = "external"; uplinks = [ "wan" ]; }; trafficType = "any"; action = "allow"; }
+    ];
+    transit.ordering = [
+      [ "access-a" "downstream" ]
+      [ "access-b" "downstream" ]
+      [ "downstream" "policy" ]
+      [ "policy" "upstream" ]
+      [ "upstream" "core-wan" ]
+    ];
+    links.shared-source = {
+      kind = "p2p";
+      endpoints = {
+        policy = {
+          addr4 = "10.37.9.0/31";
+          interfaceData.routes4 = [
+            { dst = "10.37.30.0/24"; via4 = "10.37.9.1"; proto = "internal"; policyOnly = true; metric = 2000; lane = { access = "access-a"; uplink = "wan"; }; direction = "return"; intent = { kind = "internal-reachability"; }; }
+            { dst = "10.37.20.0/24"; via4 = "10.37.9.1"; proto = "internal"; policyOnly = true; metric = 2010; lane = { access = "access-b"; uplink = "wan"; }; direction = "return"; intent = { kind = "internal-reachability"; }; }
+          ];
+        };
+        upstream = { addr4 = "10.37.9.1/31"; };
+      };
+    };
+    units = {
+      access-a.role = "access";
+      access-b.role = "access";
+      downstream.role = "downstream-selector";
+      policy.role = "policy";
+      upstream.role = "upstream-selector";
+      core-wan = { role = "core"; uplinks.wan.ipv4 = [ "0.0.0.0/0" ]; uplinks.wan.ipv6 = [ "::/0" ]; };
+    };
+  };
+}
+NIX
+
+expect_compile_failure \
+  "fs370-sms100-shared-iface-ip-rule-priority:seeded-negative-default-catchall" \
+  "${shared_default_catchall_intent}" \
+  "diagnostic\\.default-route-catch-all-shared-interface" \
+  "shared-source" \
+  "access-a\\|wan" \
+  "0\\.0\\.0\\.0/0"
+
+expect_compile_failure \
+  "fs370-sms100-shared-iface-ip-rule-priority:seeded-negative-priority-inversion" \
+  "${priority_inversion_intent}" \
+  "diagnostic\\.priority-inversion-route-capture" \
+  "capturingLane: access-b\\|wan" \
+  "capturedSubnet: 10\\.37\\.20\\.0/24" \
+  "correctAccess: access-a"
 
 pass_timed "fs370-sms100-shared-iface-ip-rule-priority"
