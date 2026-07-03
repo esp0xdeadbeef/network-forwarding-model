@@ -11,6 +11,37 @@ let
     in
     if values == [ ] then null else builtins.head values;
 
+  serviceDestinationAddress =
+    recordsByAddress: destination:
+    let
+      serviceName = clean (destination.name or destination.serviceName or null);
+      matches =
+        lib.filter
+          (
+            record:
+            (record.ownerKind or null) == "service"
+            && (
+              clean (record.ownerName or null) == serviceName
+              || clean (record.serviceName or null) == serviceName
+            )
+          )
+          (builtins.attrValues recordsByAddress);
+    in
+    if serviceName == null || matches == [ ] then null else (builtins.head matches).address;
+
+  destinationAddress =
+    recordsByAddress: destination:
+    let
+      direct = destAddress destination;
+      kind = destination.kind or null;
+    in
+    if direct != null then
+      direct
+    else if kind == "service" || kind == "public-ingress" then
+      serviceDestinationAddress recordsByAddress destination
+    else
+      null;
+
   destinationUplinks =
     destination:
     if (destination.kind or null) != "external" then
@@ -69,10 +100,40 @@ let
     in
     broadMatches != [ ] && explicitMatches == [ ] && !(hasExplicitShortcutPolicy path);
 
+  relationById =
+    topo: relationId:
+    let
+      matches = lib.filter
+        (relation: (relation.id or null) == relationId)
+        ((topo.communicationContract or { }).allowedRelations or [ ]);
+    in
+    if matches == [ ] then null else builtins.head matches;
+
+  pathReturnBehavior =
+    topo: path:
+    let
+      relation = relationById topo (path.relationId or null);
+    in
+    path.returnBehavior or (if relation == null then null else relation.returnBehavior or null);
+
+  hasReturnBehavior =
+    topo: path:
+    (pathReturnBehavior topo path) != null;
+
+  modeledClass =
+    recordsByAddress: path:
+    let
+      address = destinationAddress recordsByAddress (path.destination or { });
+      class = if address == null then null else recordsByAddress.${address} or null;
+    in
+    {
+      inherit address class;
+    };
+
   deniedRecord =
     topo: recordsByAddress: idx: path:
     let
-      address = destAddress (path.destination or { });
+      address = destinationAddress recordsByAddress (path.destination or { });
       class = if address == null then null else recordsByAddress.${address} or null;
     in
     if address == null || class == null || (class.modelOwned or false) != true || !(broadWanOnly topo path) then
@@ -92,12 +153,20 @@ let
       };
 
   authorizationRecord =
-    recordsByAddress: idx: path:
+    topo: recordsByAddress: idx: path:
     let
-      address = destAddress (path.destination or { });
-      class = if address == null then null else recordsByAddress.${address} or null;
+      modeled = modeledClass recordsByAddress path;
+      address = modeled.address;
+      class = modeled.class;
+      returnBehavior = pathReturnBehavior topo path;
     in
-    if address == null || class == null || (class.modelOwned or false) != true || !(hasExplicitShortcutPolicy path) then
+    if
+      address == null
+      || class == null
+      || (class.modelOwned or false) != true
+      || !(hasExplicitShortcutPolicy path)
+      || returnBehavior == null
+    then
       null
     else
       {
@@ -106,8 +175,38 @@ let
         destinationAddress = address;
         destinationClass = class.destinationClass;
         ownerName = class.ownerName;
+        inherit returnBehavior;
         allowed = true;
         reason = "explicit-public-service-or-ingress-policy";
+      };
+
+  shortcutDenialRecord =
+    topo: recordsByAddress: idx: path:
+    let
+      modeled = modeledClass recordsByAddress path;
+      address = modeled.address;
+      class = modeled.class;
+    in
+    if
+      address == null
+      || class == null
+      || (class.modelOwned or false) != true
+      || !(hasExplicitShortcutPolicy path)
+      || hasReturnBehavior topo path
+    then
+      null
+    else
+      {
+        id = "public-ipv4-shortcut-denial::${toString idx}";
+        relationId = path.relationId or null;
+        source = path.source or null;
+        destination = path.destination or null;
+        destinationAddress = address;
+        destinationClass = class.destinationClass;
+        ownerName = class.ownerName;
+        allowed = false;
+        reason = "missing-return-behavior";
+        diagnostic = "model-owned public IPv4 shortcut requires explicit return behavior";
       };
 
   genericRecords =
@@ -117,7 +216,7 @@ let
         lib.imap0
           (idx: path:
             let
-              address = destAddress (path.destination or { });
+              address = destinationAddress ownedByAddress (path.destination or { });
             in
             if address == null || !(isPublicIPv4 address) || builtins.hasAttr address ownedByAddress then
               null
@@ -152,11 +251,15 @@ in
         lib.imap0 (idx: path: deniedRecord topo recordsByAddress idx path) (topo.trafficPaths or [ ])
       );
       authorized = lib.filter (x: x != null) (
-        lib.imap0 (idx: path: authorizationRecord recordsByAddress idx path) (topo.trafficPaths or [ ])
+        lib.imap0 (idx: path: authorizationRecord topo recordsByAddress idx path) (topo.trafficPaths or [ ])
       );
+      shortcutDenied = lib.filter (x: x != null) (
+        lib.imap0 (idx: path: shortcutDenialRecord topo recordsByAddress idx path) (topo.trafficPaths or [ ])
+      );
+      diagnosticRecords = denied ++ shortcutDenied;
     in
     {
-      inherit denied authorized;
+      inherit denied authorized shortcutDenied;
       generic = genericRecords topo ownedByAddress;
       diagnostics = recordSet (
         map
@@ -168,7 +271,7 @@ in
             destinationAddress = record.destinationAddress;
             relationId = record.relationId;
           })
-          denied
+          diagnosticRecords
       );
     };
 }

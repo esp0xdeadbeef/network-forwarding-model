@@ -81,6 +81,7 @@ in
     {
       destinationClasses = classRecords;
       shortcutAuthorizations = recordSet pathResult.authorized;
+      shortcutPolicyDenials = recordSet pathResult.shortcutDenied;
       broadWanDenials = recordSet pathResult.denied;
       diagnostics = pathResult.diagnostics;
     };

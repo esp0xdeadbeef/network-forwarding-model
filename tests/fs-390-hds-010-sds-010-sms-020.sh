@@ -99,6 +99,18 @@ cat >"${input_nix}" <<'NIX'
         destination = { kind = "public-ipv4"; ipv4 = "198.51.100.11"; };
         shortcutPolicy = "explicit";
         publicServicePolicy = true;
+        returnBehavior = "symmetric";
+        nodePath = [ "access-client" "downstream" "policy" "upstream" "core-wan" ];
+      }
+      # SEEDED NEGATIVE 2: explicit shortcut policy without modeled return behavior
+      # → must NOT be authorized, must produce a missing-return-behavior diagnostic
+      {
+        relationId = "explicit-service-shortcut-missing-return";
+        action = "allow";
+        source = { kind = "tenant"; name = "client"; };
+        destination = { kind = "public-ipv4"; ipv4 = "198.51.100.11"; };
+        shortcutPolicy = "explicit";
+        publicServicePolicy = true;
         nodePath = [ "access-client" "downstream" "policy" "upstream" "core-wan" ];
       }
       # SEEDED NEGATIVE 1: model-owned destination without shortcut policy
@@ -162,6 +174,9 @@ pass_timed "fs-390-hds-010-sds-010-sms-020:compile" "${start_ms}"
 # → must NOT be in shortcutAuthorizations
 # → must be in broadWanDenials (the model denies them)
 # → corresponding diagnostics must exist
+# Seeded negative 2: explicit shortcut with missing return behavior
+# → must NOT be in shortcutAuthorizations
+# → must be in shortcutPolicyDenials with a missing-return-behavior diagnostic
 # Control: generic internet → must NOT be in shortcutAuthorizations or broadWanDenials
 
 jq -e '
@@ -171,8 +186,19 @@ jq -e '
   | ([ $policy.shortcutAuthorizations[]
        | select(.relationId == "explicit-service-shortcut"
                 and .reason == "explicit-public-service-or-ingress-policy"
+                and .returnBehavior == "symmetric"
                 and .allowed == true)
      ] | length == 1)
+
+  # SEEDED NEGATIVE 2: explicit policy without return behavior is not authorized
+  and ([ $policy.shortcutAuthorizations[]
+        | select(.relationId == "explicit-service-shortcut-missing-return")
+      ] | length == 0)
+  and ([ $policy.shortcutPolicyDenials[]
+        | select(.relationId == "explicit-service-shortcut-missing-return"
+                 and .allowed == false
+                 and .reason == "missing-return-behavior")
+      ] | length == 1)
 
   # SEEDED NEGATIVE 1a: no-policy enterprise-client path NOT authorized
   and ([ $policy.shortcutAuthorizations[]
@@ -189,7 +215,8 @@ jq -e '
   and ([ $policy.diagnostics[]
         | select(.relatedDenial != null)
         | .relationId
-      ] | sort) == (["no-policy-to-enterprise-client-public",
+      ] | sort) == (["explicit-service-shortcut-missing-return",
+                     "no-policy-to-enterprise-client-public",
                      "no-policy-to-public-ingress"] | sort)
 
   # CONTROL: generic internet neither authorized nor denied
@@ -205,9 +232,10 @@ jq -e '
 ' "${output_json}" >/dev/null || {
   echo "FAIL fs-390-hds-010-sds-010-sms-020: shortcut policy authorization incorrect" >&2
   jq '.enterprise.acme.site.ams.publicIpv4DestinationPolicy.shortcutAuthorizations' "${output_json}" >&2
+  jq '.enterprise.acme.site.ams.publicIpv4DestinationPolicy.shortcutPolicyDenials' "${output_json}" >&2
   jq '.enterprise.acme.site.ams.publicIpv4DestinationPolicy.diagnostics' "${output_json}" >&2
   exit 1
 }
 
-echo "PASS: FS-390-HDS-010-SDS-010-SMS-020 — shortcut authorization verified (positive + seeded negative 1)."
+echo "PASS: FS-390-HDS-010-SDS-010-SMS-020 — shortcut authorization verified (positive + seeded negatives)."
 pass_timed "fs-390-hds-010-sds-010-sms-020"
