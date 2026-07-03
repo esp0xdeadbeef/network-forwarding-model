@@ -4,8 +4,8 @@ let
   common = import ./common.nix { inherit lib self; };
   inherit (common) clean ipv4ValuesFrom isPublicIPv4 mkRecord;
 
-  tenantRecords =
-    site:
+  tenantRecordsForSource =
+    source: tenants:
     lib.concatMap
       (
         tenant:
@@ -24,11 +24,20 @@ let
             ownerKind = "tenant";
             ownerName = tenantName;
             inherit address;
-            source = "domains.tenants";
+            inherit source;
           })
           (lib.filter isPublicIPv4 values)
       )
-      (site.domains.tenants or site.tenants or [ ]);
+      tenants;
+
+  tenantRecords =
+    site:
+    tenantRecordsForSource "domains.tenants" (site.domains.tenants or site.tenants or [ ])
+    ++ tenantRecordsForSource "ownership.prefixes" (
+      lib.filter
+        (prefix: builtins.isAttrs prefix && (prefix.kind or null) == "tenant")
+        ((site.ownership or { }).prefixes or [ ])
+    );
 
   serviceRecords =
     site:
