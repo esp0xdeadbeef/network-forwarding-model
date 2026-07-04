@@ -30,14 +30,37 @@ let
       )
       tenants;
 
+  recordIdentity =
+    record:
+    builtins.concatStringsSep "|" [
+      (record.address or "")
+      (record.destinationClass or "")
+      (record.ownerKind or "")
+      (record.ownerName or "")
+    ];
+
+  dropRecordsAlreadyOwned =
+    existing: candidates:
+    let
+      existingIdentities = map recordIdentity existing;
+    in
+    lib.filter
+      (record: !(builtins.elem (recordIdentity record) existingIdentities))
+      candidates;
+
   tenantRecords =
     site:
-    tenantRecordsForSource "domains.tenants" (site.domains.tenants or site.tenants or [ ])
-    ++ tenantRecordsForSource "ownership.prefixes" (
-      lib.filter
-        (prefix: builtins.isAttrs prefix && (prefix.kind or null) == "tenant")
-        ((site.ownership or { }).prefixes or [ ])
-    );
+    let
+      domainTenantRecords =
+        tenantRecordsForSource "domains.tenants" (site.domains.tenants or site.tenants or [ ]);
+      ownershipPrefixRecords =
+        tenantRecordsForSource "ownership.prefixes" (
+          lib.filter
+            (prefix: builtins.isAttrs prefix && (prefix.kind or null) == "tenant")
+            ((site.ownership or { }).prefixes or [ ])
+        );
+    in
+    domainTenantRecords ++ dropRecordsAlreadyOwned domainTenantRecords ownershipPrefixRecords;
 
   serviceRecords =
     site:

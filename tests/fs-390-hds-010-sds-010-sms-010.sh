@@ -16,6 +16,8 @@ input_nix="${tmpdir}/compiler-output.nix"
 output_json="${tmpdir}/out.json"
 missing_output_json="${tmpdir}/out-missing-classification.json"
 ambiguous_input_nix="${tmpdir}/ambiguous-ownership.nix"
+same_owner_input_nix="${tmpdir}/same-owner-derived-tenant.nix"
+same_owner_output_json="${tmpdir}/same-owner-derived-tenant.json"
 
 cat >"${input_nix}" <<'NIX'
 {
@@ -233,6 +235,96 @@ else
   echo "FAIL fs-390-hds-010-sds-010-sms-010: could not seed missing-output negative" >&2
   exit 1
 fi
+
+cat >"${same_owner_input_nix}" <<'NIX'
+{
+  sites.acme.provider = {
+    addressPools = {
+      local.ipv4 = "10.39.10.0/24";
+      p2p.ipv4 = "10.39.11.0/24";
+      p2p.ipv6 = "fd42:390:10::/118";
+    };
+
+    ownership.prefixes = [
+      {
+        kind = "tenant";
+        name = "provider-handoff-a";
+        ipv4 = "203.0.113.0/24";
+      }
+    ];
+
+    attachments = [
+      { unit = "provider-handoff-access-a"; kind = "tenant"; name = "provider-handoff-a"; }
+    ];
+
+    communicationContract = {
+      relations = [
+        {
+          id = "allow-provider-handoff-to-wan";
+          priority = 100;
+          from = { kind = "tenant"; name = "provider-handoff-a"; };
+          to = { kind = "external"; uplinks = [ "wan" ]; };
+          trafficType = "any";
+          action = "allow";
+        }
+      ];
+      allowedRelations = [
+        {
+          id = "allow-provider-handoff-to-wan";
+          priority = 100;
+          from = { kind = "tenant"; name = "provider-handoff-a"; };
+          to = { kind = "external"; uplinks = [ "wan" ]; };
+          trafficType = "any";
+          action = "allow";
+        }
+      ];
+    };
+
+    trafficPaths = [
+      {
+        relationId = "allow-provider-handoff-to-wan";
+        action = "allow";
+        source = { kind = "tenant"; name = "provider-handoff-a"; };
+        destination = { kind = "external"; uplinks = [ "wan" ]; };
+        nodePath = [ "provider-handoff-access-a" "downstream" "policy" "upstream" "core-wan" ];
+      }
+    ];
+
+    transit.ordering = [
+      [ "provider-handoff-access-a" "downstream" ]
+      [ "downstream" "policy" ]
+      [ "policy" "upstream" ]
+      [ "upstream" "core-wan" ]
+    ];
+
+    units = {
+      provider-handoff-access-a.role = "access";
+      downstream.role = "downstream-selector";
+      policy.role = "policy";
+      upstream.role = "upstream-selector";
+      core-wan = {
+        role = "core";
+        uplinks.wan.ipv4 = [ "0.0.0.0/0" ];
+      };
+    };
+  };
+}
+NIX
+
+nix run "${repo_root}#compile-and-build-forwarding-model" -- "${same_owner_input_nix}" >"${same_owner_output_json}"
+
+jq -e '
+  .enterprise.acme.site.provider.publicIpv4DestinationPolicy as $policy
+  | $policy.destinationClasses["public-ipv4-destination::203.0.113.0"] as $providerHandoff
+  | ($providerHandoff.destinationClass == "enterprise-client")
+    and ($providerHandoff.ownerKind == "tenant")
+    and ($providerHandoff.ownerName == "provider-handoff-a")
+    and ($providerHandoff.modelOwned == true)
+' "${same_owner_output_json}" >/dev/null || {
+  echo "FAIL fs-390-hds-010-sds-010-sms-010: same-owner derived tenant public IPv4 ownership incorrect" >&2
+  jq '.enterprise.acme.site.provider.publicIpv4DestinationPolicy.destinationClasses' "${same_owner_output_json}" >&2
+  exit 1
+}
 
 cat >"${ambiguous_input_nix}" <<'NIX'
 {
