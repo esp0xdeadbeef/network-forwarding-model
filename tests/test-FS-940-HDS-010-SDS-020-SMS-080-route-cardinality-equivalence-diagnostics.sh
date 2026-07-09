@@ -2,7 +2,7 @@
 set -euo pipefail
 # GAMP-ID: FS-940-HDS-010-SDS-020-SMS-080
 # Construction test: Route Cardinality Equivalence Diagnostics
-# Proves SMS-080 predicates using seeded fixture data against materialize.nix
+# Proves SMS-080 predicates including active seeded negative rejection
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 SMS_ID="FS-940-HDS-010-SDS-020-SMS-080"
@@ -208,18 +208,106 @@ else
   fail "P11: exactOnlyCount=${EXACT}, expected 1"
 fi
 
+# P12: seededNegativeValidation.active=true
+if echo "$RESULT" | grep -q "active = true"; then
+  pass "P12: seededNegativeValidation.active=true (reject logic active)"
+else
+  fail "P12: seededNegativeValidation.active should be true"
+fi
+
+echo ""
+echo "--- Seeded Negative Tests ---"
+
+# SN1: Prefix summarization without equivalence proof — must reject
+echo "SN1: Testing aggregation without equivalence proof rejection..."
+SN1_OUT=$(nix eval --impure --expr '
+  let
+    materialize = import '"${repo_root}"'/implementation/lib/routing/internal-routes/site-plan/materialize.nix { };
+    result = materialize.build {
+      nodeNames = ["core-isp"];
+      remoteGroups = {};
+      remotePrefixFacts = { remoteByNode = {}; tenantOwnerEntries = []; overlayRouteEntries = []; p2pEntries = []; };
+      routeRows = [
+        {
+          nodeName = "core-isp";
+          linkName = "wan0";
+          routes4 = [{ dst = "10.20.20.0/24"; via4 = "10.0.0.1"; proto = "internal"; intent = { kind = "internal-reachability"; }; }];
+          routes6 = [];
+          diagnostics = {
+            routeAtomCount = 3;
+            routeDstAtomCount = 3;
+            exactOnlyCount = 0;
+            exactDeduplicationCount = 0;
+            prefixSummaryCandidateCount = 1;
+            rejectedAggregationCount = 0;
+            finalMaterializedRouteCount = 1;
+          };
+          # DELIBERATELY MISSING equivalenceKey — no routeAtomIds, no aggregationClass, no sourceNode
+          equivalenceKey = {};
+        }
+      ];
+    };
+  in
+  result.diagnostics.routeCardinalityEquivalence
+' 2>&1) || true
+
+if echo "$SN1_OUT" | grep -q "equivalence-proof-missing"; then
+  pass "SN1: Aggregation without equivalence proof rejected with diagnostic.route-cardinality-equivalence-proof-missing"
+else
+  fail "SN1: should have rejected with equivalence-proof-missing, got: $(echo "$SN1_OUT" | tail -5)"
+fi
+
+# SN2: Fast path increases materialized route cardinality — must reject
+echo "SN2: Testing fast path cardinality increase rejection..."
+SN2_OUT=$(nix eval --impure --expr '
+  let
+    materialize = import '"${repo_root}"'/implementation/lib/routing/internal-routes/site-plan/materialize.nix { };
+    result = materialize.build {
+      nodeNames = ["core-isp"];
+      remoteGroups = {};
+      remotePrefixFacts = { remoteByNode = {}; tenantOwnerEntries = []; overlayRouteEntries = []; p2pEntries = []; };
+      routeRows = [
+        {
+          nodeName = "core-isp";
+          linkName = "wan0";
+          routes4 = [
+            { dst = "10.20.20.0/24"; via4 = "10.0.0.1"; proto = "internal"; intent = { kind = "internal-reachability"; }; }
+            { dst = "10.20.30.0/24"; via4 = "10.0.0.1"; proto = "internal"; intent = { kind = "internal-reachability"; }; }
+            { dst = "10.20.40.0/24"; via4 = "10.0.0.1"; proto = "internal"; intent = { kind = "internal-reachability"; }; }
+          ];
+          routes6 = [];
+          diagnostics = {
+            routeAtomCount = 2;
+            routeDstAtomCount = 2;
+            exactOnlyCount = 0;
+            exactDeduplicationCount = 1;
+            prefixSummaryCandidateCount = 0;
+            rejectedAggregationCount = 0;
+            finalMaterializedRouteCount = 3;
+          };
+          # DELIBERATELY: finalMaterializedRouteCount(3) > routeAtomCount(2) — cardinality inflated by fast path
+          equivalenceKey = {
+            sourceNode = "core-isp";
+            routeKind = "tenant";
+            family = "ipv4";
+            routeAtomIds = [1 2];
+            aggregationClass = "exact-dedupe";
+          };
+        }
+      ];
+    };
+  in
+  result.diagnostics.routeCardinalityEquivalence
+' 2>&1) || true
+
+if echo "$SN2_OUT" | grep -q "fast-path-invalid"; then
+  pass "SN2: Fast path cardinality increase rejected with diagnostic.route-cardinality-fast-path-invalid"
+else
+  fail "SN2: should have rejected with fast-path-invalid, got: $(echo "$SN2_OUT" | tail -5)"
+fi
+
 echo ""
 echo "--- ${SMS_ID} Results: ${PASS} PASS, ${FAIL} FAIL ---"
-
-# Seeded negative gap notes
-echo ""
-echo "SEEDED NEGATIVE GAP (advisory — implementation does not implement reject logic):"
-echo "  SN1 (aggregation without equivalence proof → reject with diagnostic.route-cardinality-equivalence-proof-missing):"
-echo "    Current implementation reports diagnostic counts but does not validate equivalence or reject."
-echo "    The materialize.nix routeCardinalityEquivalence block is purely diagnostic."
-echo "  SN2 (fast path skips required aggregation → reject with diagnostic.route-cardinality-fast-path-invalid):"
-echo "    Current implementation does not detect or reject fast-path bypass."
-echo "  These are implementation gaps — the SMS spec requires active rejection, not just diagnostic reporting."
 
 if [ "$FAIL" -gt 0 ]; then
   exit 1
