@@ -49,7 +49,15 @@ in
       checked = lib.all
         (
           p:
-          common.assert_ (!(overlaps p.a.range p.b.range))
+          let
+            # Shared-tenant fabric: same network name on different nodes
+            # uses the same prefix; don't flag as overlapping.
+            aNet = builtins.match ".*network '([^']+)'.*" p.a.owner;
+            bNet = builtins.match ".*network '([^']+)'.*" p.b.owner;
+            sameNet = aNet != null && bNet != null && (builtins.head aNet) == (builtins.head bNet);
+          in
+          if sameNet then true
+          else common.assert_ (!(overlaps p.a.range p.b.range))
             "invariants(user-prefixes): overlapping user prefixes '${p.a.cidr}' (${p.a.owner}) and '${p.b.cidr}' (${p.b.owner})"
         )
         ps;
