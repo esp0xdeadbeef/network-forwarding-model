@@ -45,6 +45,11 @@ let
             in
             if prev.owner == e.owner then
               acc
+            else if prev.netName == e.netName then
+              # Shared-tenant fabric (e.g. PPPoE combined fabric):
+              # two access nodes can own the same prefix when they
+              # serve the same tenant. Allow it.
+              acc
             else
               throw "tenant-prefix-owners: prefix '${e.dst}' has multiple owners ('${prev.owner}' via '${prev.netName}' and '${e.owner}' via '${e.netName}')"
           else
