@@ -104,7 +104,9 @@ let
       links = links;
       transport = merged.transport or { };
       transit = (merged.transit or { }) // {
-        ordering = if merged.transit ? ordering then merged.transit.ordering else topology.links;
+        ordering = if merged.transit ? ordering then merged.transit.ordering
+                   else if merged ? transit && builtins.isAttrs merged.transit && merged.transit ? links then merged.transit.links
+                   else topology.links;
       };
     };
 
