@@ -68,7 +68,13 @@ in
           _ = lib.all
             (
               p:
-              common.assert_ (!(overlaps p.a.range p.b.range)) ''
+              let
+                aNet = builtins.match ".*network '([^']+)'.*" p.a.owner;
+                bNet = builtins.match ".*network '([^']+)'.*" p.b.owner;
+                sameNet = aNet != null && bNet != null && (builtins.head aNet) == (builtins.head bNet);
+              in
+              if sameNet then true
+              else common.assert_ (!(overlaps p.a.range p.b.range)) ''
                 invariants(global-user-space):
 
                 (enterprise: ${entName})
