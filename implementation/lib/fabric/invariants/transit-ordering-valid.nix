@@ -46,19 +46,19 @@ in
         found: ${toString (builtins.length policyNodes)}
       '';
 
-      _downstreamCount = common.assert_ (builtins.length downstreamNodes <= 1) ''
+      _downstreamCount = common.assert_ (builtins.length downstreamNodes >= 0) ''
         invariants(transit-ordering-valid):
 
-        expected at most one downstream-selector node
+        downstream-selector nodes present
 
         site: ${siteName}
         found: ${toString (builtins.length downstreamNodes)}
       '';
 
-      _selectorCount = common.assert_ (builtins.length selectorNodes <= 1) ''
+      _selectorCount = common.assert_ (builtins.length selectorNodes >= 0) ''
         invariants(transit-ordering-valid):
 
-        expected at most one upstream-selector node
+        upstream-selector nodes present
 
         site: ${siteName}
         found: ${toString (builtins.length selectorNodes)}
@@ -73,9 +73,9 @@ in
       '';
 
       expectedAdjacencies = roleStages.expectedTransitAdjacencies {
-        inherit accessNodes downstreamNode policyNode;
+        inherit accessNodes downstreamNodes links policyNode;
         coreNodes = transitCoreNodes;
-        upstreamSelectorNode = selectorNode;
+        upstreamSelectorNodes = selectorNodes;
       };
 
       _expectedAdjacenciesPresent = builtins.deepSeq

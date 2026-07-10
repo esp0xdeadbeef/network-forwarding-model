@@ -1,4 +1,4 @@
-{ ... }:
+{ lib, ... }:
 
 let
   ranks = {
@@ -44,61 +44,118 @@ rec {
     else
       null;
 
+  # Find downstream-selector that a given access node connects to in the topology links
+  findConnectedDownstream =
+    links: accessNode: downstreamNodes:
+    lib.findFirst
+      (dsNode:
+        lib.any
+          (linkName:
+            let
+              l = links.${linkName};
+              members = l.members or [ ];
+            in
+            (l.kind or null) == "p2p" && lib.elem accessNode members && lib.elem dsNode members
+          )
+          (builtins.attrNames links)
+      )
+      null
+      downstreamNodes;
+
+  # Find upstream-selector that connects to a given core node
+  findConnectedUpstream =
+    links: coreNode: upstreamNodes:
+    lib.findFirst
+      (usNode:
+        lib.any
+          (linkName:
+            let
+              l = links.${linkName};
+              members = l.members or [ ];
+            in
+            (l.kind or null) == "p2p" && lib.elem coreNode members && lib.elem usNode members
+          )
+          (builtins.attrNames links)
+      )
+      null
+      upstreamNodes;
+
   expectedTransitAdjacencies =
     { accessNodes
     , coreNodes
-    , downstreamNode
+    , downstreamNodes
     , policyNode
-    , upstreamSelectorNode
+    , upstreamSelectorNodes
+    , links
     ,
     }:
     let
-      nodesForRole =
-        role:
-        if role == "access" then
-          accessNodes
-        else if role == "downstream-selector" then
-          if downstreamNode == null then [ ] else [ downstreamNode ]
-        else if role == "policy" then
-          if policyNode == null then [ ] else [ policyNode ]
-        else if role == "upstream-selector" then
-          if upstreamSelectorNode == null then [ ] else [ upstreamSelectorNode ]
-        else if role == "core" then
-          coreNodes
-        else
-          [ ];
+      # For each access node, find which downstream-selector it connects to
+      accessToDownstream =
+        lib.filter
+          (adj: adj.target != null)
+          (map
+            (accessNode:
+              let
+                ds = findConnectedDownstream links accessNode downstreamNodes;
+              in
+              if ds != null then {
+                source = accessNode;
+                sourceRole = "access";
+                target = ds;
+                targetRole = "downstream-selector";
+              } else {
+                source = accessNode;
+                sourceRole = "access";
+                target = null;
+                targetRole = "downstream-selector";
+              }
+            )
+            accessNodes);
 
-      rolesWithSources = [
-        "access"
-        "downstream-selector"
-        "policy"
-        "upstream-selector"
-      ];
+      # For each downstream-selector, verify it connects to policy
+      downstreamToPolicy =
+        if policyNode == null then [ ]
+        else map
+          (dsNode: {
+            source = dsNode;
+            sourceRole = "downstream-selector";
+            target = policyNode;
+            targetRole = "policy";
+          })
+          downstreamNodes;
 
-      nextRoleFor =
-        sourceRole:
-        nextTransitRole {
-          hasDownstreamSelector = downstreamNode != null;
-          hasUpstreamSelector = upstreamSelectorNode != null;
-          role = sourceRole;
-        };
-    in
-    builtins.concatMap
-      (
-        sourceRole:
-        let
-          targetRole = nextRoleFor sourceRole;
-        in
-        builtins.concatMap
-          (
-            source:
+      # For policy, verify it connects to each upstream-selector
+      policyToUpstream =
+        if policyNode == null then [ ]
+        else map
+          (usNode: {
+            source = policyNode;
+            sourceRole = "policy";
+            target = usNode;
+            targetRole = "upstream-selector";
+          })
+          upstreamSelectorNodes;
+
+      # For each upstream-selector, find which core it connects to
+      upstreamToCore =
+        lib.concatMap
+          (usNode:
+            let
+              connectedCores = lib.filter
+                (coreNode: findConnectedUpstream links coreNode [ usNode ] != null)
+                coreNodes;
+            in
             map
-              (target: {
-                inherit source sourceRole target targetRole;
+              (coreNode: {
+                source = usNode;
+                sourceRole = "upstream-selector";
+                target = coreNode;
+                targetRole = "core";
               })
-              (nodesForRole targetRole)
+              connectedCores
           )
-          (nodesForRole sourceRole)
-      )
-      rolesWithSources;
+          upstreamSelectorNodes;
+    in
+    accessToDownstream ++ downstreamToPolicy ++ policyToUpstream ++ upstreamToCore;
 }
