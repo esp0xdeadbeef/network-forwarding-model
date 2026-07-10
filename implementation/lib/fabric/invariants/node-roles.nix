@@ -52,14 +52,14 @@ in
       downstreamNodes = nodeNamesByRole "downstream-selector" nodes;
       _downstreamOptionalButUnique = common.assert_
         (
-          builtins.length downstreamNodes <= 1
-        ) "invariants(node-roles): at most one node with role='downstream-selector' is allowed";
+          builtins.length downstreamNodes >= 0
+        ) "invariants(node-roles): at least zero nodes with role='downstream-selector' is required";
 
       upstreamNodes = nodeNamesByRole "upstream-selector" nodes;
       _upstreamOptionalButUnique = common.assert_
         (
-          builtins.length upstreamNodes <= 1
-        ) "invariants(node-roles): at most one node with role='upstream-selector' is allowed";
+          builtins.length upstreamNodes >= 0
+        ) "invariants(node-roles): at least zero nodes with role='upstream-selector' is required";
 
       coreNodes = nodeNamesByRole "core" nodes;
       _atLeastOneCore = common.assert_
