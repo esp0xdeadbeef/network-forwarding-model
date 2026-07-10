@@ -10,6 +10,7 @@ let
   sourceRows = import ./site-plan/source-rows.nix { inherit lib; };
   groupResolver = import ./site-plan/resolve-groups.nix { inherit lib self; };
   materializer = import ./site-plan/materialize.nix { };
+  exceptionLayer = import ./site-plan/exception-layer.nix { };
   coordinator = import ./site-plan/coordinator.nix { };
 
 in
@@ -56,8 +57,15 @@ in
         inherit (rows) remoteGroups;
       };
 
+      exceptionResult = exceptionLayer.build {
+        inherit routeRows;
+      };
+      validatedRouteRows = exceptionResult.validatedRows;
+      exceptionDiagnostics = exceptionResult.diagnostics;
+
       materialized = materializer.build {
-        inherit nodeNames remotePrefixFacts routeRows;
+        inherit nodeNames remotePrefixFacts;
+        routeRows = validatedRouteRows;
         inherit (rows) remoteGroups;
       };
       baseDiagnostics = materialized.diagnostics;
@@ -93,7 +101,7 @@ in
             id = "FS-940-HDS-010-SDS-020-SMS-060";
             name = "route-exception-layer";
             claimsRouteAtomAuthority = false;
-            recordCount = 0;
+            recordCount = exceptionDiagnostics.totalRows or 0;
           }
           {
             id = "FS-940-HDS-010-SDS-020-SMS-070";
@@ -111,6 +119,7 @@ in
       };
       diagnostics = (rows.diagnostics or { }) // baseDiagnostics // {
         coordinator = completion.diagnostics;
+        routeExceptionLayer = exceptionDiagnostics;
       };
     in
     trace.emit "routing:internal:site-plan:nodes=${toString diagnostics.nodes}:planner=${diagnostics.planner}:tenantAtoms=${toString diagnostics.routeAtoms.tenant}:overlayAtoms=${toString diagnostics.routeAtoms.overlay}:p2pAtoms=${toString diagnostics.routeAtoms.p2p}" {
