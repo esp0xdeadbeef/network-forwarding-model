@@ -40,6 +40,14 @@ let
     in
     if explicit != null then toString explicit else if inferred == [ ] then null else builtins.head (sortedUnique inferred);
 
+  # All upstream-selector node names (for combined fabrics with multiple upstream paths)
+  allUpstreamSelectorNames =
+    topo:
+    let
+      nodes = topo.nodes or { };
+    in
+    sortedUnique (lib.filter (nodeName: roleOf nodes nodeName == "upstream-selector") (builtins.attrNames nodes));
+
   tenantsForAccess =
     topo: accessName:
     sortedUnique (
@@ -169,7 +177,23 @@ in
           )
           (linksForSelectorCoreUplink topo upstreamSelectorName coreSet requirement.uplinkName);
 
-      missing = lib.filter (requirement: !(hasCoreDefaultFor requirement)) egressRequirements;
+      # Check if ANY upstream selector has the required default route for each requirement
+      coreDefaultServedByAnySelector =
+        requirement:
+        let
+          names = allUpstreamSelectorNames topo;
+        in
+        if names == [ ] then false
+        else builtins.any
+          (name:
+            let
+              hasLink = (builtins.length (linksForSelectorCoreUplink topo name coreSet requirement.uplinkName)) > 0;
+            in
+            hasLink
+          )
+          names;
+
+      missing = lib.filter (requirement: !(coreDefaultServedByAnySelector requirement)) egressRequirements;
       firstMissing = if missing == [ ] then null else builtins.head missing;
     in
     if upstreamSelectorName == null || egressRequirements == [ ] then

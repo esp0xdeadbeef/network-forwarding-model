@@ -19,8 +19,14 @@ let
     let
       outs = outsOf n;
       targets = map (e: e.b) outs;
+      allTargetsAreSinks = lib.all (t: outdeg t == 0) targets;
+      # Combined-fabric pattern: each target has exactly 1 outgoing edge to a sink/core
+      allTargetsTransitToSink = lib.all (t:
+        let tOuts = outsOf t;
+        in outdeg t == 1 && lib.all (e: outdeg e.b == 0) tOuts
+      ) targets;
     in
-    (builtins.length outs) > 1 && lib.all (t: outdeg t == 0) targets && (indeg n) > 0;
+    (builtins.length outs) > 1 && (allTargetsAreSinks || allTargetsTransitToSink) && (indeg n) > 0;
 
   nextOf =
     n:

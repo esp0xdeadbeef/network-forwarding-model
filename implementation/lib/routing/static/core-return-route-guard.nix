@@ -20,6 +20,14 @@ let
     in
     if explicit != null then toString explicit else if inferred == [ ] then null else builtins.head (sortedUnique inferred);
 
+  # All upstream-selector node names (for combined fabrics with multiple upstream paths)
+  allUpstreamSelectorNames =
+    topo:
+    let
+      nodes = topo.nodes or { };
+    in
+    sortedUnique (lib.filter (nodeName: roleOf nodes nodeName == "upstream-selector") (builtins.attrNames nodes));
+
   tenantsForAccess =
     topo: accessName:
     sortedUnique (
@@ -145,7 +153,28 @@ in
       routesOn =
         coreName: ifName:
         ifaceRoutes (((nodes.${coreName} or { }).interfaces or { }).${ifName} or { });
-      expectedLinksFor = r: coreSelectorLinks topo upstreamSelectorName r.coreName r.uplinkName;
+
+      # Find the upstream-selector that connects to the given core
+      upstreamSelectorForCore =
+        coreName:
+        let
+          names = allUpstreamSelectorNames topo;
+          connectsToCore = name:
+            builtins.any
+              (linkName:
+                let members = link.membersOf (topo.links.${linkName} or { });
+                in builtins.elem name members && builtins.elem coreName members
+              )
+              (builtins.attrNames (topo.links or { }));
+        in
+        lib.findSingle connectsToCore null null names;
+
+      expectedLinksFor = r:
+        let
+          selector = upstreamSelectorForCore r.coreName;
+        in
+        if selector == null then [ ]
+        else coreSelectorLinks topo selector r.coreName r.uplinkName;
       expectedRouteExists =
         r:
         builtins.any (ifName: builtins.any (routeMatches r.prefix) (routesOn r.coreName ifName)) (expectedLinksFor r);
