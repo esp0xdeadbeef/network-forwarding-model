@@ -69,31 +69,53 @@ let
   checkUniqAcrossBoxes =
     entries:
     let
+      # Shared-tenant interfaces: access nodes with the same tenant get
+      # the same derived addresses from the shared prefix. Allow duplicates
+      # when both entries come from tenant interfaces with the same name.
+      isTenantIface = where:
+        builtins.match ".*\.interfaces\.tenant-.*" where != null;
+
+      sameTenantIface = a: b:
+        let
+          ma = builtins.match ".*\.(interfaces\.tenant-[^.]+)\..*" a.where;
+          mb = builtins.match ".*\.(interfaces\.tenant-[^.]+)\..*" b.where;
+        in
+        ma != null && mb != null && (builtins.head ma) == (builtins.head mb);
+
       step =
         acc: e:
         let
           k = "${e.family}:${toString e.ip}";
         in
         if acc.seen ? "${k}" then
-          throw ''
-            invariants(no-duplicate-addrs):
+          let
+            prev = acc.seen.${k};
+          in
+          if sameTenantIface prev e then
+            # Shared-tenant fabric (e.g. PPPoE combined fabric):
+            # same tenant interface name on different access nodes;
+            # addresses are derived from the same shared prefix.
+            acc
+          else
+            throw ''
+              invariants(no-duplicate-addrs):
 
-            duplicate address across execution contexts (boxes)
+              duplicate address across execution contexts (boxes)
 
-            address: ${toString e.ip}   (${e.family})
+              address: ${toString e.ip}   (${e.family})
 
-            first seen at:
-            ${acc.seen.${k}.where}
+              first seen at:
+              ${prev.where}
 
-            first seen in box:
-            ${acc.seen.${k}.box}
+              first seen in box:
+              ${prev.box}
 
-            duplicated at:
-            ${e.where}
+              duplicated at:
+              ${e.where}
 
-            duplicated in box:
-            ${e.box}
-          ''
+              duplicated in box:
+              ${e.box}
+            ''
         else
           acc
           // {
