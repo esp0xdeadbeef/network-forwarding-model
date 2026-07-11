@@ -1,52 +1,21 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
-  link = import (self.outPath + "/implementation/lib/topology/link-utils.nix") { inherit lib self; };
-  defaultRoutePolicy = import (self.outPath + "/implementation/lib/routing/default-route-policy.nix") { inherit lib; };
-  helpers = import (self.outPath + "/implementation/lib/routing/static-helpers.nix") { inherit lib self; };
-  routeContext = import (self.outPath + "/implementation/lib/routing/route-context.nix") { inherit lib self; };
-
-  sortedUnique = xs: lib.sort (a: b: toString a < toString b) (lib.unique (map toString xs));
-  roleOf = nodes: nodeName: (nodes.${nodeName} or { }).role or null;
+  common = import ./guard-common.nix { inherit lib self; };
+  inherit (common)
+    allUpstreamSelectorNames
+    defaultRoutePolicy
+    helpers
+    link
+    linkUplinkNames
+    roleOf
+    routeContext
+    sortedUnique
+    tenantsForAccess
+    upstreamSelectorFor
+    ;
   ifaceRoutes = iface: let routes = iface.routes or { }; in (routes.ipv4 or [ ]) ++ (iface.routes4 or [ ]);
   routeMatches = prefix: route: (route.dst or null) == prefix && (route.intent.kind or null) == "internal-reachability";
-
-  upstreamSelectorFor =
-    topo:
-    let
-      nodes = topo.nodes or { };
-      explicit = topo.upstreamSelectorNodeName or null;
-      inferred = lib.filter (nodeName: roleOf nodes nodeName == "upstream-selector") (builtins.attrNames nodes);
-    in
-    if explicit != null then toString explicit else if inferred == [ ] then null else builtins.head (sortedUnique inferred);
-
-  # All upstream-selector node names (for combined fabrics with multiple upstream paths)
-  allUpstreamSelectorNames =
-    topo:
-    let
-      nodes = topo.nodes or { };
-    in
-    sortedUnique (lib.filter (nodeName: roleOf nodes nodeName == "upstream-selector") (builtins.attrNames nodes));
-
-  tenantsForAccess =
-    topo: accessName:
-    sortedUnique (
-      lib.filter (tenant: tenant != null) (
-        map
-          (
-            attachment:
-            if
-              (attachment.kind or null) == "tenant"
-              && (attachment.unit or null) != null
-              && toString attachment.unit == accessName
-            then
-              attachment.name or null
-            else
-              null
-          )
-          (topo.attachments or [ ])
-      )
-    );
 
   tenantIpv4ByName =
     topo:
@@ -61,21 +30,6 @@ let
         )
         ((topo.domains or { }).tenants or [ ])
     );
-
-  linkUplinkNames =
-    linkObj:
-    let
-      meta = if builtins.isAttrs (linkObj.laneMeta or null) then linkObj.laneMeta else { };
-      fromList = if builtins.isList (linkObj.uplinks or null) then linkObj.uplinks else [ ];
-      fromMeta =
-        if meta.uplink or null != null then [ meta.uplink ]
-        else if builtins.isList (meta.uplinks or null) then meta.uplinks
-        else [ ];
-      fromAttrs =
-        lib.optional ((linkObj.uplink or null) != null) linkObj.uplink
-        ++ lib.optional ((linkObj.upstream or null) != null) linkObj.upstream;
-    in
-    sortedUnique (fromList ++ fromMeta ++ fromAttrs);
 
   coreSelectorLinks =
     topo: upstreamSelectorName: coreName: uplinkName:

@@ -1,13 +1,19 @@
 { lib, self ? { outPath = ./.; }, ... }:
 
 let
-  link = import (self.outPath + "/implementation/lib/topology/link-utils.nix") { inherit lib self; };
-  defaultRoutePolicy = import (self.outPath + "/implementation/lib/routing/default-route-policy.nix") { inherit lib; };
-  helpers = import (self.outPath + "/implementation/lib/routing/static-helpers.nix") { inherit lib self; };
-  routeContext = import (self.outPath + "/implementation/lib/routing/route-context.nix") { inherit lib self; };
-
-  sortedUnique = xs: lib.sort (a: b: toString a < toString b) (lib.unique (map toString xs));
-  roleOf = nodes: nodeName: (nodes.${nodeName} or { }).role or null;
+  common = import ./guard-common.nix { inherit lib self; };
+  inherit (common)
+    allUpstreamSelectorNames
+    defaultRoutePolicy
+    helpers
+    link
+    linkUplinkNames
+    roleOf
+    routeContext
+    sortedUnique
+    tenantsForAccess
+    upstreamSelectorFor
+    ;
 
   isDefaultRoute =
     route:
@@ -30,58 +36,6 @@ let
       sortedUnique topo.coreNodeNames
     else
       sortedUnique (lib.filter (nodeName: roleOf nodes nodeName == "core") (builtins.attrNames nodes));
-
-  upstreamSelectorFor =
-    topo:
-    let
-      nodes = topo.nodes or { };
-      explicit = topo.upstreamSelectorNodeName or null;
-      inferred = lib.filter (nodeName: roleOf nodes nodeName == "upstream-selector") (builtins.attrNames nodes);
-    in
-    if explicit != null then toString explicit else if inferred == [ ] then null else builtins.head (sortedUnique inferred);
-
-  # All upstream-selector node names (for combined fabrics with multiple upstream paths)
-  allUpstreamSelectorNames =
-    topo:
-    let
-      nodes = topo.nodes or { };
-    in
-    sortedUnique (lib.filter (nodeName: roleOf nodes nodeName == "upstream-selector") (builtins.attrNames nodes));
-
-  tenantsForAccess =
-    topo: accessName:
-    sortedUnique (
-      lib.filter (tenant: tenant != null) (
-        map
-          (
-            attachment:
-            if
-              (attachment.kind or null) == "tenant"
-              && (attachment.unit or null) != null
-              && toString attachment.unit == accessName
-            then
-              attachment.name or null
-            else
-              null
-          )
-          (topo.attachments or [ ])
-      )
-    );
-
-  linkUplinkNames =
-    linkObj:
-    let
-      meta = if builtins.isAttrs (linkObj.laneMeta or null) then linkObj.laneMeta else { };
-      fromList = if builtins.isList (linkObj.uplinks or null) then linkObj.uplinks else [ ];
-      fromMeta =
-        if meta.uplink or null != null then [ meta.uplink ]
-        else if builtins.isList (meta.uplinks or null) then meta.uplinks
-        else [ ];
-      fromAttrs =
-        lib.optional ((linkObj.uplink or null) != null) linkObj.uplink
-        ++ lib.optional ((linkObj.upstream or null) != null) linkObj.upstream;
-    in
-    sortedUnique (fromList ++ fromMeta ++ fromAttrs);
 
   linksForSelectorCoreUplink =
     topo: upstreamSelectorName: coreSet: uplinkName:
@@ -126,8 +80,8 @@ in
     topo:
     let
       nodes = topo.nodes or { };
-      upstreamSelectorName = upstreamSelectorFor topo;
-      selectorNode = if upstreamSelectorName == null then { } else nodes.${upstreamSelectorName} or { };
+      upstreamSelectorNames = allUpstreamSelectorNames topo;
+      upstreamSelectorText = if upstreamSelectorNames == [ ] then "<none>" else builtins.concatStringsSep "," upstreamSelectorNames;
       coreNodeNames = coreNodeNamesFor topo;
       coreSet = lib.listToAttrs (map (name: { inherit name; value = true; }) coreNodeNames);
       accessNodeNames = sortedUnique (
@@ -152,30 +106,27 @@ in
           )
           accessNodeNames;
 
-      defaults = selectorDefaultRoutes selectorNode;
+      defaults = lib.concatMap
+        (
+          selectorName:
+          map
+            (item: item // { inherit selectorName; })
+            (selectorDefaultRoutes (nodes.${selectorName} or { }))
+        )
+        upstreamSelectorNames;
       links = topo.links or { };
       connectsSelectorToCore =
-        ifName:
+        selectorName: ifName:
         let members = link.membersOf (links.${ifName} or { });
         in
-        upstreamSelectorName != null
-        && builtins.elem upstreamSelectorName members
+        builtins.elem selectorName members
         && builtins.any (member: coreSet.${toString member} or false) members;
 
-      bypasses = lib.filter (item: !(connectsSelectorToCore item.ifName)) defaults;
+      bypasses = lib.filter (item: !(connectsSelectorToCore item.selectorName item.ifName)) defaults;
       firstBypass = if bypasses == [ ] then null else builtins.head bypasses;
       bypassAccess = if firstBypass == null then null else firstBypass.route.lane.access or null;
       bypassTenants = if bypassAccess == null then [ ] else tenantsForAccess topo (toString bypassAccess);
       bypassTenantText = if bypassTenants == [ ] then "<unknown-tenant>" else builtins.concatStringsSep "," bypassTenants;
-
-      hasCoreDefaultFor =
-        requirement:
-        builtins.any
-          (
-            linkName:
-            builtins.any isDefaultRoute (ifaceRoutes ((selectorNode.interfaces or { }).${linkName} or { }))
-          )
-          (linksForSelectorCoreUplink topo upstreamSelectorName coreSet requirement.uplinkName);
 
       # Check if ANY upstream selector has the required default route for each requirement
       coreDefaultServedByAnySelector =
@@ -187,22 +138,27 @@ in
         else builtins.any
           (name:
             let
-              hasLink = (builtins.length (linksForSelectorCoreUplink topo name coreSet requirement.uplinkName)) > 0;
+              selector = nodes.${name} or { };
             in
-            hasLink
+            builtins.any
+              (
+                linkName:
+                builtins.any isDefaultRoute (ifaceRoutes ((selector.interfaces or { }).${linkName} or { }))
+              )
+              (linksForSelectorCoreUplink topo name coreSet requirement.uplinkName)
           )
           names;
 
       missing = lib.filter (requirement: !(coreDefaultServedByAnySelector requirement)) egressRequirements;
       firstMissing = if missing == [ ] then null else builtins.head missing;
     in
-    if upstreamSelectorName == null || egressRequirements == [ ] then
+    if upstreamSelectorNames == [ ] || egressRequirements == [ ] then
       true
     else if firstBypass != null then
       throw ''
         network-forwarding-model: selector-default-route-bypasses-core
 
-        upstreamSelector: ${upstreamSelectorName}
+        upstreamSelector: ${firstBypass.selectorName}
         interface: ${firstBypass.ifName}
         route: ${builtins.toJSON firstBypass.route}
         access: ${toString bypassAccess}
@@ -213,7 +169,7 @@ in
       throw ''
         network-forwarding-model: selector-default-route-missing
 
-        upstreamSelector: ${upstreamSelectorName}
+        upstreamSelector: ${upstreamSelectorText}
         requirement: ${formatPair firstMissing}
         coreNodes: ${builtins.concatStringsSep "," coreNodeNames}
         expected: internet egress requires a default-reachability route on the selector-to-core transport link
