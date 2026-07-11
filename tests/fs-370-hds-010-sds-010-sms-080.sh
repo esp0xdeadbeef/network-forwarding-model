@@ -252,4 +252,179 @@ expect_compile_failure \
   "tenant=client" \
   "uplink=wan"
 
+multi_selector_intent="${tmpdir}/multi-selector.nix"
+cat >"${multi_selector_intent}" <<'NIX'
+{
+  sites.acme.ams = {
+    addressPools = {
+      local.ipv4 = "10.37.0.0/24";
+      p2p.ipv4 = "10.37.1.0/24";
+      p2p.ipv6 = "fd42:370::/118";
+    };
+
+    attachments = [
+      { unit = "access-a"; kind = "tenant"; name = "client-a"; }
+      { unit = "access-b"; kind = "tenant"; name = "client-b"; }
+    ];
+
+    domains = {
+      externals = [
+        { kind = "external"; name = "isp-a"; }
+        { kind = "external"; name = "isp-b"; }
+      ];
+      tenants = [
+        { kind = "tenant"; name = "client-a"; ipv4 = "10.37.20.0/24"; ipv6 = "fd42:370:20::/64"; }
+        { kind = "tenant"; name = "client-b"; ipv4 = "10.37.30.0/24"; ipv6 = "fd42:370:30::/64"; }
+      ];
+    };
+
+    communicationContract.relations = [
+      { id = "allow-client-a-to-isp-a"; priority = 100;
+        from = { kind = "tenant"; name = "client-a"; };
+        to = { kind = "external"; uplinks = [ "isp-a" ]; };
+        trafficType = "any"; action = "allow"; }
+      { id = "allow-client-b-to-isp-b"; priority = 100;
+        from = { kind = "tenant"; name = "client-b"; };
+        to = { kind = "external"; uplinks = [ "isp-b" ]; };
+        trafficType = "any"; action = "allow"; }
+    ];
+
+    transit.ordering = [
+      [ "access-a" "downstream-a" ]
+      [ "downstream-a" "policy" ]
+      [ "policy" "upstream-a" ]
+      [ "upstream-a" "core-a" ]
+      [ "access-b" "downstream-b" ]
+      [ "downstream-b" "policy" ]
+      [ "policy" "upstream-b" ]
+      [ "upstream-b" "core-b" ]
+    ];
+
+    units = {
+      access-a.role = "access";
+      access-b.role = "access";
+      downstream-a.role = "downstream-selector";
+      downstream-b.role = "downstream-selector";
+      policy.role = "policy";
+      upstream-a.role = "upstream-selector";
+      upstream-b.role = "upstream-selector";
+      core-a = { role = "core"; uplinks.isp-a.ipv4 = [ "0.0.0.0/0" ]; };
+      core-b = { role = "core"; uplinks.isp-b.ipv4 = [ "0.0.0.0/0" ]; };
+    };
+  };
+}
+NIX
+
+multi_selector_output="${tmpdir}/multi-selector.json"
+start_ms="$(test_now_ms)"
+nix run "${repo_root}#compile-and-build-forwarding-model" -- "${multi_selector_intent}" >"${multi_selector_output}"
+pass_timed "fs370-sms080-upstream-selector-default-route:multi-selector-compile" "${start_ms}"
+
+jq -e '
+  .enterprise.acme.site.ams.nodes as $nodes
+  | def defaults($selector):
+      [($nodes[$selector].interfaces // {})
+       | to_entries[]
+       | select(.key | test("core"))
+       | .value.routes.ipv4[]?
+       | select(.intent.kind == "default-reachability")];
+  (defaults("upstream-a") | length == 1)
+  and (defaults("upstream-b") | length == 1)
+' "${multi_selector_output}" >/dev/null || {
+  echo "FAIL fs370-sms080: multi-selector fixture must preserve one core-facing default per upstream selector" >&2
+  jq '.enterprise.acme.site.ams.nodes | with_entries(select(.key | test("^upstream-")))' "${multi_selector_output}" >&2
+  exit 1
+}
+
+multi_selector_bypass="${tmpdir}/multi-selector-bypass.nix"
+cat >"${multi_selector_bypass}" <<'NIX'
+{
+  sites.acme.ams = {
+    addressPools = {
+      local.ipv4 = "10.37.0.0/24";
+      p2p.ipv4 = "10.37.1.0/24";
+      p2p.ipv6 = "fd42:370::/118";
+    };
+
+    attachments = [
+      { unit = "access-a"; kind = "tenant"; name = "client-a"; }
+      { unit = "access-b"; kind = "tenant"; name = "client-b"; }
+    ];
+
+    domains = {
+      externals = [
+        { kind = "external"; name = "isp-a"; }
+        { kind = "external"; name = "isp-b"; }
+      ];
+      tenants = [
+        { kind = "tenant"; name = "client-a"; ipv4 = "10.37.20.0/24"; ipv6 = "fd42:370:20::/64"; }
+        { kind = "tenant"; name = "client-b"; ipv4 = "10.37.30.0/24"; ipv6 = "fd42:370:30::/64"; }
+      ];
+    };
+
+    communicationContract.relations = [
+      { id = "allow-client-a-to-isp-a"; priority = 100;
+        from = { kind = "tenant"; name = "client-a"; };
+        to = { kind = "external"; uplinks = [ "isp-a" ]; };
+        trafficType = "any"; action = "allow"; }
+      { id = "allow-client-b-to-isp-b"; priority = 100;
+        from = { kind = "tenant"; name = "client-b"; };
+        to = { kind = "external"; uplinks = [ "isp-b" ]; };
+        trafficType = "any"; action = "allow"; }
+    ];
+
+    transit.ordering = [
+      [ "access-a" "downstream-a" ]
+      [ "downstream-a" "policy" ]
+      [ "policy" "upstream-a" ]
+      [ "upstream-a" "core-a" ]
+      [ "access-b" "downstream-b" ]
+      [ "downstream-b" "policy" ]
+      [ "policy" "upstream-b" ]
+      [ "upstream-b" "core-b" ]
+    ];
+
+    links.upstream-b-bypass = {
+      kind = "p2p";
+      endpoints = {
+        upstream-b = {
+          addr4 = "10.37.9.0/31";
+          interfaceData.routes4 = [
+            {
+              dst = "0.0.0.0/0";
+              via4 = "10.37.9.1";
+              proto = "default";
+              intent = { kind = "default-reachability"; };
+              lane = { access = "access-b"; uplink = "isp-b"; };
+            }
+          ];
+        };
+        policy = { addr4 = "10.37.9.1/31"; };
+      };
+    };
+
+    units = {
+      access-a.role = "access";
+      access-b.role = "access";
+      downstream-a.role = "downstream-selector";
+      downstream-b.role = "downstream-selector";
+      policy.role = "policy";
+      upstream-a.role = "upstream-selector";
+      upstream-b.role = "upstream-selector";
+      core-a = { role = "core"; uplinks.isp-a.ipv4 = [ "0.0.0.0/0" ]; };
+      core-b = { role = "core"; uplinks.isp-b.ipv4 = [ "0.0.0.0/0" ]; };
+    };
+  };
+}
+NIX
+
+expect_compile_failure \
+  "fs370-sms080-upstream-selector-default-route:seeded-negative-second-selector-bypass-core" \
+  "${multi_selector_bypass}" \
+  "selector-default-route-bypasses-core" \
+  "upstream-b" \
+  "upstream-b-bypass" \
+  "access-b" \
+  "client-b"
+
 pass_timed "fs370-sms080-upstream-selector-default-route"

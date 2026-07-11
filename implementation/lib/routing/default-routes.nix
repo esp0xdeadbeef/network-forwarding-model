@@ -79,22 +79,38 @@ in
         let
           uplinks = routeFacts.uplinkCores or [ ];
           candidates = overlayCoreSelection.nonOverlayUplinkCores topo uplinks;
-          reachable = lib.filter (
-            target:
-            let
-              path = shortestPathAvoiding {
-                src = nodeName;
-                dst = target;
-                forbidden = overlayTerminatingCores;
-              };
-            in
-            path != null && builtins.length path >= 2 && avoidsOverlayTransit path
-          ) candidates;
+          reachable = lib.filter
+            (candidate: candidate.path != null && builtins.length candidate.path >= 2 && avoidsOverlayTransit candidate.path)
+            (
+              map
+                (
+                  target:
+                  {
+                    inherit target;
+                    path = shortestPathAvoiding {
+                      src = nodeName;
+                      dst = target;
+                      forbidden = overlayTerminatingCores;
+                    };
+                  }
+                )
+                candidates
+            );
+          sortedReachable = lib.sort
+            (
+              left: right:
+              let
+                leftLength = builtins.length left.path;
+                rightLength = builtins.length right.path;
+              in
+              leftLength < rightLength || (leftLength == rightLength && left.target < right.target)
+            )
+            reachable;
         in
-        if uplinks == [ ] || lib.elem nodeName uplinks || reachable == [ ] then
+        if uplinks == [ ] || lib.elem nodeName uplinks || sortedReachable == [ ] then
           null
         else
-          builtins.head (lib.sort (a: b: a < b) reachable);
+          (builtins.head sortedReachable).target;
 
       overlayUnderlayAccessNode =
         let
