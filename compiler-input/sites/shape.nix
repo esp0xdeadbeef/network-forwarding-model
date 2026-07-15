@@ -51,8 +51,17 @@ let
               builtins.isAttrs publicIngressAuthority && publicIngressAuthority ? returnBehavior;
             nested = if nestedPresent then publicIngressAuthority.returnBehavior else null;
             validReturnBehavior = value: builtins.isString value && value != "";
+            # FS-180-HDS-010-SDS-010-SMS-040 Negative case 3: the recognized
+            # return-behavior vocabulary. Values outside this set (e.g.
+            # "asymmetric", "hairpin", "unknown") must be rejected with a
+            # diagnostic naming the value and relation ID, never silently
+            # treated as absent or one-way.
+            recognizedReturnBehaviors = [ "symmetric" "one-way" "stateful-return" ];
+            recognizedReturnBehavior = value: builtins.elem value recognizedReturnBehaviors;
             fail = reason:
               throw "FS-180-HDS-010-SDS-010-SMS-010: allow relation '${relationId}' ${reason}";
+            failUnrecognized = position: value:
+              throw "FS-180-HDS-010-SDS-010-SMS-040: allow relation '${relationId}' has an unrecognized ${position} returnBehavior '${value}'; recognized values: ${builtins.concatStringsSep ", " recognizedReturnBehaviors}";
           in
           if (rel.action or null) != "allow" then
             rel
@@ -60,6 +69,10 @@ let
             fail "has an invalid top-level returnBehavior"
           else if nestedPresent && !validReturnBehavior nested then
             fail "has an invalid publicIngressTupleAuthority.returnBehavior"
+          else if topLevelPresent && !recognizedReturnBehavior topLevel then
+            failUnrecognized "top-level" topLevel
+          else if nestedPresent && !recognizedReturnBehavior nested then
+            failUnrecognized "publicIngressTupleAuthority" nested
           else if topLevelPresent && nestedPresent && topLevel != nested then
             fail "has conflicting returnBehavior values '${topLevel}' and '${nested}'"
           else if topLevelPresent then
