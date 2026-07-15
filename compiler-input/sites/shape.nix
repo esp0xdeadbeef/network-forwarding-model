@@ -42,10 +42,30 @@ let
     {
       allowedRelations = builtins.map
         (rel:
+          let
+            relationId = if builtins.isString (rel.id or null) && rel.id != "" then rel.id else "<unknown>";
+            topLevelPresent = rel ? returnBehavior;
+            topLevel = rel.returnBehavior or null;
+            publicIngressAuthority = rel.publicIngressTupleAuthority or null;
+            nestedPresent =
+              builtins.isAttrs publicIngressAuthority && publicIngressAuthority ? returnBehavior;
+            nested = if nestedPresent then publicIngressAuthority.returnBehavior else null;
+            validReturnBehavior = value: builtins.isString value && value != "";
+            fail = reason:
+              throw "FS-180-HDS-010-SDS-010-SMS-010: allow relation '${relationId}' ${reason}";
+          in
           if (rel.action or null) != "allow" then
             rel
-          else if rel ? returnBehavior then
+          else if topLevelPresent && !validReturnBehavior topLevel then
+            fail "has an invalid top-level returnBehavior"
+          else if nestedPresent && !validReturnBehavior nested then
+            fail "has an invalid publicIngressTupleAuthority.returnBehavior"
+          else if topLevelPresent && nestedPresent && topLevel != nested then
+            fail "has conflicting returnBehavior values '${topLevel}' and '${nested}'"
+          else if topLevelPresent then
             rel
+          else if nestedPresent then
+            rel // { returnBehavior = nested; }
           else if (rel ? bidirectional && rel.bidirectional) then
             let bFromKind = (rel.from or {}).kind or null;
                 bToKind = (rel.to or {}).kind or null;

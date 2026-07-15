@@ -51,6 +51,7 @@ tests=(
   fs-410-hds-010-sds-010-sms-010.sh
   test-FS-380-HDS-010-SDS-010-SMS-020-nat44-egress.sh
   fs-260-hds-010-sds-010-sms-010.sh
+  FS-180-HDS-010-SDS-010-SMS-010-nested-return-behavior-authority.sh
   test-fs180-hds010-sds010-sms010-return-behavior-authority.sh
   fs-180-hds-010-sds-010-sms-030.sh
   test-network-labs-site-fabric-handoff.sh
