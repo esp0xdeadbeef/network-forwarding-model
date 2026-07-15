@@ -100,6 +100,20 @@ assert_rejects "translation without sourcePreservation" \
   '[{"id":"ambiguous-source","action":"allow","publicIngressTupleAuthority":{"returnBehavior":"stateful-return","translationMode":"napt"}}]' \
   "FS-230-HDS-010-SDS-010-SMS-020: allow relation 'ambiguous-source' requests translationMode 'napt' without an explicit publicIngressTupleAuthority.sourcePreservation"
 
+# Seeded negative (SMS Negative case 1, missing mode field): an authority that
+# carries returnBehavior and sourcePreservation but omits translationMode is an
+# ambiguous translation binding and must fail closed with a diagnostic naming
+# the relation and the missing mode field, not normalize into legacy DNAT.
+assert_rejects "missing translationMode with sourcePreservation" \
+  '[{"id":"missing-mode","action":"allow","publicIngressTupleAuthority":{"returnBehavior":"stateful-return","sourcePreservation":"preserve-source"}}]' \
+  "FS-230-HDS-010-SDS-010-SMS-020: allow relation 'missing-mode' declares publicIngressTupleAuthority.sourcePreservation without publicIngressTupleAuthority.translationMode (missing translation mode field; ambiguous translation binding)"
+
+# Recovery: the same tuple with an explicit translation mode is a valid
+# translation binding again (explicit no-translation decision preserved).
+assert_accepts "recovery: missing mode fixed with explicit mode" \
+  '[{"id":"missing-mode","action":"allow","publicIngressTupleAuthority":{"returnBehavior":"stateful-return","translationMode":"none","sourcePreservation":"preserve-source"}}]' \
+  '.[0].publicIngressTupleAuthority.translationMode == "none" and .[0].publicIngressTupleAuthority.sourcePreservation == "preserve-source"'
+
 # Seeded negative: unrecognized sourcePreservation fails closed.
 assert_rejects "unrecognized sourcePreservation" \
   '[{"id":"bad-preservation","action":"allow","publicIngressTupleAuthority":{"returnBehavior":"stateful-return","translationMode":"napt","sourcePreservation":"maybe"}}]' \
