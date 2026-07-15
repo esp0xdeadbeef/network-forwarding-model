@@ -62,9 +62,35 @@ let
               throw "FS-180-HDS-010-SDS-010-SMS-010: allow relation '${relationId}' ${reason}";
             failUnrecognized = position: value:
               throw "FS-180-HDS-010-SDS-010-SMS-040: allow relation '${relationId}' has an unrecognized ${position} returnBehavior '${value}'; recognized values: ${builtins.concatStringsSep ", " recognizedReturnBehaviors}";
+            # FS-230-HDS-010-SDS-010-SMS-020: preserve the structured
+            # public-ingress translation/source-preservation authority instead
+            # of leaving it opaque. translationMode = "none" is an explicit
+            # no-translation decision; any translation-capable mode must bind an
+            # explicit sourcePreservation so the return surface is not ambiguous.
+            translationModePresent =
+              builtins.isAttrs publicIngressAuthority && publicIngressAuthority ? translationMode;
+            translationMode = if translationModePresent then publicIngressAuthority.translationMode else null;
+            sourcePreservationPresent =
+              builtins.isAttrs publicIngressAuthority && publicIngressAuthority ? sourcePreservation;
+            sourcePreservation = if sourcePreservationPresent then publicIngressAuthority.sourcePreservation else null;
+            recognizedTranslationModes = [ "none" "napt" "nat" "nat66" "provider-port-forward" ];
+            recognizedSourcePreservations = [ "preserve-source" "provider-napt" "rewritten" ];
+            translationCapableMode = value: value != "none";
+            failTranslation = reason:
+              throw "FS-230-HDS-010-SDS-010-SMS-020: allow relation '${relationId}' ${reason}";
           in
           if (rel.action or null) != "allow" then
             rel
+          else if translationModePresent && !validReturnBehavior translationMode then
+            failTranslation "has an invalid publicIngressTupleAuthority.translationMode"
+          else if translationModePresent && !builtins.elem translationMode recognizedTranslationModes then
+            failTranslation "has an unrecognized publicIngressTupleAuthority.translationMode '${translationMode}'; recognized values: ${builtins.concatStringsSep ", " recognizedTranslationModes}"
+          else if translationModePresent && translationCapableMode translationMode && !sourcePreservationPresent then
+            failTranslation "requests translationMode '${translationMode}' without an explicit publicIngressTupleAuthority.sourcePreservation (ambiguous source-address handling)"
+          else if sourcePreservationPresent && !validReturnBehavior sourcePreservation then
+            failTranslation "has an invalid publicIngressTupleAuthority.sourcePreservation"
+          else if sourcePreservationPresent && !builtins.elem sourcePreservation recognizedSourcePreservations then
+            failTranslation "has an unrecognized publicIngressTupleAuthority.sourcePreservation '${sourcePreservation}'; recognized values: ${builtins.concatStringsSep ", " recognizedSourcePreservations}"
           else if topLevelPresent && !validReturnBehavior topLevel then
             fail "has an invalid top-level returnBehavior"
           else if nestedPresent && !validReturnBehavior nested then
