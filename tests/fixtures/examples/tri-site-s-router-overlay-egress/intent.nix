@@ -32,7 +32,7 @@
             priority = 6;
             to = "any";
             trafficType = "icmp";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -43,7 +43,7 @@
             priority = 7;
             to = "any";
             trafficType = "icmp";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -57,7 +57,7 @@
               members = [ "mgmt" ];
             };
             trafficType = "any";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "deny";
             from = {
@@ -128,7 +128,7 @@
               name = "site-dns-mgmt";
             };
             trafficType = "dns";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -145,7 +145,7 @@
               ];
             };
             trafficType = "dns";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "deny";
             from = {
@@ -198,7 +198,7 @@
               name = "cast-discovery";
             };
             trafficType = "cast-discovery";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -212,7 +212,7 @@
               name = "cast-control";
             };
             trafficType = "cast-control";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -226,7 +226,7 @@
               name = "east-west";
             };
             trafficType = "any";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -247,7 +247,7 @@
               ];
             };
             trafficType = "any";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -261,7 +261,7 @@
               name = "home-hostile-4444";
             };
             trafficType = "tcp-udp-4444";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -278,7 +278,7 @@
               ];
             };
             trafficType = "any";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -292,7 +292,7 @@
               name = "site-dns-mgmt";
             };
             trafficType = "dns";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -309,7 +309,7 @@
               name = "dmz-nebula";
             };
             trafficType = "nebula";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -326,7 +326,7 @@
               ];
             };
             trafficType = "nebula";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -343,7 +343,7 @@
               ];
             };
             trafficType = "nebula-runtime";
-          }
+          returnBehavior = "symmetric"; }
         ];
         services = [
           {
@@ -769,7 +769,7 @@
             priority = 6;
             to = "any";
             trafficType = "icmp";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -780,7 +780,7 @@
             priority = 7;
             to = "any";
             trafficType = "icmp";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -794,7 +794,7 @@
               name = "edge-dns-dmz";
             };
             trafficType = "dns";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "deny";
             from = {
@@ -822,7 +822,7 @@
               name = "wan";
             };
             trafficType = "any";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -836,7 +836,7 @@
               name = "wan";
             };
             trafficType = "any";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -850,7 +850,7 @@
               name = "east-west";
             };
             trafficType = "dns";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -864,7 +864,7 @@
               name = "wan";
             };
             trafficType = "dns";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -878,7 +878,7 @@
               uplinks = [ "wan" ];
             };
             trafficType = "any";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -892,7 +892,7 @@
               name = "dmz-nebula";
             };
             trafficType = "nebula";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -906,7 +906,7 @@
               name = "dmz-nebula";
             };
             trafficType = "nebula";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -920,7 +920,7 @@
               name = "home-hostile-4444";
             };
             trafficType = "tcp-udp-4444";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -934,7 +934,7 @@
               name = "lab-client-4445";
             };
             trafficType = "tcp-udp-4445";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -948,7 +948,7 @@
               name = "edge-client-4446";
             };
             trafficType = "tcp-udp-4446";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -962,7 +962,7 @@
               name = "hostile-public-dns";
             };
             trafficType = "dns";
-          }
+          returnBehavior = "symmetric"; }
         ];
         services = [
           {
@@ -1292,7 +1292,7 @@
             priority = 6;
             to = "any";
             trafficType = "icmp";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -1303,7 +1303,7 @@
             priority = 7;
             to = "any";
             trafficType = "icmp";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -1317,7 +1317,7 @@
               members = [ "mgmt" ];
             };
             trafficType = "any";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "deny";
             from = {
@@ -1388,7 +1388,7 @@
               name = "lab-site-dns";
             };
             trafficType = "dns";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "deny";
             from = {
@@ -1421,7 +1421,7 @@
               name = "cast-discovery";
             };
             trafficType = "cast-discovery";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -1435,7 +1435,7 @@
               name = "cast-control";
             };
             trafficType = "cast-control";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -1454,7 +1454,7 @@
               name = "wan";
             };
             trafficType = "any";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "deny";
             from = {
@@ -1482,7 +1482,7 @@
               name = "east-west";
             };
             trafficType = "dns";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -1496,7 +1496,7 @@
               name = "east-west";
             };
             trafficType = "any";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -1510,7 +1510,7 @@
               name = "lab-client-4445";
             };
             trafficType = "tcp-udp-4445";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -1524,7 +1524,7 @@
               uplinks = [ "wan" ];
             };
             trafficType = "nebula";
-          }
+          returnBehavior = "symmetric"; }
         ];
         services = [
           {

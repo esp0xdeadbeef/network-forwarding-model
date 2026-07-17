@@ -67,6 +67,7 @@ cat >"${input_nix}" <<'NIX'
           to = { kind = "external"; uplinks = [ "wan" ]; };
           trafficType = "any";
           action = "allow";
+          returnBehavior = "symmetric";
         }
       ];
       relations = [
@@ -77,6 +78,7 @@ cat >"${input_nix}" <<'NIX'
           to = { kind = "external"; uplinks = [ "wan" ]; };
           trafficType = "any";
           action = "allow";
+          returnBehavior = "symmetric";
         }
       ];
     };
@@ -88,6 +90,7 @@ cat >"${input_nix}" <<'NIX'
       {
         relationId = "broad-wan-to-enterprise-client-public";
         action = "allow";
+        returnBehavior = "symmetric";
         source = { kind = "tenant"; name = "client"; };
         destination = { kind = "public-ipv4"; ipv4 = "203.0.113.10"; };
         nodePath = [ "access-client" "downstream" "policy" "upstream" "core-wan" ];
@@ -99,6 +102,7 @@ cat >"${input_nix}" <<'NIX'
       {
         relationId = "broad-wan-to-public-ingress";
         action = "allow";
+        returnBehavior = "symmetric";
         source = { kind = "tenant"; name = "client"; };
         destination = { kind = "public-ipv4"; ipv4 = "203.0.113.20"; };
         nodePath = [ "access-client" "downstream" "policy" "upstream" "core-wan" ];
@@ -108,6 +112,7 @@ cat >"${input_nix}" <<'NIX'
       {
         relationId = "broad-wan-to-local-owned";
         action = "allow";
+        returnBehavior = "symmetric";
         source = { kind = "tenant"; name = "client"; };
         destination = { kind = "public-ipv4"; ipv4 = "203.0.113.30"; };
         nodePath = [ "access-client" "downstream" "policy" "upstream" "core-wan" ];
@@ -117,6 +122,7 @@ cat >"${input_nix}" <<'NIX'
       {
         relationId = "ordinary-public-internet";
         action = "allow";
+        returnBehavior = "symmetric";
         source = { kind = "tenant"; name = "client"; };
         destination = { kind = "public-ipv4"; ipv4 = "93.184.216.34"; };
         nodePath = [ "access-client" "downstream" "policy" "upstream" "core-wan" ];

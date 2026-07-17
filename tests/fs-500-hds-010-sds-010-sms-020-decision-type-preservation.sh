@@ -44,6 +44,7 @@ cat >"${input_nix}" <<'NIX'
           to = { kind = "external"; uplinks = [ "wan" ]; };
           trafficType = "any";
           action = "allow";
+          returnBehavior = "symmetric";
         }
         {
           id = "allow-dns-to-wan";
@@ -52,6 +53,7 @@ cat >"${input_nix}" <<'NIX'
           to = { kind = "external"; uplinks = [ "wan" ]; };
           trafficType = "any";
           action = "allow";
+          returnBehavior = "symmetric";
         }
         {
           id = "reject-dns-direct";
@@ -70,6 +72,7 @@ cat >"${input_nix}" <<'NIX'
           to = { kind = "external"; uplinks = [ "wan" ]; };
           trafficType = "any";
           action = "allow";
+          returnBehavior = "symmetric";
         }
         {
           id = "allow-dns-to-wan";
@@ -78,6 +81,7 @@ cat >"${input_nix}" <<'NIX'
           to = { kind = "external"; uplinks = [ "wan" ]; };
           trafficType = "any";
           action = "allow";
+          returnBehavior = "symmetric";
         }
         {
           id = "reject-dns-direct";
@@ -95,6 +99,7 @@ cat >"${input_nix}" <<'NIX'
       {
         relationId = "allow-web-to-wan";
         action = "allow";
+        returnBehavior = "symmetric";
         source = { kind = "tenant"; name = "web"; };
         destination = { kind = "public-ipv4"; ipv4 = "93.184.216.34"; };
         nodePath = [ "access-web" "downstream" "policy" "upstream" "core-wan" ];
@@ -105,6 +110,7 @@ cat >"${input_nix}" <<'NIX'
       {
         relationId = "allow-dns-to-wan";
         action = "allow";
+        returnBehavior = "symmetric";
         source = { kind = "tenant"; name = "dns"; };
         destination = { kind = "public-ipv4"; ipv4 = "8.8.8.8"; };
         nodePath = [ "access-dns" "downstream" "policy" "upstream" "core-wan" ];
@@ -123,6 +129,7 @@ cat >"${input_nix}" <<'NIX'
       {
         relationId = "non-existent-type";
         action = "allow";
+        returnBehavior = "symmetric";
         source = { kind = "tenant"; name = "web"; };
         destination = { kind = "public-ipv4"; ipv4 = "1.1.1.1"; };
         nodePath = [ "access-web" "downstream" "policy" "upstream" "core-wan" ];
@@ -132,6 +139,7 @@ cat >"${input_nix}" <<'NIX'
       {
         relationId = "reject-dns-direct";
         action = "allow";
+        returnBehavior = "symmetric";
         source = { kind = "tenant"; name = "dns"; };
         destination = { kind = "public-ipv4"; ipv4 = "9.9.9.9"; };
         nodePath = [ "access-dns" "downstream" "policy" "upstream" "core-wan" ];

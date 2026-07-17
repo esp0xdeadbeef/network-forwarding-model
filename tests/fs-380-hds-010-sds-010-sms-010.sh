@@ -59,6 +59,7 @@ cat >"${input_nix}" <<'NIX'
         to = { kind = "external"; uplinks = [ "wan" ]; };
         trafficType = "any";
         action = "allow";
+        returnBehavior = "symmetric";
       }
     ];
 

@@ -66,6 +66,7 @@ cat >"${input_nix}" <<'NIX'
           to = { kind = "external"; uplinks = [ "wan" ]; };
           trafficType = "any";
           action = "allow";
+          returnBehavior = "symmetric";
         }
       ];
       relations = [
@@ -76,6 +77,7 @@ cat >"${input_nix}" <<'NIX'
           to = { kind = "external"; uplinks = [ "wan" ]; };
           trafficType = "any";
           action = "allow";
+          returnBehavior = "symmetric";
         }
       ];
     };
@@ -88,6 +90,7 @@ cat >"${input_nix}" <<'NIX'
       {
         relationId = "broad-wan-to-enterprise-client-public";
         action = "allow";
+        returnBehavior = "symmetric";
         source = { kind = "tenant"; name = "client"; };
         destination = { kind = "public-ipv4"; ipv4 = "198.51.100.10"; };
         nodePath = [ "access-client" "downstream" "policy" "upstream" "core-wan" ];
@@ -99,6 +102,7 @@ cat >"${input_nix}" <<'NIX'
       {
         relationId = "broad-wan-to-local-owned-public";
         action = "allow";
+        returnBehavior = "symmetric";
         source = { kind = "tenant"; name = "client"; };
         destination = { kind = "public-ipv4"; ipv4 = "198.51.100.12"; };
         nodePath = [ "access-client" "downstream" "policy" "upstream" "core-wan" ];
@@ -110,6 +114,7 @@ cat >"${input_nix}" <<'NIX'
       {
         relationId = "broad-wan-to-public-ingress";
         action = "allow";
+        returnBehavior = "symmetric";
         source = { kind = "tenant"; name = "client"; };
         destination = { kind = "public-ipv4"; ipv4 = "198.51.100.14"; };
         nodePath = [ "access-client" "downstream" "policy" "upstream" "core-wan" ];
@@ -119,6 +124,7 @@ cat >"${input_nix}" <<'NIX'
       {
         relationId = "ordinary-public-internet";
         action = "allow";
+        returnBehavior = "symmetric";
         source = { kind = "tenant"; name = "client"; };
         destination = { kind = "public-ipv4"; ipv4 = "93.184.216.34"; };
         nodePath = [ "access-client" "downstream" "policy" "upstream" "core-wan" ];
