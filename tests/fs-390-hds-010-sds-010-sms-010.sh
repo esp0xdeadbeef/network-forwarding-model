@@ -94,6 +94,7 @@ cat >"${input_nix}" <<'NIX'
           to = { kind = "external"; uplinks = [ "wan" ]; };
           trafficType = "any";
           action = "allow";
+          returnBehavior = "symmetric";
         }
       ];
       relations = [
@@ -104,6 +105,7 @@ cat >"${input_nix}" <<'NIX'
           to = { kind = "external"; uplinks = [ "wan" ]; };
           trafficType = "any";
           action = "allow";
+          returnBehavior = "symmetric";
         }
       ];
     };
@@ -112,6 +114,7 @@ cat >"${input_nix}" <<'NIX'
       {
         relationId = "broad-wan-to-enterprise-client-public";
         action = "allow";
+        returnBehavior = "symmetric";
         source = { kind = "tenant"; name = "client"; };
         destination = { kind = "public-ipv4"; ipv4 = "198.51.100.10"; };
         nodePath = [ "access-client" "downstream" "policy" "upstream" "core-wan" ];
@@ -119,6 +122,7 @@ cat >"${input_nix}" <<'NIX'
       {
         relationId = "explicit-service-shortcut";
         action = "allow";
+        returnBehavior = "symmetric";
         source = { kind = "tenant"; name = "client"; };
         destination = { kind = "public-ipv4"; ipv4 = "198.51.100.11"; };
         shortcutPolicy = "explicit";
@@ -128,6 +132,7 @@ cat >"${input_nix}" <<'NIX'
       {
         relationId = "broad-wan-to-local-owned-public";
         action = "allow";
+        returnBehavior = "symmetric";
         source = { kind = "tenant"; name = "client"; };
         destination = { kind = "public-ipv4"; ipv4 = "198.51.100.12"; };
         nodePath = [ "access-client" "downstream" "policy" "upstream" "core-wan" ];
@@ -135,6 +140,7 @@ cat >"${input_nix}" <<'NIX'
       {
         relationId = "broad-wan-to-provider-owned-public";
         action = "allow";
+        returnBehavior = "symmetric";
         source = { kind = "tenant"; name = "client"; };
         destination = { kind = "public-ipv4"; ipv4 = "198.51.100.13"; };
         nodePath = [ "access-client" "downstream" "policy" "upstream" "core-wan" ];
@@ -142,6 +148,7 @@ cat >"${input_nix}" <<'NIX'
       {
         relationId = "broad-wan-to-public-ingress-owned-public";
         action = "allow";
+        returnBehavior = "symmetric";
         source = { kind = "tenant"; name = "client"; };
         destination = { kind = "public-ipv4"; ipv4 = "198.51.100.14"; };
         nodePath = [ "access-client" "downstream" "policy" "upstream" "core-wan" ];
@@ -149,6 +156,7 @@ cat >"${input_nix}" <<'NIX'
       {
         relationId = "ordinary-public-internet";
         action = "allow";
+        returnBehavior = "symmetric";
         source = { kind = "tenant"; name = "client"; };
         destination = { kind = "public-ipv4"; ipv4 = "93.184.216.34"; };
         nodePath = [ "access-client" "downstream" "policy" "upstream" "core-wan" ];
@@ -266,6 +274,7 @@ cat >"${same_owner_input_nix}" <<'NIX'
           to = { kind = "external"; uplinks = [ "wan" ]; };
           trafficType = "any";
           action = "allow";
+          returnBehavior = "symmetric";
         }
       ];
       allowedRelations = [
@@ -276,6 +285,7 @@ cat >"${same_owner_input_nix}" <<'NIX'
           to = { kind = "external"; uplinks = [ "wan" ]; };
           trafficType = "any";
           action = "allow";
+          returnBehavior = "symmetric";
         }
       ];
     };
@@ -284,6 +294,7 @@ cat >"${same_owner_input_nix}" <<'NIX'
       {
         relationId = "allow-provider-handoff-to-wan";
         action = "allow";
+        returnBehavior = "symmetric";
         source = { kind = "tenant"; name = "provider-handoff-a"; };
         destination = { kind = "external"; uplinks = [ "wan" ]; };
         nodePath = [ "provider-handoff-access-a" "downstream" "policy" "upstream" "core-wan" ];
@@ -372,6 +383,7 @@ cat >"${ambiguous_input_nix}" <<'NIX'
           to = { kind = "external"; uplinks = [ "wan" ]; };
           trafficType = "any";
           action = "allow";
+          returnBehavior = "symmetric";
         }
       ];
       relations = [
@@ -382,6 +394,7 @@ cat >"${ambiguous_input_nix}" <<'NIX'
           to = { kind = "external"; uplinks = [ "wan" ]; };
           trafficType = "any";
           action = "allow";
+          returnBehavior = "symmetric";
         }
       ];
     };
@@ -390,6 +403,7 @@ cat >"${ambiguous_input_nix}" <<'NIX'
       {
         relationId = "ambiguous-destination";
         action = "allow";
+        returnBehavior = "symmetric";
         source = { kind = "tenant"; name = "client"; };
         destination = { kind = "public-ipv4"; ipv4 = "198.51.100.10"; };
         nodePath = [ "access-client" "downstream" "policy" "upstream" "core-wan" ];

@@ -44,6 +44,7 @@ cat >"${input_nix}" <<'NIX'
           to = { kind = "external"; uplinks = [ "wan" ]; };
           trafficType = "any";
           action = "allow";
+          returnBehavior = "symmetric";
         }
         {
           id = "reject-db-to-wan";
@@ -62,6 +63,7 @@ cat >"${input_nix}" <<'NIX'
           to = { kind = "external"; uplinks = [ "wan" ]; };
           trafficType = "any";
           action = "allow";
+          returnBehavior = "symmetric";
         }
         {
           id = "reject-db-to-wan";
@@ -79,6 +81,7 @@ cat >"${input_nix}" <<'NIX'
       {
         relationId = "allow-app-to-wan";
         action = "allow";
+        returnBehavior = "symmetric";
         source = { kind = "tenant"; name = "app"; };
         destination = { kind = "public-ipv4"; ipv4 = "93.184.216.34"; };
         nodePath = [ "access-app" "downstream" "policy" "upstream" "core-wan" ];
@@ -89,6 +92,7 @@ cat >"${input_nix}" <<'NIX'
       {
         relationId = "non-existent-allow";
         action = "allow";
+        returnBehavior = "symmetric";
         source = { kind = "tenant"; name = "app"; };
         destination = { kind = "public-ipv4"; ipv4 = "1.1.1.1"; };
         nodePath = [ "access-app" "downstream" "policy" "upstream" "core-wan" ];
@@ -100,6 +104,7 @@ cat >"${input_nix}" <<'NIX'
       {
         relationId = "reject-db-to-wan";
         action = "allow";
+        returnBehavior = "symmetric";
         source = { kind = "tenant"; name = "db"; };
         destination = { kind = "public-ipv4"; ipv4 = "8.8.8.8"; };
         nodePath = [ "access-db" "downstream" "policy" "upstream" "core-wan" ];

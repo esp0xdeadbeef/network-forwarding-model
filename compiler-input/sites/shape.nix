@@ -107,20 +107,8 @@ let
             rel
           else if nestedPresent then
             rel // { returnBehavior = nested; }
-          else if (rel ? bidirectional && rel.bidirectional) then
-            let bFromKind = (rel.from or {}).kind or null;
-                bToKind = (rel.to or {}).kind or null;
-            in if bFromKind == "tenant-set" && bToKind == "tenant-set" then
-              rel  # local tenant-to-tenant: one-way even with bidirectional per FS-640/FS-620
-            else
-              rel // { returnBehavior = "symmetric"; }
           else
-            let fromKind = (rel.from or {}).kind or null;
-                toKind = (rel.to or {}).kind or null;
-            in if fromKind == "tenant-set" && toKind == "tenant-set" then
-              rel  # local tenant-to-tenant: one-way by default per FS-640/FS-620
-            else
-              rel // { returnBehavior = "symmetric"; }
+            fail "missing returnBehavior on allow relation (must be explicitly declared as symmetric, one-way, or stateful-return; nested publicIngressTupleAuthority.returnBehavior also accepted)"
         )
         rawRelations;
       services = cc.services or [ ];

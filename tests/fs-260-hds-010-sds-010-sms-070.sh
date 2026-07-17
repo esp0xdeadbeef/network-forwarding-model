@@ -90,6 +90,7 @@ firewallRules = [
     from = "client";
     to = "wan";
     action = "allow";
+    returnBehavior = "symmetric";
     protocol = "tcp";
     port = 443;
   }

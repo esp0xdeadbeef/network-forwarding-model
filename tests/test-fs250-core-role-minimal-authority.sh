@@ -107,6 +107,7 @@ let
         {
           id = "allow-client-to-wan";
           action = "allow";
+          returnBehavior = "symmetric";
           from = { kind = "tenant"; name = "client"; };
           to = { kind = "external"; name = "wan"; };
         }

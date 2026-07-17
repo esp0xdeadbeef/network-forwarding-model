@@ -28,7 +28,7 @@ cat >"$PI" <<'NIX'
   ownership.prefixes=[{kind="tenant";name="client";ipv4="10.20.20.0/24";}];
   communicationContract={
     trafficTypes=[{name="https";match=[{proto="tcp";family="any";dports=[443];}];}];
-    relations=[{id="allow-client-wan";priority=100;from.kind="tenant";from.name="client";to.kind="external";to.uplinks=["wan"];trafficType="https";action="allow";}];
+    relations=[{id="allow-client-wan";priority=100;from.kind="tenant";from.name="client";to.kind="external";to.uplinks=["wan"];trafficType="https";action="allow";returnBehavior = "symmetric"; }];
   };
   topology.nodes={
     access-client={role="access";attachments=[{kind="tenant";name="client";}];};
@@ -59,7 +59,7 @@ cat >"$NI" <<'NIX'
     trafficTypes=[{name="https";match=[{proto="tcp";family="any";dports=[443];}];}];
     relations=[
       {id="deny-client";priority=100;from.kind="tenant";from.name="client";to.kind="external";to.uplinks=["wan"];trafficType="https";action="deny";}
-      {id="allow-mgmt";priority=200;from.kind="tenant";from.name="mgmt";to.kind="external";to.uplinks=["wan"];trafficType="https";action="allow";}
+      {id="allow-mgmt";priority=200;from.kind="tenant";from.name="mgmt";to.kind="external";to.uplinks=["wan"];trafficType="https";action="allow";returnBehavior = "symmetric"; }
     ];
   };
   topology.nodes={
@@ -100,7 +100,7 @@ cat >"$WI" <<'NIX'
       {name="https";match=[{proto="tcp";family="any";dports=[443];}];}
       {name="http";match=[{proto="tcp";family="any";dports=[80];}];}
     ];
-    relations=[{id="allow-https";priority=100;from.kind="tenant";from.name="client";to.kind="external";to.uplinks=["wan"];trafficType="https";action="allow";}];
+    relations=[{id="allow-https";priority=100;from.kind="tenant";from.name="client";to.kind="external";to.uplinks=["wan"];trafficType="https";action="allow";returnBehavior = "symmetric"; }];
   };
   topology.nodes={
     access-client={role="access";attachments=[{kind="tenant";name="client";}];};

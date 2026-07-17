@@ -44,6 +44,7 @@ cat >"${input_nix}" <<'NIX'
         to = { kind = "external"; name = "east-west"; };
         trafficType = "any";
         action = "allow";
+        returnBehavior = "symmetric";
       }
     ];
 
@@ -117,6 +118,7 @@ cat >"${input_nix}" <<'NIX'
         to = { kind = "external"; name = "east-west"; };
         trafficType = "any";
         action = "allow";
+        returnBehavior = "symmetric";
       }
     ];
 

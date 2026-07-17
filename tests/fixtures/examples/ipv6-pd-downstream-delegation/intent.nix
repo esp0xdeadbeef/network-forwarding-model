@@ -31,7 +31,7 @@
               name = "site-dns";
             };
             trafficType = "dns";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -50,7 +50,7 @@
               ];
             };
             trafficType = "any";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -66,7 +66,7 @@
             priority = 20;
             to = "any";
             trafficType = "icmp";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "deny";
             from = {
@@ -104,7 +104,7 @@
               name = "wan";
             };
             trafficType = "any";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -118,7 +118,7 @@
               name = "jump-host";
             };
             trafficType = "ssh";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -132,7 +132,7 @@
               name = "mgmt";
             };
             trafficType = "icmp";
-          }
+          returnBehavior = "symmetric"; }
           {
             action = "allow";
             from = {
@@ -146,7 +146,7 @@
               name = "admin-web";
             };
             trafficType = "web";
-          }
+          returnBehavior = "symmetric"; }
         ];
         services = [
           {

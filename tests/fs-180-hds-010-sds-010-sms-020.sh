@@ -66,6 +66,7 @@ cat >"${input_file}" <<'NIX'
             to = { kind = "service"; name = "admin-web"; };
             trafficType = "https";
             action = "allow";
+            returnBehavior = "symmetric";
           }
           {
             id = "deny-client-to-admin-web-ssh";
@@ -98,6 +99,7 @@ cat >"${input_file}" <<'NIX'
             to = { kind = "external"; uplinks = [ "wan" ]; };
             trafficType = "https";
             action = "allow";
+            returnBehavior = "symmetric";
           }
         ];
       };

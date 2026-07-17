@@ -38,6 +38,7 @@ cat >"${input_nix}" <<'NIX'
         {
           id = "allow-tenant-a-to-east-west";
           action = "allow";
+          returnBehavior = "symmetric";
           from = {
             kind = "tenant";
             name = "tenant-a";
@@ -84,6 +85,7 @@ cat >"${input_nix}" <<'NIX'
       {
         relationId = "allow-tenant-a-to-east-west";
         action = "allow";
+        returnBehavior = "symmetric";
         source = {
           kind = "tenant";
           name = "tenant-a";
