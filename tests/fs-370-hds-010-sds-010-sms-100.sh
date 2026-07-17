@@ -75,7 +75,7 @@ cat >"${input_nix}" <<'NIX'
       { id = "allow-client-to-wan"; priority = 100;
         from = { kind = "tenant"; name = "client"; };
         to = { kind = "external"; uplinks = [ "wan" ]; };
-        trafficType = "any"; action = "allow"; }
+        trafficType = "any"; returnBehavior = "symmetric"; action = "allow"; }
     ];
 
     transit.ordering = [
@@ -194,8 +194,8 @@ cat >"${shared_default_catchall_intent}" <<'NIX'
       ];
     };
     communicationContract.relations = [
-      { id = "allow-a-to-wan"; priority = 100; from = { kind = "tenant"; name = "a"; }; to = { kind = "external"; uplinks = [ "wan" ]; }; trafficType = "any"; action = "allow"; }
-      { id = "allow-b-to-wan"; priority = 110; from = { kind = "tenant"; name = "b"; }; to = { kind = "external"; uplinks = [ "wan" ]; }; trafficType = "any"; action = "allow"; }
+      { id = "allow-a-to-wan"; priority = 100; from = { kind = "tenant"; name = "a"; }; to = { kind = "external"; uplinks = [ "wan" ]; }; trafficType = "any"; returnBehavior = "symmetric"; action = "allow"; }
+      { id = "allow-b-to-wan"; priority = 110; from = { kind = "tenant"; name = "b"; }; to = { kind = "external"; uplinks = [ "wan" ]; }; trafficType = "any"; returnBehavior = "symmetric"; action = "allow"; }
     ];
     transit.ordering = [
       [ "access-a" "downstream" ]
@@ -250,8 +250,8 @@ cat >"${priority_inversion_intent}" <<'NIX'
       ];
     };
     communicationContract.relations = [
-      { id = "allow-a-to-wan"; priority = 100; from = { kind = "tenant"; name = "a"; }; to = { kind = "external"; uplinks = [ "wan" ]; }; trafficType = "any"; action = "allow"; }
-      { id = "allow-b-to-wan"; priority = 110; from = { kind = "tenant"; name = "b"; }; to = { kind = "external"; uplinks = [ "wan" ]; }; trafficType = "any"; action = "allow"; }
+      { id = "allow-a-to-wan"; priority = 100; from = { kind = "tenant"; name = "a"; }; to = { kind = "external"; uplinks = [ "wan" ]; }; trafficType = "any"; returnBehavior = "symmetric"; action = "allow"; }
+      { id = "allow-b-to-wan"; priority = 110; from = { kind = "tenant"; name = "b"; }; to = { kind = "external"; uplinks = [ "wan" ]; }; trafficType = "any"; returnBehavior = "symmetric"; action = "allow"; }
     ];
     transit.ordering = [
       [ "access-a" "downstream" ]

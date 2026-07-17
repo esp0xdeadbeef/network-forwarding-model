@@ -75,6 +75,7 @@ cat >"${input_nix}" <<'NIX'
           from = { kind = "tenant"; name = "client"; };
           to = { kind = "external"; uplinks = [ "wan" ]; };
           trafficType = "any";
+          returnBehavior = "symmetric";
           action = "allow";
         }
       ];
@@ -85,6 +86,7 @@ cat >"${input_nix}" <<'NIX'
           from = { kind = "tenant"; name = "client"; };
           to = { kind = "external"; uplinks = [ "wan" ]; };
           trafficType = "any";
+          returnBehavior = "symmetric";
           action = "allow";
         }
       ];
