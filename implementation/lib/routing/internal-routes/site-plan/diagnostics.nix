@@ -5,70 +5,67 @@ let
 
   countRemoteByKind =
     remoteByNode: kind:
-    sum (map (nodeFacts: builtins.length (nodeFacts.${kind} or [ ])) (builtins.attrValues remoteByNode));
+    sum (
+      map (nodeFacts: builtins.length (nodeFacts.${kind} or [ ])) (builtins.attrValues remoteByNode)
+    );
 
-  countRows =
-    predicate: rows:
-    builtins.length (builtins.filter predicate rows);
+  countRows = predicate: rows: builtins.length (builtins.filter predicate rows);
 
   routeCardinalityProofErrors =
     routeRows:
-    builtins.filter
-      (
-        row:
-        let
-          diag = row.diagnostics or { };
-          key = row.equivalenceKey or { };
-          hasRouteAtomIds = (builtins.length (key.routeAtomIds or [ ])) > 0;
-          hasAggregationClass = (key.aggregationClass or null) != null;
-          hasSourceNode = (key.sourceNode or null) != null;
-          prefixSummary = diag.prefixSummaryCandidateCount or 0;
-          exactDedupe = diag.exactDeduplicationCount or 0;
-          finalMat = diag.finalMaterializedRouteCount or 0;
-          routeAtomCt = diag.routeAtomCount or 0;
-        in
-        (prefixSummary > 0 || exactDedupe > 0)
-        && (!hasRouteAtomIds || !hasAggregationClass || !hasSourceNode)
-        || (exactDedupe > 0 && !hasAggregationClass)
-        || (finalMat > routeAtomCt)
-      )
-      routeRows;
+    builtins.filter (
+      row:
+      let
+        diag = row.diagnostics or { };
+        key = row.equivalenceKey or { };
+        hasRouteAtomIds = (builtins.length (key.routeAtomIds or [ ])) > 0;
+        hasAggregationClass = (key.aggregationClass or null) != null;
+        hasSourceNode = (key.sourceNode or null) != null;
+        prefixSummary = diag.prefixSummaryCandidateCount or 0;
+        exactDedupe = diag.exactDeduplicationCount or 0;
+        finalMat = diag.finalMaterializedRouteCount or 0;
+        routeAtomCt = diag.routeAtomCount or 0;
+      in
+      (prefixSummary > 0 || exactDedupe > 0)
+      && (!hasRouteAtomIds || !hasAggregationClass || !hasSourceNode)
+      || (exactDedupe > 0 && !hasAggregationClass)
+      || (finalMat > routeAtomCt)
+    ) routeRows;
 
 in
 {
   build =
-    { nodeNames
-    , remoteGroups
-    , remotePrefixFacts
-    , routeRows
-    ,
+    {
+      nodeNames,
+      remoteGroups,
+      remotePrefixFacts,
+      routeRows,
     }:
     let
       remoteByNode = remotePrefixFacts.remoteByNode or { };
       routeDiagnostics = map (row: row.diagnostics or { }) routeRows;
-      p2pExactGroups = countRows (row: ((row.equivalenceKey or { }).exceptionClass or null) == "point-to-point-exact") routeRows;
-      runtimeSourceFileGroups = countRows (row: ((row.equivalenceKey or { }).exceptionClass or null) == "runtime-source-file") routeRows;
-      selectedScopeGroups =
-        countRows
-          (
-            row:
-            let
-              key = row.equivalenceKey or { };
-            in
-            (key.overlay or null) != null || (key.uplink or null) != null || (key.access or null) != null
-          )
-          routeRows;
+      p2pExactGroups = countRows (
+        row: ((row.equivalenceKey or { }).exceptionClass or null) == "point-to-point-exact"
+      ) routeRows;
+      runtimeSourceFileGroups = countRows (
+        row: ((row.equivalenceKey or { }).exceptionClass or null) == "runtime-source-file"
+      ) routeRows;
+      selectedScopeGroups = countRows (
+        row:
+        let
+          key = row.equivalenceKey or { };
+        in
+        (key.overlay or null) != null || (key.uplink or null) != null || (key.access or null) != null
+      ) routeRows;
       countDiagnostic = field: sum (map (diag: diag.${field} or 0) routeDiagnostics);
       exactOnlyCount = countDiagnostic "exactOnlyCount";
       prefixSummaryCandidateCount = countDiagnostic "prefixSummaryCandidateCount";
       rejectedAggregationCount = countDiagnostic "rejectedAggregationCount";
       finalMaterializedRouteCount = countDiagnostic "finalMaterializedRouteCount";
       proofErrors = routeCardinalityProofErrors routeRows;
-      materializedRouteRows =
-        builtins.foldl'
-          (acc: row: acc + builtins.length (row.routes4 or [ ]) + builtins.length (row.routes6 or [ ]))
-          0
-          routeRows;
+      materializedRouteRows = builtins.foldl' (
+        acc: row: acc + builtins.length (row.routes4 or [ ]) + builtins.length (row.routes6 or [ ])
+      ) 0 routeRows;
     in
     {
       planner = "scratch-site-wide";
@@ -85,21 +82,41 @@ in
       };
       nextHopIdentities = builtins.length (builtins.attrNames remoteGroups);
       forwardingEquivalenceKeys = builtins.length routeRows;
-      inherit exactOnlyCount prefixSummaryCandidateCount rejectedAggregationCount finalMaterializedRouteCount;
+      inherit
+        exactOnlyCount
+        prefixSummaryCandidateCount
+        rejectedAggregationCount
+        finalMaterializedRouteCount
+        ;
       exactDeduplicationCount = countDiagnostic "exactDeduplicationCount";
       materializer = {
         sms = "FS-940-HDS-010-SDS-020-SMS-070";
         source = "finished-site-plan";
         perInterfaceNormalizationAuthoritative = false;
         routeRows = builtins.length routeRows;
-        inherit exactOnlyCount prefixSummaryCandidateCount rejectedAggregationCount finalMaterializedRouteCount;
+        inherit
+          exactOnlyCount
+          prefixSummaryCandidateCount
+          rejectedAggregationCount
+          finalMaterializedRouteCount
+          ;
       };
       nextHopEquivalence = {
         sms = "FS-940-HDS-010-SDS-020-SMS-040";
         resolvedOncePerDistinctTuple = true;
         keyFields = [
-          "sourceNode" "destinationOwner" "routeKind" "overlay" "uplink" "access"
-          "serviceName" "hopNode" "linkName" "via4" "via6" "routeIntentClass"
+          "sourceNode"
+          "destinationOwner"
+          "routeKind"
+          "overlay"
+          "uplink"
+          "access"
+          "serviceName"
+          "hopNode"
+          "linkName"
+          "via4"
+          "via6"
+          "routeIntentClass"
         ];
         entries = map (row: row.equivalenceKey or { }) routeRows;
       };
@@ -109,8 +126,23 @@ in
         routeRows = builtins.length routeRows;
         preservesSelectedScopes = selectedScopeGroups > 0;
         keyFields = [
-          "family" "sourceNode" "linkName" "nextHop" "routeIntentClass" "overlay"
-          "uplink" "access" "serviceName" "exceptionClass" "sourceFile"
+          "family"
+          "sourceNode"
+          "linkName"
+          "nextHop"
+          "routeIntentClass"
+          "overlay"
+          "uplink"
+          "access"
+          "serviceName"
+          "exceptionClass"
+          "sourceFile"
+          "tenant"
+          "prefixName"
+          "delegatedPrefixLength"
+          "perTenantPrefixLength"
+          "slot"
+          "prefixPostfix"
         ];
       };
       routeExceptionLayer = {
@@ -135,25 +167,34 @@ in
             finalMat = diag.finalMaterializedRouteCount or 0;
             routeAtomCt = diag.routeAtomCount or 0;
           in
-          if (prefixSummary > 0 || exactDedupe > 0) && (!hasRouteAtomIds || !hasAggregationClass || !hasSourceNode) then
+          if
+            (prefixSummary > 0 || exactDedupe > 0)
+            && (!hasRouteAtomIds || !hasAggregationClass || !hasSourceNode)
+          then
             builtins.throw "diagnostic.route-cardinality-equivalence-proof-missing"
           else if (exactDedupe > 0 && !hasAggregationClass) || (finalMat > routeAtomCt) then
             builtins.throw "diagnostic.route-cardinality-fast-path-invalid"
           else
             builtins.throw "diagnostic.route-cardinality-proof-error"
-        else {
-          sms = "FS-940-HDS-010-SDS-020-SMS-080";
-          routeAtomCount = builtins.length (
-            builtins.concatLists (map (row: ((row.equivalenceKey or { }).routeAtomIds or [ ])) routeRows)
-          );
-          inherit exactOnlyCount prefixSummaryCandidateCount rejectedAggregationCount finalMaterializedRouteCount;
-          hasEquivalenceKeys = builtins.length routeRows > 0;
-          provesBeforePromotion = true;
-          seededNegativeValidation = {
-            active = true;
-            sn1Label = "equivalence-proof-missing";
-            sn2Label = "fast-path-invalid";
+        else
+          {
+            sms = "FS-940-HDS-010-SDS-020-SMS-080";
+            routeAtomCount = builtins.length (
+              builtins.concatLists (map (row: ((row.equivalenceKey or { }).routeAtomIds or [ ])) routeRows)
+            );
+            inherit
+              exactOnlyCount
+              prefixSummaryCandidateCount
+              rejectedAggregationCount
+              finalMaterializedRouteCount
+              ;
+            hasEquivalenceKeys = builtins.length routeRows > 0;
+            provesBeforePromotion = true;
+            seededNegativeValidation = {
+              active = true;
+              sn1Label = "equivalence-proof-missing";
+              sn2Label = "fast-path-invalid";
+            };
           };
-        };
     };
 }

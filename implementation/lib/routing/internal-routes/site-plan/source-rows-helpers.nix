@@ -1,4 +1,9 @@
-{ lib, mode, nodes, remotePrefixFacts }:
+{
+  lib,
+  mode,
+  nodes,
+  remotePrefixFacts,
+}:
 
 let
   str = value: if value == null then "" else toString value;
@@ -7,7 +12,12 @@ let
     entry:
     if entry ? sourceFile then
       "runtime-source-file"
-    else if mode == "none" || (entry.kind or null) == "p2p" || (entry.kind or null) == "overlay" || (entry.kind or null) == "routed-public-ipv4" then
+    else if
+      mode == "none"
+      || (entry.kind or null) == "p2p"
+      || (entry.kind or null) == "overlay"
+      || (entry.kind or null) == "routed-public-ipv4"
+    then
       "exact-only"
     else
       "prefix-summary-eligible";
@@ -33,6 +43,12 @@ let
       (str (entry.kind or null))
       (str (entry.dst or null))
       (str (entry.sourceFile or null))
+      (str (entry.tenant or entry.netName or null))
+      (str (entry.prefixName or null))
+      (str (entry.delegatedPrefixLength or null))
+      (str (entry.perTenantPrefixLength or null))
+      (str (entry.slot or null))
+      (str (entry.prefixPostfix or null))
       (str (entry.overlay or null))
       (str (entry.uplink or null))
       (str (entry.peerSite or null))
@@ -46,6 +62,12 @@ let
         family = entry.family or null;
         destination = entry.dst or null;
         sourceFile = entry.sourceFile or null;
+        tenant = entry.tenant or entry.netName or null;
+        prefixName = entry.prefixName or null;
+        delegatedPrefixLength = entry.delegatedPrefixLength or null;
+        perTenantPrefixLength = entry.perTenantPrefixLength or null;
+        slot = entry.slot or null;
+        prefixPostfix = entry.prefixPostfix or null;
         owner = entry.owner or null;
         kind = entry.kind or null;
         overlay = entry.overlay or null;
@@ -55,7 +77,8 @@ let
         exceptionClass = exceptionClass entry;
       };
     in
-    entry // {
+    entry
+    // {
       routeAtom = atom;
       aggregationClass = atom.aggregationClass;
       exceptionClass = atom.exceptionClass;
@@ -80,8 +103,10 @@ let
       nodeRole = node.role or null;
       uplinksOnNode = remotePrefixFacts.uplinksByNode.${nodeName} or [ ];
       overlayName = entry.overlay or null;
-      policyScoped = overlayName != null && builtins.hasAttr overlayName remotePrefixFacts.overlayPolicyAllowedNodes;
-      attachmentScoped = overlayName != null && builtins.hasAttr overlayName remotePrefixFacts.overlayAllowedNodes;
+      policyScoped =
+        overlayName != null && builtins.hasAttr overlayName remotePrefixFacts.overlayPolicyAllowedNodes;
+      attachmentScoped =
+        overlayName != null && builtins.hasAttr overlayName remotePrefixFacts.overlayAllowedNodes;
       isNonOverlayUplinkCore =
         nodeRole == "core"
         && overlayName != null
@@ -107,7 +132,11 @@ let
     entry.owner != nodeName
     && !ownsDst
     && (
-      if entry.kind == "tenant" || entry.kind == "runtime-routed-prefix" || entry.kind == "routed-public-ipv4" then
+      if
+        entry.kind == "tenant"
+        || entry.kind == "runtime-routed-prefix"
+        || entry.kind == "routed-public-ipv4"
+      then
         tenantReachableFromNode nodeName entry
         && !((entry.kind or null) == "runtime-routed-prefix" && nodeRole == "access")
       else if entry.kind == "overlay" then
@@ -118,22 +147,29 @@ let
 
   normalizeTenantEntry =
     entry:
-    ({
-      family = entry.family;
-      owner = entry.owner;
-      kind = entry.kind or "tenant";
-    }
-    // lib.optionalAttrs (entry ? dst) { dst = entry.dst; }
-    // lib.optionalAttrs ((entry.authorityClass or null) != null) { authorityClass = entry.authorityClass; }
-    // lib.optionalAttrs ((entry.source or null) != null) { source = entry.source; }
-    // lib.optionalAttrs (entry ? sourceFile) {
-      sourceFile = entry.sourceFile;
-      prefixName = entry.prefixName or null;
-      delegatedPrefixLength = entry.delegatedPrefixLength or null;
-      perTenantPrefixLength = entry.perTenantPrefixLength or null;
-      slot = entry.slot or null;
-    }
-    // lib.optionalAttrs ((entry.prefixPostfix or null) != null) { prefixPostfix = entry.prefixPostfix; });
+    (
+      {
+        family = entry.family;
+        owner = entry.owner;
+        kind = entry.kind or "tenant";
+      }
+      // lib.optionalAttrs (entry ? dst) { dst = entry.dst; }
+      // lib.optionalAttrs ((entry.authorityClass or null) != null) {
+        authorityClass = entry.authorityClass;
+      }
+      // lib.optionalAttrs ((entry.source or null) != null) { source = entry.source; }
+      // lib.optionalAttrs (entry ? sourceFile) {
+        sourceFile = entry.sourceFile;
+        tenant = entry.tenant or entry.netName or null;
+        prefixName = entry.prefixName or null;
+        delegatedPrefixLength = entry.delegatedPrefixLength or null;
+        perTenantPrefixLength = entry.perTenantPrefixLength or null;
+        slot = entry.slot or null;
+      }
+      // lib.optionalAttrs ((entry.prefixPostfix or null) != null) {
+        prefixPostfix = entry.prefixPostfix;
+      }
+    );
 
 in
 {

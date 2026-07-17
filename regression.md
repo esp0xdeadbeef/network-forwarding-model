@@ -1,5 +1,14 @@
 # regression.md
 
+## FS-350 runtime delegated-prefix derivation metadata
+
+- state=solved
+- owner: network-forwarding-model
+- scope: FS-350-HDS-010-SDS-010-SMS-060 runtime delegated-prefix route planning
+- first-bad-artifact: On 2026-07-17 the representative `s-router-prod` NFM output preserved complete `/run/secrets/subnet-ipv6-vlan{2,3,7}` authority records (`delegatedPrefixLength=48`, `perTenantPrefixLength=64`, `slot`, `prefixName`) but 10 emitted runtime return routes reached CPM without that derivation metadata; 9 of those 10 routes were already incomplete in NFM `forwardingOut`.
+- evidence: `NETWORK_REPO_DIRECT_TEST_OK=1 bash tests/FS-350-HDS-010-SDS-010-SMS-060-runtime-delegated-route-metadata.sh`; full NFM construction suite (49 tests) rerun after the owning-layer fix.
+- note: `internal-routes/route-groups.nix` emits only `sourceFile` and `prefixName`, while the route-atom and next-hop equivalence identities do not distinguish tenant/slot/prefix-length derivations. The renderer therefore cannot derive the intended per-tenant `/64` from the protected parent prefix without a host-local repair.
+
 ## FS-390 public IPv4 same-owner tenant ownership
 
 - state=solved
