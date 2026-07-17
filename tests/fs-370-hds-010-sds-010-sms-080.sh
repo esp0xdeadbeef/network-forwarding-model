@@ -79,7 +79,7 @@ cat >"${input_nix}" <<'NIX'
       { id = "allow-client-to-wan"; priority = 100;
         from = { kind = "tenant"; name = "client"; };
         to = { kind = "external"; uplinks = [ "wan" ]; };
-        trafficType = "any"; action = "allow"; }
+        trafficType = "any"; returnBehavior = "symmetric"; action = "allow"; }
     ];
 
     transit.ordering = [
@@ -195,7 +195,7 @@ cat >"${bypass_core_intent}" <<'NIX'
       { id = "allow-client-to-wan"; priority = 100;
         from = { kind = "tenant"; name = "client"; };
         to = { kind = "external"; uplinks = [ "wan" ]; };
-        trafficType = "any"; action = "allow"; }
+        trafficType = "any"; returnBehavior = "symmetric"; action = "allow"; }
     ];
 
     transit.ordering = [
@@ -282,11 +282,11 @@ cat >"${multi_selector_intent}" <<'NIX'
       { id = "allow-client-a-to-isp-a"; priority = 100;
         from = { kind = "tenant"; name = "client-a"; };
         to = { kind = "external"; uplinks = [ "isp-a" ]; };
-        trafficType = "any"; action = "allow"; }
+        trafficType = "any"; returnBehavior = "symmetric"; action = "allow"; }
       { id = "allow-client-b-to-isp-b"; priority = 100;
         from = { kind = "tenant"; name = "client-b"; };
         to = { kind = "external"; uplinks = [ "isp-b" ]; };
-        trafficType = "any"; action = "allow"; }
+        trafficType = "any"; returnBehavior = "symmetric"; action = "allow"; }
     ];
 
     transit.ordering = [
@@ -366,11 +366,11 @@ cat >"${multi_selector_bypass}" <<'NIX'
       { id = "allow-client-a-to-isp-a"; priority = 100;
         from = { kind = "tenant"; name = "client-a"; };
         to = { kind = "external"; uplinks = [ "isp-a" ]; };
-        trafficType = "any"; action = "allow"; }
+        trafficType = "any"; returnBehavior = "symmetric"; action = "allow"; }
       { id = "allow-client-b-to-isp-b"; priority = 100;
         from = { kind = "tenant"; name = "client-b"; };
         to = { kind = "external"; uplinks = [ "isp-b" ]; };
-        trafficType = "any"; action = "allow"; }
+        trafficType = "any"; returnBehavior = "symmetric"; action = "allow"; }
     ];
 
     transit.ordering = [

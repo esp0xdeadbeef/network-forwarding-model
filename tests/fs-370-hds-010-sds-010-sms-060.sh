@@ -44,7 +44,7 @@ cat >"${input_nix}" <<'NIX'
       { id = "allow-client-to-wan"; priority = 100;
         from = { kind = "tenant"; name = "client"; };
         to = { kind = "external"; uplinks = [ "wan" ]; };
-        trafficType = "any"; action = "allow"; }
+        trafficType = "any"; returnBehavior = "symmetric"; action = "allow"; }
     ];
 
     transit.ordering = [
