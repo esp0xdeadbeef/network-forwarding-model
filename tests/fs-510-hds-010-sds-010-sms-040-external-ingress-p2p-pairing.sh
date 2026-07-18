@@ -45,15 +45,15 @@ cat >"${input_nix}" <<'NIX'
         { id = "allow-client-to-wan"; priority = 100;
           from = { kind = "tenant"; name = "client"; };
           to = { kind = "external"; uplinks = [ "wan" ]; };
-          trafficType = "any"; action = "allow"; }
+          trafficType = "any"; action = "allow"; returnBehavior = "symmetric"; }
         { id = "external-ingress-to-wan"; priority = 200;
           from = { kind = "external"; name = "ingress-source"; };
           to = { kind = "external"; uplinks = [ "wan" ]; };
-          trafficType = "any"; action = "allow"; }
+          trafficType = "any"; action = "allow"; returnBehavior = "one-way"; }
         { id = "external-ingress-to-backup"; priority = 201;
           from = { kind = "external"; name = "ingress-source"; };
           to = { kind = "external"; uplinks = [ "backup" ]; };
-          trafficType = "any"; action = "allow"; }
+          trafficType = "any"; action = "allow"; returnBehavior = "one-way"; }
       ];
     };
 

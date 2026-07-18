@@ -31,8 +31,17 @@ let
     site:
     let
       cc = site.communicationContract or { };
+      normalizeCompilerRelation =
+        relation:
+        relation
+        // {
+          id = relation.id or relation.source.id;
+          priority = relation.priority or relation.source.priority or 0;
+        };
       rawRelations =
-        if cc ? allowedRelations then
+        if site ? relations && builtins.isList site.relations then
+          map normalizeCompilerRelation site.relations
+        else if cc ? allowedRelations then
           cc.allowedRelations
         else if cc ? relations then
           cc.relations
@@ -111,7 +120,8 @@ let
             fail "missing returnBehavior on allow relation (must be explicitly declared as symmetric, one-way, or stateful-return; nested publicIngressTupleAuthority.returnBehavior also accepted)"
         )
         rawRelations;
-      services = cc.services or [ ];
+      services =
+        if site ? services && builtins.isList site.services then site.services else cc.services or [ ];
       trafficTypes = cc.trafficTypes or [ ];
     };
 
