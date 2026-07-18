@@ -57,6 +57,7 @@ cat >"${input_nix}" <<'NIX'
           from = { kind = "tenant"; name = "client"; };
           to = { kind = "external"; uplinks = [ "wan" ]; };
           trafficType = "nebula";
+          returnBehavior = "symmetric";
         }
         {
           id = "wan-to-nebula";
@@ -84,6 +85,7 @@ cat >"${input_nix}" <<'NIX'
           from = { kind = "external"; uplinks = [ "wan" ]; };
           to = { kind = "service"; name = "unrelated-service"; };
           trafficType = "nebula";
+          returnBehavior = "one-way";
         }
       ];
     };
