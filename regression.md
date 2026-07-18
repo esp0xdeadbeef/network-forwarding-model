@@ -35,3 +35,12 @@
 - scope: FS-940-HDS-010-SDS-020-SMS-010 site route-plan materializer
 - evidence: `NETWORK_REPO_DIRECT_TEST_OK=1 bash tests/test-internal-route-site-plan-contract.sh`, `NETWORK_REPO_DIRECT_TEST_OK=1 bash tests/test-internal-route-source-group-contract.sh`, `NETWORK_REPO_DIRECT_TEST_OK=1 bash tests/test-internal-route-coordinator-contract.sh`, `NETWORK_REPO_DIRECT_TEST_OK=1 bash tests/test-internal-route-equivalence-contract.sh`, `NETWORK_REPO_DIRECT_TEST_OK=1 bash tests/test-internal-route-profile-hypothesis.sh`, `NETWORK_REPO_DIRECT_TEST_OK=1 bash benchmarks/overlay-semantic-eval.sh`
 - note: The route-plan surface now emits construction diagnostics for route atoms, source eligibility, next-hop/equivalence records, exact-only and materialized route counts, and benchmark evidence passes the 3000 ms NFM semantic budget without changing route-cardinality semantics.
+
+## FS-525 / FS-540 named recursive DNS forwarding authority
+
+- state=open
+- owner: network-forwarding-model
+- scope: FS-525-HDS-010-SDS-010-SMS-010 and FS-540-HDS-010-SDS-010-SMS-010 through SMS-045
+- first-bad-artifact: The 2026-07-18 pipeline audit found that NFM reconstructs `communicationContract` from `meta.provenance.originalInputs` instead of consuming the compiler-normalized relation and service surface. A named core DNS provider can therefore survive only as an incidental site field while its provider-node ownership and explicit requester/resolver path have no forwarding-model authority. In multi-core or multi-egress sites this leaves CPM without one reproducible modeled provider path.
+- required-fix: Consume the compiler-emitted DNS contract and preserve the named provider-node, resolver path, address-family requirements, recursion/local-authority boundary, and egress selector as forwarding authority. Derive only topology consequences; do not select concrete DNS addresses or invent fallback resolvers.
+- evidence: Add focused NFM construction tests over the FS-525/FS-540 source that prove the selected provider path is unique and stable, and that missing or ambiguous provider/egress authority remains fail-closed with deterministic modeled-ID diagnostics.
