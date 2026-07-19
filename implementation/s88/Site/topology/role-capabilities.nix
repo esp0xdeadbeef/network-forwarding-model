@@ -9,6 +9,7 @@ let
   roleFlagsFor =
     { role
     , exitNode
+    , uplinkAnchor ? false
     , upstreamSelection
     ,
     }:
@@ -17,7 +18,8 @@ let
       isDownstreamSelector = role == "downstream-selector";
       isPolicy = role == "policy";
       isUpstreamSelector = upstreamSelection;
-      isUplinkCore = exitNode;
+      isUplinkCore = uplinkAnchor;
+      isEgressExit = exitNode;
     };
 in
 {
@@ -52,10 +54,8 @@ in
       ]
     else if flags.isUplinkCore then
       baseTransitFunctions
-      ++ [
-        "external-egress"
-        "uplink-anchor"
-      ]
+      ++ (if flags.isEgressExit then [ "external-egress" ] else [ ])
+      ++ [ "uplink-anchor" ]
     else
       baseTransitFunctions;
 
@@ -69,7 +69,7 @@ in
       carriesTransit = true;
       enforcesPolicy = flags.isPolicy;
       explicit = true;
-      participatesInUpstreamSelection = flags.isUplinkCore || flags.isUpstreamSelector;
+      participatesInUpstreamSelection = flags.isEgressExit || flags.isUpstreamSelector;
       terminatesOverlays = false;
       terminatesTenants = flags.isAccess;
     };
@@ -82,7 +82,7 @@ in
     {
       connectedReachability = true;
       defaultReachability = false;
-      exitsSite = flags.isUplinkCore;
+      exitsSite = flags.isEgressExit;
       explicit = true;
       internalReachability = true;
       overlayReachability = false;
@@ -97,7 +97,7 @@ in
     in
     {
       enforcement = flags.isPolicy;
-      exit = flags.isUplinkCore;
+      exit = flags.isEgressExit;
       explicit = true;
       ingress = flags.isAccess;
       participates = true;

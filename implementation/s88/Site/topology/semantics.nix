@@ -1,14 +1,14 @@
-{
-  lib,
-  self ? {
+{ lib
+, self ? {
     outPath = ./.;
-  },
-  ...
+  }
+, ...
 }:
 
 let
   selection = import ./semantic-selection.nix { inherit lib self; };
   semanticNode = import ./semantic-node.nix { inherit lib self; };
+  buildEgressAuthority = import ./egress-authority.nix { inherit lib; };
 
   inherit (selection)
     coreNodeNamesFor
@@ -23,10 +23,10 @@ let
     ;
 
   annotateSite =
-    {
-      site,
-      rolesResult ? null,
-      wanResult ? null,
+    { site
+    , rolesResult ? null
+    , wanResult ? null
+    ,
     }:
     let
       nodes = site.nodes or { };
@@ -40,25 +40,44 @@ let
       siteUplinkCoreNames = siteUplinkCoreNamesFor { inherit site wanResult; };
       siteUplinkNames = siteUplinkNamesFor { inherit site wanResult siteExternalDomains; };
 
-      nodeSemantics = builtins.mapAttrs (
-        nodeName: node:
-        semanticNode.build {
-          inherit
-            node
-            nodeName
-            site
-            siteExternalDomains
-            siteUplinkCoreNames
-            siteUplinkNames
-            ;
-          role = roleOf nodeName;
-        }
-      ) nodes;
+      egressAuthority = buildEgressAuthority {
+        inherit
+          maybeOne
+          nodes
+          site
+          siteExternalDomains
+          siteUplinkCoreNames
+          siteUplinkNames
+          sortedUnique
+          upstreamSelectorNodeName
+          ;
+      };
+      inherit (egressAuthority) authorizedUplinkCoreNames authorizedUplinkNames siteEgressIntent;
+
+      nodeSemantics = builtins.mapAttrs
+        (
+          nodeName: node:
+            semanticNode.build {
+              inherit
+                node
+                nodeName
+                site
+                siteExternalDomains
+                siteUplinkCoreNames
+                ;
+              siteEgressCoreNames = authorizedUplinkCoreNames;
+              siteEgressUplinkNames = authorizedUplinkNames;
+              role = roleOf nodeName;
+            }
+        )
+        nodes;
 
       traversalParticipantNodeNames = sortedUnique (
-        lib.filter (
-          name: ((nodeSemantics.${name}.traversalParticipation.participates or false) == true)
-        ) nodeNames
+        lib.filter
+          (
+            name: ((nodeSemantics.${name}.traversalParticipation.participates or false) == true)
+          )
+          nodeNames
       );
       isWanFallbackCore =
         name:
@@ -66,29 +85,22 @@ let
           node = nodes.${name} or { };
           uplinks = node.uplinks or { };
         in
-        builtins.any (
-          uplinkName:
-          let
-            uplink = uplinks.${uplinkName} or { };
-            prefixes = (uplink.ipv4 or [ ]) ++ (uplink.ipv6 or [ ]);
-          in
-          builtins.elem "0.0.0.0/0" prefixes || builtins.elem "::/0" prefixes
-        ) (builtins.attrNames uplinks);
+        builtins.any
+          (
+            uplinkName:
+            let
+              uplink = uplinks.${uplinkName} or { };
+              prefixes = (uplink.ipv4 or [ ]) ++ (uplink.ipv6 or [ ]);
+            in
+            builtins.elem "0.0.0.0/0" prefixes || builtins.elem "::/0" prefixes
+          )
+          (builtins.attrNames uplinks);
       dnsAccessNodeNames = sortedUnique (lib.filter (name: roleOf name == "access") nodeNames);
       dnsCoreNodeNames = sortedUnique coreNodeNames;
       dnsNonWanCoreNodeNames = sortedUnique (
         lib.filter (name: !(isWanFallbackCore name)) dnsCoreNodeNames
       );
       dnsWanCoreNodeNames = sortedUnique (lib.filter isWanFallbackCore dnsCoreNodeNames);
-
-      siteEgressIntent = {
-        eligibleNodeNames = sortedUnique (siteUplinkCoreNames ++ (maybeOne upstreamSelectorNodeName));
-        exitNodeNames = sortedUnique siteUplinkCoreNames;
-        explicit = true;
-        externalDomains = siteExternalDomains;
-        uplinkCoreNodeNames = sortedUnique siteUplinkCoreNames;
-        upstreamSelectorNodeName = upstreamSelectorNodeName;
-      };
 
       forwardingSemantics = {
         coreNodeNames = coreNodeNames;
