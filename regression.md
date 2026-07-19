@@ -1,5 +1,15 @@
 # regression.md
 
+## FS-230 ingress-only site must not acquire public egress
+
+- state=solved
+- owner: network-forwarding-model
+- scope: FS-230-HDS-010-SDS-010-SMS-040 explicit protected IPv6 public ingress without outbound authority
+- first-bad-artifact: The complete five-node row carries one compiler-normalized `external -> service` IPv6 UDP/4242 relation and no `tenant/service -> external` allow, but NFM marks the uplink core as `egressIntent.exit=true`; CPM consequently emits broad internal-to-WAN accepts and NAT44, and CLAB renders masquerade rules that were never authorized by the relation.
+- required-fix: Distinguish physical uplink/ingress capability from packet egress authority. Only an explicit allowed relation targeting an external domain may enable site/node egress semantics; an ingress-only relation must retain the WAN/core path for inbound tuple delivery without creating default egress, NAT, or an internal-to-public allow.
+- implemented-fix: Site and node egress semantics now consume only explicit allowed relations targeting an external domain, while `forwardingResponsibility.anchorsExternalUplinks` remains a separate physical-ingress capability. Relation-scoped uplinks select only their owning core; ingress-only cores retain the WAN anchor but expose no egress exit, NAT intent, eligible selector, or WAN interface through `egressIntent`.
+- evidence: `NETWORK_REPO_DIRECT_TEST_OK=1 tests/test-FS-230-HDS-010-SDS-010-SMS-040-ingress-only-egress-authority.sh` proves the ingress-only negative and a sibling explicit-egress positive. The complete five-node lab row then compiles through local NFM/CPM with five relation-owned protected IPv6 ingress rules, empty exit/NAT authority, and no generic public-egress rule.
+
 ## FS-310 public-ingress target lane derivation
 
 - state=solved
