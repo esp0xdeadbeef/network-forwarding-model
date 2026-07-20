@@ -13,12 +13,12 @@
   };
 
   outputs =
-    { self
-    , nixpkgs
-    , nixpkgs-network
-    , network-compiler
-    , network-labs
-    ,
+    {
+      self,
+      nixpkgs,
+      nixpkgs-network,
+      network-compiler,
+      network-labs,
     }:
     let
       systems = [
@@ -68,10 +68,7 @@
 
           isCompilerOutput =
             value:
-            builtins.isAttrs value
-            && value ? sites
-            && builtins.isAttrs value.sites
-            && !(value ? enterprise);
+            builtins.isAttrs value && value ? sites && builtins.isAttrs value.sites && !(value ? enterprise);
 
           compilerLib =
             if network-compiler ? libBySystem then
@@ -82,10 +79,22 @@
                 compilePath = valueOrPath: (network-compiler.lib.compile system) (readValue valueOrPath);
               };
 
+          controlledSkip = import ./lib/controlled-skip.nix {
+            repository = "network-forwarding-model";
+            repositoryRevision = self.sourceInfo.rev or self.dirtyRev or "uncommitted";
+            stageIndex = 2;
+            previousStage = "network-compiler";
+            nextStage = "network-control-plane-model";
+            normalInputContract = "network-forwarding-model-input/v1";
+          };
+
           layerEntrySkippedForBoundary = {
             intent-source = [ ];
             compiler-output = [ "intent-source" ];
-            forwarding-model-input = [ "intent-source" "network-compiler" ];
+            forwarding-model-input = [
+              "intent-source"
+              "network-compiler"
+            ];
             control-plane-input = [
               "intent-source"
               "network-compiler"
@@ -118,59 +127,61 @@
 
           layerEntrySkippedLayers =
             entryBoundary:
-            layerEntrySkippedForBoundary.${entryBoundary} or
-            (throw "network-forwarding-model layer-entry warning: unknown entryBoundary '${entryBoundary}'");
+            layerEntrySkippedForBoundary.${entryBoundary}
+              or (throw "network-forwarding-model layer-entry warning: unknown entryBoundary '${entryBoundary}'");
 
-          layerEntryWarningFor =
-            layer:
-            {
-              code = layerEntryWarningBySkippedLayer.${layer};
-              severity = "warning";
-              skippedLayer = layer;
-              issuingRepo = layer;
-              message =
-                if layer == layerEntryCurrentRepo then
-                  "layer-entry starts below network-forwarding-model; NFM execution and validation are not covered by this scenario"
-                else
-                  "layer-entry skips ${layer}; that layer is not covered by this scenario";
-            };
+          layerEntryWarningFor = layer: {
+            code = layerEntryWarningBySkippedLayer.${layer};
+            severity = "warning";
+            skippedLayer = layer;
+            issuingRepo = layer;
+            message =
+              if layer == layerEntryCurrentRepo then
+                "layer-entry starts below network-forwarding-model; NFM execution and validation are not covered by this scenario"
+              else
+                "layer-entry skips ${layer}; that layer is not covered by this scenario";
+          };
         in
         rec {
           model = inputOrArgs: applyForwardingModel { input = normalizeModelInput inputOrArgs; };
 
+          inherit controlledSkip;
+
+          controlledSkipAcknowledgement = controlledSkip.acknowledge;
+
           readInput = readValue;
 
           layerEntryWarnings =
-            { entryBoundary ? "intent-source" }:
+            {
+              entryBoundary ? "intent-source",
+            }:
             let
               skippedUpstreamLayers = layerEntrySkippedLayers entryBoundary;
               repoSkipped = builtins.elem layerEntryCurrentRepo skippedUpstreamLayers;
-              warnings =
-                if repoSkipped then
-                  [ (layerEntryWarningFor layerEntryCurrentRepo) ]
-                else
-                  [ ];
+              warnings = if repoSkipped then [ (layerEntryWarningFor layerEntryCurrentRepo) ] else [ ];
             in
             {
               repo = layerEntryCurrentRepo;
-              inherit entryBoundary skippedUpstreamLayers repoSkipped warnings;
-              inputTreatment =
-                if repoSkipped then
-                  "pass-through"
-                else
-                  "consume-or-normalize";
+              inherit
+                entryBoundary
+                skippedUpstreamLayers
+                repoSkipped
+                warnings
+                ;
+              inputTreatment = if repoSkipped then "pass-through" else "consume-or-normalize";
             };
 
           layerEntryEnvelope =
-            { input
-            , entryBoundary ? "intent-source"
-            ,
+            {
+              input,
+              entryBoundary ? "intent-source",
             }:
             let
               payload = readValue input;
               warningPayload = layerEntryWarnings { inherit entryBoundary; };
             in
-            warningPayload // {
+            warningPayload
+            // {
               normalizedTo = "nix-attrset";
               input = payload;
               output = payload;
@@ -194,9 +205,9 @@
             };
 
           writeJSON =
-            { input
-            , name ? "output-network-forwarding-model.json"
-            ,
+            {
+              input,
+              name ? "output-network-forwarding-model.json",
             }:
             let
               pkgs = mkPkgs system;
@@ -208,9 +219,9 @@
             );
 
           writeFromCompilerInputPath =
-            { path
-            , name ? "output-network-forwarding-model.json"
-            ,
+            {
+              path,
+              name ? "output-network-forwarding-model.json",
             }:
             let
               pkgs = mkPkgs system;
