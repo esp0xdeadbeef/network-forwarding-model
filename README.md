@@ -49,7 +49,12 @@ This repository sits between the compiler and the control-plane model.
 | **Compiler**            | defines communication semantics and canonical staged topology                 |
 | **Forwarding model**    | constructs deterministic forwarding structure from the canonical staged model |
 | **Control plane model** | derives control-plane mechanisms and realization inputs                       |
+| **Realization model**   | produces the validated canonical realization bundle without reinterpreting intent |
 | **Renderer**            | emits platform-specific configuration                                         |
+
+`network-realization-schema` is the pinned contract dependency shared by the
+realization-model producer, validators, fixtures, and renderers. It is not a
+transformation stage.
 
 Pipeline:
 
@@ -61,6 +66,10 @@ compiler
 forwarding model
   ↓
 control plane model
+  ↓
+realization model
+  ↓
+validated canonical realization bundle
   ↓
 renderer
 ```
@@ -81,7 +90,7 @@ before reaching this repository.
 
 | Layer | ID | Description |
 |-------|----|-------------|
-| URS   | L162-175 | Default Site Fabric — logical chain, core/access host-facing interface pairs, policy-point transit |
+| URS   | Scheme of all router layouts; Model Portability; Canonical Realization and Renderer Boundary | Default fabric, portable meaning, and canonical downstream authority |
 | FS    | FS-181 | Closed-World Policy Authority Set — derive network behavior from closed set of authority records, resolve ingress/egress path mappings from dependency graph |
 | FS    | FS-255 | Core Role Host-Facing Interface Pair — exactly two host-facing interfaces per core role |
 | FS    | FS-260 | Default Site Fabric Chain — canonical staged traversal preserved as platform-neutral forwarding structure |
@@ -93,7 +102,7 @@ before reaching this repository.
 ### Pipeline
 
 ```
-network-labs (intent + inventory) → network-compiler → NFM → CPM → renderers
+network-labs (intent + inventory) → network-compiler → NFM → CPM → network-realization-model → renderers
 ```
 
 Required input: compiler output (platform-independent normalized site payload).
@@ -215,7 +224,7 @@ The control-plane model later derives:
 * control-plane mechanisms
 * protocol-facing realization inputs
 * runtime-target-specific control data
-* renderer-facing realization structure
+* realization-model-facing control-plane structure
 
 That separation matters.
 
@@ -252,8 +261,9 @@ It is not allowed to decide:
 ## Forwarding output contract
 
 The forwarding output is not just a graph. It is the handoff contract that CPM
-and renderers must consume without rediscovering semantics from names or input
-examples.
+must consume without rediscovering semantics from names or input examples.
+`network-realization-model` then preserves the resulting explicit CPM meaning
+in the validated canonical bundle used by renderers.
 
 Stable lane identities:
 
@@ -304,23 +314,28 @@ Realization-required subset:
 * every WAN interface must be bound to an uplink realization with the required
   local and peer endpoint addresses
 * every overlay termination and overlay logical interface must be bound to a
-  downstream control-plane and renderer realization
+  downstream control-plane and canonical realization
 
 The forwarding model may say these identities must exist. It must not decide
 whether they become VLANs, bridges, namespaces, containers, subinterfaces, or
 physical ports.
 
-## Renderer Input Boundary
+## Downstream Renderer Boundary
 
 Renderers do not consume `intent.nix` or inventory files as semantic authority.
 Those files are upstream inputs. The forwarding model emits forwarding truth,
-CPM joins that truth with realization data, and renderer behavior is driven by
-the resulting CPM output.
+CPM joins that truth with realization data, and `network-realization-model`
+turns the scoped CPM result into the validated canonical bundle. Renderer
+behavior is driven by that bundle, plus at most one separately validated and
+strictly bounded platform binding.
+
+Raw forwarding-model output and raw CPM output are not renderer contracts.
 
 If a downstream renderer needs to preserve lane selection, route ownership,
 overlay semantics, or forwarding authority, the forwarding model and CPM must
-carry that as explicit model data. A renderer must not recover it by parsing
-link names, provider names, role names, or example files.
+carry that as explicit model data and the realization model must preserve it in
+the canonical bundle. A renderer must not recover it by parsing link names,
+provider names, role names, or example files.
 
 ---
 
@@ -680,7 +695,7 @@ This project is not trying to be:
 * a universal topology-preserving graph solver
 * a vendor-native configuration generator
 * a compatibility layer for every network architecture style
-* a renderer that skips control-plane modeling
+* a renderer that skips control-plane or canonical realization modeling
 * a place where missing platform facts are guessed into existence
 
 It is trying to be:
