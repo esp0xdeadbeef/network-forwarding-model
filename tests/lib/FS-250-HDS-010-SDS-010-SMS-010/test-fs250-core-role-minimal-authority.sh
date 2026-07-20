@@ -1,0 +1,1 @@
+../shared/test-fs250-core-role-minimal-authority.sh
