@@ -1,0 +1,1 @@
+../shared/test-network-labs-site-fabric-handoff.sh

@@ -1,0 +1,1 @@
+../shared/test-fs180-fs270-selector-relation-authority.sh
