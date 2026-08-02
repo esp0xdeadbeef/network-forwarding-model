@@ -46,10 +46,21 @@ let
     in
     builtins.listToAttrs (
       builtins.map
-        (siteId: {
-          name = siteId;
-          value = mergeAttrs (original.${siteId} or { }) (explicit.${siteId} or { });
-        })
+        (siteId:
+          let
+            explicitSite = explicit.${siteId} or { };
+            mergedSite = mergeAttrs (original.${siteId} or { }) explicitSite;
+          in
+          {
+            name = siteId;
+            value = mergedSite // {
+              # FS-982-HDS-010-SDS-010-SMS-120: hostManagement is behavior
+              # authority emitted by the compiler. The originalInputs copy is
+              # provenance only and must never reintroduce an atom omitted by
+              # the explicit compiler output.
+              hostManagement = explicitSite.hostManagement or null;
+            };
+          })
         siteNames
     );
 
@@ -87,6 +98,21 @@ let
           merged.coreNodeNames
         else
           siteCoreNodeNamesFromTopology merged;
+
+      # FS-540: Preserve address-free DNS intent contracts through the compiler
+      # pipeline so the CPM can emit named-dns-binding and local-dns-sharing
+      # runtime targets. The original intent keys are recursiveDnsIntent and
+      # localDnsSharingIntent; the CPM expects them nested under dns.recursive
+      # and dns.localSharing.
+      mergedDns = merged.dns or { };
+      dns = mergedDns // (
+        if merged ? recursiveDnsIntent || merged ? localDnsSharingIntent then
+          { }
+          // lib.optionalAttrs (merged ? recursiveDnsIntent) { recursive = merged.recursiveDnsIntent; }
+          // lib.optionalAttrs (merged ? localDnsSharingIntent) { localSharing = merged.localDnsSharingIntent; }
+        else
+          { }
+      );
     in
     merged
     // {
@@ -108,7 +134,8 @@ let
                    else if merged ? transit && builtins.isAttrs merged.transit && merged.transit ? links then merged.transit.links
                    else topology.links;
       };
-    };
+    }
+    // lib.optionalAttrs (dns != { }) { inherit dns; };
 
   normalizedSitesByEnterprise = builtins.mapAttrs
     (
