@@ -125,6 +125,8 @@ in
       "ulaPrefix"
       "routerLoopbacks"
       "transport"
+      "recursiveDnsIntent"     # FS-540: migrated to dns.recursive by compiler-input/sites/build.nix
+      "localDnsSharingIntent"  # FS-540: migrated to dns.localSharing by compiler-input/sites/build.nix
     ]
     // {
       inherit enterprise siteId overlayReachability;
