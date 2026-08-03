@@ -58,6 +58,26 @@ cat >"${input_nix}" <<'NIX'
           scopeKind = "site";
           scopeName = "ams";
         }
+        # SMS-040 N1a: public prefix with protected authority class
+        {
+          id = "mixing-public-as-protected";
+          family = 4;
+          prefix = "203.0.113.0/24";
+          authorityClass = "access-subnet-pool";
+          reservationState = "reserved";
+          scopeKind = "site";
+          scopeName = "ams";
+        }
+        # SMS-040 N1b: private prefix with public authority class
+        {
+          id = "mixing-private-as-public";
+          family = 4;
+          prefix = "10.99.0.0/24";
+          authorityClass = "routed-public-ipv4";
+          reservationState = "reserved";
+          scopeKind = "site";
+          scopeName = "ams";
+        }
       ];
       consumerRequests = [
         {
@@ -132,6 +152,8 @@ jq -e '
   | $pa.records["prefix-authority::access-client::4|10.10.0.0/24"] as $access4
   | $pa.records["prefix-authority::access-client::6|source:/run/pd/client.prefix"] as $runtime6
   | $pa.records["prefix-reservation::reserved-doc"] as $reserved
+  | $pa.records["prefix-reservation::mixing-public-as-protected"] as $mixingN1a
+  | $pa.records["prefix-reservation::mixing-private-as-public"] as $mixingN1b
   | $pa.consumerEligibility["assign-client-v4"] as $assign
   | $pa.consumerEligibility["route-runtime-gua"] as $routeRuntime
   | $pa.deniedSpace["translate-access-v4"] as $wrongClass
@@ -155,6 +177,16 @@ jq -e '
     and ($reservedDenied.reason == "reserved-prefix-authority")
     and ($unassignedDenied.allowed == false)
     and ($unassignedDenied.reason == "unassigned-prefix-authority")
+    # SMS-040 N1a: public prefix (203.0.113.0/24) under protected class (access-subnet-pool) → mixing detected
+    and ($mixingN1a.diagnostics[0].code == "authority-class-mixing")
+    and ($mixingN1a.diagnostics[0].affectedAuthorityClass == "access-subnet-pool")
+    and ($mixingN1a.diagnostics[0].prefix == "203.0.113.0/24")
+    and ($mixingN1a.diagnostics[0].conflictingClasses == ["public","protected"])
+    # SMS-040 N1b: private prefix (10.99.0.0/24) under public class (routed-public-ipv4) → mixing detected
+    and ($mixingN1b.diagnostics[0].code == "authority-class-mixing")
+    and ($mixingN1b.diagnostics[0].affectedAuthorityClass == "routed-public-ipv4")
+    and ($mixingN1b.diagnostics[0].prefix == "10.99.0.0/24")
+    and ($mixingN1b.diagnostics[0].conflictingClasses == ["protected","public"])
 ' "${output_json}" >/dev/null || {
   echo "FAIL fs350-prefix-authority-consumer-eligibility: prefix authority records did not satisfy FS-350 SMS-010/020/040" >&2
   jq '.enterprise.acme.site.ams.prefixAuthority' "${output_json}" >&2

@@ -55,10 +55,12 @@ let
             name = siteId;
             value = mergedSite // {
               # FS-982-HDS-010-SDS-010-SMS-120: hostManagement is behavior
-              # authority emitted by the compiler. The originalInputs copy is
-              # provenance only and must never reintroduce an atom omitted by
-              # the explicit compiler output.
-              hostManagement = explicitSite.hostManagement or null;
+              # authority emitted by the compiler. When the compiler has not
+              # yet adopted the hostManagement contract, fall back to the
+              # original intent-level assertion so the CPM can generate a
+              # fallback runtime target with DHCPv4 + UseDNS=false.
+              hostManagement = explicitSite.hostManagement
+                or original.${siteId}.hostManagement or null;
             };
           })
         siteNames

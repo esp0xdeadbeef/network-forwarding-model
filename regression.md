@@ -55,3 +55,9 @@
 - required-fix: Consume the compiler-emitted DNS contract and preserve the named provider-node, resolver path, address-family requirements, recursion/local-authority boundary, and egress selector as forwarding authority. Derive only topology consequences; do not select concrete DNS addresses or invent fallback resolvers.
 - implemented-fix: `compiler-input/sites/shape.nix` now treats compiler-emitted relations and services as the authoritative communication contract, adds only the compatibility `id` and `priority` view required by NFM, and retains the compiler-owned `dns` contract unchanged. Original intent remains provenance; it is no longer a substitute for compiler normalization.
 - evidence: `NETWORK_REPO_DIRECT_TEST_OK=1 NETWORK_LABS_PATH=/home/deadbeef/github/network-labs bash tests/FS-525-HDS-010-SDS-010-SMS-010.sh` proves the named core service, symmetric relation, and exact five-node path survive. Permuted ambiguous provider candidates preserve byte-equivalent warnings apart from site identity, emit sorted modeled IDs, and expose no core service authority.
+# FS-982 host-management authority could leak from compiler provenance
+
+- **Observed:** the NFM site adapter merged compiler `meta.provenance.originalInputs` with explicit compiler output, so an original-only `hostManagement` atom could survive even when the compiler had not admitted it.
+- **Root cause:** generic site merging did not distinguish behavioral compiler output from provenance.
+- **Fix:** source `hostManagement` exclusively from the explicit compiler site and preserve it unchanged through topology emission.
+- **Regression:** `tests/FS-982-HDS-010-SDS-010-SMS-120.sh` proves positive preservation, rename invariance, and original-input non-authority.
