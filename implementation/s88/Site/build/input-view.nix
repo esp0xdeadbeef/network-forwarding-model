@@ -107,7 +107,11 @@ let
     && (
       lib.any (
         overlay:
-        (overlay.terminateOn or null) == core
+        let
+          terms = overlay.terminateOn or [ ];
+          termList = if builtins.isList terms then map toString terms else [ (toString terms) ];
+        in
+        builtins.elem core termList
         && (overlay.underlayAccess.kind or null) == "tenant"
         && nodeHasTenant access (overlay.underlayAccess.name or "")
       ) overlayItems
