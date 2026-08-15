@@ -1,12 +1,16 @@
-{ lib, self ? { outPath = ./.; }, ... }:
+{
+  lib,
+  self ? {
+    outPath = ./.;
+  },
+  ...
+}:
 
 let
   common = import ./common.nix { inherit lib self; };
-  linkIdentities = import
-    (
-      self.outPath + "/implementation/lib/fabric/invariants/final-topology-links/link-identities.nix"
-    )
-    { inherit lib self; };
+  linkIdentities = import (
+    self.outPath + "/implementation/lib/fabric/invariants/final-topology-links/link-identities.nix"
+  ) { inherit lib self; };
 
   sortedNames = attrs: lib.sort (a: b: a < b) (builtins.attrNames attrs);
 
@@ -19,10 +23,10 @@ let
 in
 {
   checkLinks =
-    { siteName
-    , nodes
-    , links
-    ,
+    {
+      siteName,
+      nodes,
+      links,
     }:
     let
       linkNames = sortedNames links;
@@ -75,49 +79,47 @@ in
                   )
               ))
               (
-                builtins.deepSeq
-                  (lib.forEach epNodeNames (
-                    nodeName:
-                    let
-                      endpoint = endpoints.${nodeName};
-                    in
-                    builtins.seq
-                      (common.assert_ (nodes ? "${nodeName}") ''
-                        invariants(final-topology-integrity):
+                builtins.deepSeq (lib.forEach epNodeNames (
+                  nodeName:
+                  let
+                    endpoint = endpoints.${nodeName};
+                  in
+                  builtins.seq
+                    (common.assert_ (nodes ? "${nodeName}") ''
+                      invariants(final-topology-integrity):
 
-                        link endpoint references unknown node
+                      link endpoint references unknown node
 
-                        site: ${siteName}
-                        link: ${linkName}
-                        endpointNode: ${nodeName}
-                      '')
-                      (
-                        builtins.seq
-                          (common.assert_ ((endpoint.node or nodeName) == nodeName) ''
+                      site: ${siteName}
+                      link: ${linkName}
+                      endpointNode: ${nodeName}
+                    '')
+                    (
+                      builtins.seq
+                        (common.assert_ ((endpoint.node or nodeName) == nodeName) ''
+                          invariants(final-topology-integrity):
+
+                          link endpoint node field mismatches endpoint key
+
+                          site: ${siteName}
+                          link: ${linkName}
+                          endpointKey: ${nodeName}
+                          endpoint.node: ${toString (endpoint.node or "<missing>")}
+                        '')
+                        (
+                          common.assert_ ((endpoint.interface or linkName) == linkName) ''
                             invariants(final-topology-integrity):
 
-                            link endpoint node field mismatches endpoint key
+                            link endpoint interface field mismatches link name
 
                             site: ${siteName}
                             link: ${linkName}
-                            endpointKey: ${nodeName}
-                            endpoint.node: ${toString (endpoint.node or "<missing>")}
-                          '')
-                          (
-                            common.assert_ ((endpoint.interface or linkName) == linkName) ''
-                              invariants(final-topology-integrity):
-
-                              link endpoint interface field mismatches link name
-
-                              site: ${siteName}
-                              link: ${linkName}
-                              endpointNode: ${nodeName}
-                              endpoint.interface: ${toString (endpoint.interface or "<missing>")}
-                            ''
-                          )
-                      )
-                  ))
-                  true
+                            endpointNode: ${nodeName}
+                            endpoint.interface: ${toString (endpoint.interface or "<missing>")}
+                          ''
+                        )
+                    )
+                )) true
               )
           )
       );
@@ -161,6 +163,11 @@ in
                   site: ${siteName}
                   node: ${nodeName}
                   interface: ${ifName}
+                  link.members: ${lib.concatStringsSep ", " (map toString members)}
+                  link.endpoints: ${lib.concatStringsSep ", " (builtins.attrNames endpoints)}
+                  hint: this is often a node-name prefix collision (e.g. a
+                  node "access-iot" matching an endpoint "access-iot-srv" via
+                  a wildcard prefix). Check the link endpoint resolution.
                 ''
               )
         )
