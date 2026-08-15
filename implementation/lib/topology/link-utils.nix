@@ -12,7 +12,7 @@ let
   endpointsOf = l: l.endpoints or { };
 
   chooseEndpointKey =
-    linkName: l: nodeName: nodeNames:
+    linkName: l: nodeName:
     let
       eps = endpointsOf l;
       exact = if eps ? "${nodeName}" then nodeName else null;
@@ -24,14 +24,6 @@ let
           k = if nm == null then null else "${nodeName}-${nm}";
         in
         if k != null && eps ? "${k}" then k else null;
-      pref = "${nodeName}-";
-      prefKeys = lib.filter (k: lib.hasPrefix pref k) (builtins.attrNames eps);
-      # The wildcard prefix fallback must never resolve to a *different* node.
-      # `access-iot` is a prefix of `access-iot-srv`; when both are node names,
-      # the prefix match is a name collision, not an endpoint-key convention.
-      nonNodePrefKeys = lib.filter (k: !(lib.elem k nodeNames)) prefKeys;
-      byPrefix =
-        if nonNodePrefKeys == [ ] then null else lib.head (lib.sort (a: b: a < b) nonNodePrefKeys);
     in
     if exact != null then
       exact
@@ -40,12 +32,16 @@ let
     else if bySemanticName != null then
       bySemanticName
     else
-      byPrefix;
+      # No wildcard prefix fallback: a bare "<nodeName>-*" match is ambiguous
+      # when one node name is a prefix of another (e.g. access-iot vs
+      # access-iot-srv). Endpoint keys are resolved exactly, or via the
+      # explicit <node>-<linkName> / <node>-<link.name> conventions above.
+      null;
 
   getEp =
-    linkName: l: nodeName: nodeNames:
+    linkName: l: nodeName:
     let
-      k = chooseEndpointKey linkName l nodeName nodeNames;
+      k = chooseEndpointKey linkName l nodeName;
       eps = endpointsOf l;
     in
     if k == null then { } else (eps.${k} or { });
@@ -108,8 +104,8 @@ let
       nodeNames,
     }:
     let
-      ep = getEp linkName link nodeName nodeNames;
-      hasKey = (chooseEndpointKey linkName link nodeName nodeNames) != null;
+      ep = getEp linkName link nodeName;
+      hasKey = (chooseEndpointKey linkName link nodeName) != null;
       isMember = lib.elem nodeName (resolvedMemberNodes {
         inherit linkName link nodeNames;
       });
