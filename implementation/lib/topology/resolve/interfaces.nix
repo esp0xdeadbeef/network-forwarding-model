@@ -35,8 +35,7 @@ in
           let
             l = links.${lname};
           in
-          (lib.elem nodeName (linkMembersFor lname l))
-          || ((link.chooseEndpointKey lname l nodeName (builtins.attrNames nodes)) != null)
+          (lib.elem nodeName (linkMembersFor lname l)) || ((link.chooseEndpointKey lname l nodeName) != null)
         ) linkNamesSorted;
 
       linkInterfaces = lib.listToAttrs (
