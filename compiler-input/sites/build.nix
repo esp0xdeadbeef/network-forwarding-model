@@ -1,4 +1,10 @@
-{ lib, self ? { outPath = ./.; }, ... }:
+{
+  lib,
+  self ? {
+    outPath = ./.;
+  },
+  ...
+}:
 { config }:
 
 let
@@ -45,34 +51,31 @@ let
       siteNames = lib.unique ((builtins.attrNames explicit) ++ (builtins.attrNames original));
     in
     builtins.listToAttrs (
-      builtins.map
-        (siteId:
-          let
-            explicitSite = explicit.${siteId} or { };
-            mergedSite = mergeAttrs (original.${siteId} or { }) explicitSite;
-          in
-          {
-            name = siteId;
-            value = mergedSite // {
-              # FS-982-HDS-010-SDS-010-SMS-120: hostManagement is behavior
-              # authority emitted by the compiler. When the compiler has not
-              # yet adopted the hostManagement contract, fall back to the
-              # original intent-level assertion so the CPM can generate a
-              # fallback runtime target with DHCPv4 + UseDNS=false.
-              hostManagement = explicitSite.hostManagement
-                or original.${siteId}.hostManagement or null;
-            };
-          })
-        siteNames
+      builtins.map (
+        siteId:
+        let
+          explicitSite = explicit.${siteId} or { };
+          mergedSite = mergeAttrs (original.${siteId} or { }) explicitSite;
+        in
+        {
+          name = siteId;
+          value = mergedSite // {
+            # FS-982-HDS-010-SDS-010-SMS-120: hostManagement is behavior
+            # authority emitted by the compiler. When the compiler has not
+            # yet adopted the hostManagement contract, fall back to the
+            # original intent-level assertion so the CPM can generate a
+            # fallback runtime target with DHCPv4 + UseDNS=false.
+            hostManagement = explicitSite.hostManagement or original.${siteId}.hostManagement or null;
+          };
+        }
+      ) siteNames
     );
 
   rawSitesByEnterprise = builtins.listToAttrs (
-    builtins.map
-      (enterpriseName: {
-        name = enterpriseName;
-        value = mergeSitesForEnterprise enterpriseName;
-      })
-      allEnterpriseNames
+    builtins.map (enterpriseName: {
+      name = enterpriseName;
+      value = mergeSitesForEnterprise enterpriseName;
+    }) allEnterpriseNames
   );
 
   normalizeSite =
@@ -107,14 +110,21 @@ let
       # localDnsSharingIntent; the CPM expects them nested under dns.recursive
       # and dns.localSharing.
       mergedDns = merged.dns or { };
-      dns = mergedDns // (
-        if merged ? recursiveDnsIntent || merged ? localDnsSharingIntent then
-          { }
-          // lib.optionalAttrs (merged ? recursiveDnsIntent) { recursive = merged.recursiveDnsIntent; }
-          // lib.optionalAttrs (merged ? localDnsSharingIntent) { localSharing = merged.localDnsSharingIntent; }
-        else
-          { }
-      );
+      dns =
+        mergedDns
+        // (
+          if merged ? recursiveDnsIntent || merged ? localDnsSharingIntent then
+            { }
+            // lib.optionalAttrs (merged ? recursiveDnsIntent) { recursive = merged.recursiveDnsIntent; }
+            // lib.optionalAttrs (
+              merged ? localDnsSharingIntent && !builtins.isList merged.localDnsSharingIntent
+            ) { localSharing = merged.localDnsSharingIntent; }
+            // lib.optionalAttrs (
+              merged ? localDnsSharingIntent && builtins.isList merged.localDnsSharingIntent
+            ) { localSharingRelations = merged.localDnsSharingIntent; }
+          else
+            { }
+        );
     in
     merged
     // {
@@ -132,19 +142,21 @@ let
       links = links;
       transport = merged.transport or { };
       transit = (merged.transit or { }) // {
-        ordering = if merged.transit ? ordering then merged.transit.ordering
-                   else if merged ? transit && builtins.isAttrs merged.transit && merged.transit ? links then merged.transit.links
-                   else topology.links;
+        ordering =
+          if merged.transit ? ordering then
+            merged.transit.ordering
+          else if merged ? transit && builtins.isAttrs merged.transit && merged.transit ? links then
+            merged.transit.links
+          else
+            topology.links;
       };
     }
     // lib.optionalAttrs (dns != { }) { inherit dns; };
 
-  normalizedSitesByEnterprise = builtins.mapAttrs
-    (
-      enterpriseName: sites:
-        builtins.mapAttrs (siteId: site: normalizeSite enterpriseName siteId site) sites
-    )
-    rawSitesByEnterprise;
+  normalizedSitesByEnterprise = builtins.mapAttrs (
+    enterpriseName: sites:
+    builtins.mapAttrs (siteId: site: normalizeSite enterpriseName siteId site) sites
+  ) rawSitesByEnterprise;
 
 in
 normalizedSitesByEnterprise
