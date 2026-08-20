@@ -1,2 +1,3 @@
 *.json
 vib.sh
+flake.lock
