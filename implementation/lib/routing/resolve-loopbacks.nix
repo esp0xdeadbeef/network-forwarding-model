@@ -1,11 +1,21 @@
-{ lib, self ? { outPath = ./.; }, ... }:
+{
+  lib,
+  self ? {
+    outPath = ./.;
+  },
+  ...
+}:
 
 let
   graphContext = import ./graph/context.nix { inherit lib self; };
-  appendIfaceRoutes = import (self.outPath + "/implementation/lib/routing/loopbacks/append-routes.nix") {
+  appendIfaceRoutes =
+    import (self.outPath + "/implementation/lib/routing/loopbacks/append-routes.nix")
+      {
+        inherit lib self;
+      };
+  nextHop = import (self.outPath + "/implementation/lib/routing/loopbacks/next-hop.nix") {
     inherit lib self;
   };
-  nextHop = import (self.outPath + "/implementation/lib/routing/loopbacks/next-hop.nix") { inherit lib self; };
   routeFields = import (self.outPath + "/implementation/lib/routing/loopbacks/route-fields.nix") {
     inherit lib self;
   };
@@ -16,74 +26,73 @@ let
 in
 rec {
   attachWith =
-    { topo
-    , routeGraph ? graphContext.build (topo.links or { }) {
+    {
+      topo,
+      routeGraph ? graphContext.build (topo.links or { }) {
         nodeNames = builtins.attrNames (topo.nodes or { });
-      }
-    ,
+      },
     }:
     let
       links = topo.links or { };
       nodes0 = topo.nodes or { };
 
-      lbs = builtins.foldl'
-        (
-          acc: nodeName:
-            let
-              node = nodes0.${nodeName};
-              lb = node.loopback or null;
-            in
-            if lb == null || !(builtins.isAttrs lb) then acc else acc // { "${nodeName}" = lb; }
-        )
-        { }
-        (builtins.attrNames nodes0);
+      lbs = builtins.foldl' (
+        acc: nodeName:
+        let
+          node = nodes0.${nodeName};
+          lb = node.loopback or null;
+        in
+        if lb == null || !(builtins.isAttrs lb) then acc else acc // { "${nodeName}" = lb; }
+      ) { } (builtins.attrNames nodes0);
 
       perNode =
         nodeName:
         let
           dstNodes = builtins.attrNames lbs;
 
-          perDst = builtins.foldl'
-            (
-              acc: dst:
-                if dst == nodeName then
-                  acc
-                else
-                  let
-                    path = routeGraph.shortestPath {
-                      src = nodeName;
-                      dst = dst;
-                    };
-                    selectedPath = underlayPath.selectedPath {
-                      inherit topo routeGraph dst;
-                      src = nodeName;
-                      fallbackPath = path;
-                    };
-                  in
-                  if selectedPath == null || builtins.length selectedPath < 2 then
-                    throw "routing(loopbacks): unreachable router identity '${dst}' from '${nodeName}'"
-                  else
-                    let
-                      hop = builtins.elemAt selectedPath 1;
-                      nh = nextHop.withPreferences {
-                        inherit links;
-                        from = nodeName;
-                        to = hop;
-                        inherit routeGraph;
-                        preferredUplinks =
-                          if builtins.elem dst (topo.uplinkCoreNames or [ ]) then topo.uplinkNames or [ ] else [ ];
-                        preferredAccessNodes = [ dst ];
-                      };
-                      lb = lbs.${dst};
+          perDst = builtins.foldl' (
+            acc: dst:
+            if dst == nodeName then
+              acc
+            else
+              let
+                path = routeGraph.shortestPath {
+                  src = nodeName;
+                  dst = dst;
+                };
+                selectedPath = underlayPath.selectedPath {
+                  inherit topo routeGraph dst;
+                  src = nodeName;
+                  fallbackPath = path;
+                };
+              in
+              if selectedPath == null || builtins.length selectedPath < 2 then
+                throw "routing(loopbacks): unreachable router identity '${dst}' from '${nodeName}'"
+              else
+                let
+                  hop = builtins.elemAt selectedPath 1;
+                  hops = nextHop.allHops {
+                    inherit links;
+                    from = nodeName;
+                    to = hop;
+                    inherit routeGraph;
+                    preferredUplinks =
+                      if builtins.elem dst (topo.uplinkCoreNames or [ ]) then topo.uplinkNames or [ ] else [ ];
+                    preferredAccessNodes = [ dst ];
+                  };
+                  lb = lbs.${dst};
 
+                  attachTo =
+                    acc': h:
+                    let
                       r4 =
-                        if nh.linkName == null || nh.via4 == null || !(lb ? ipv4) || lb.ipv4 == null then
+                        if h.linkName == null || h.via4 == null || !(lb ? ipv4) || lb.ipv4 == null then
                           [ ]
                         else
                           [
                             {
                               dst = routeFields.hostDst4 lb.ipv4;
-                              via4 = nh.via4;
+                              via4 = h.via4;
                               proto = "internal";
                               intent.kind = "internal-reachability";
                               preserveDst = true;
@@ -91,58 +100,53 @@ rec {
                           ];
 
                       r6 =
-                        if nh.linkName == null || nh.via6 == null || !(lb ? ipv6) || lb.ipv6 == null then
+                        if h.linkName == null || h.via6 == null || !(lb ? ipv6) || lb.ipv6 == null then
                           [ ]
                         else
                           [
                             {
                               dst = routeFields.hostDst6 lb.ipv6;
-                              via6 = nh.via6;
+                              via6 = h.via6;
                               proto = "internal";
                               intent.kind = "internal-reachability";
                               preserveDst = true;
                             }
                           ];
                     in
-                    if nh.linkName == null then
-                      acc
+                    if h.linkName == null then
+                      acc'
                     else
-                      acc
+                      acc'
                       // {
-                        "${nh.linkName}" = {
+                        "${h.linkName}" = {
                           routes4 =
-                            (if acc ? "${nh.linkName}" && acc.${nh.linkName} ? routes4 then acc.${nh.linkName}.routes4 else [ ])
+                            (if acc' ? "${h.linkName}" && acc'.${h.linkName} ? routes4 then acc'.${h.linkName}.routes4 else [ ])
                             ++ r4;
                           routes6 =
-                            (if acc ? "${nh.linkName}" && acc.${nh.linkName} ? routes6 then acc.${nh.linkName}.routes6 else [ ])
+                            (if acc' ? "${h.linkName}" && acc'.${h.linkName} ? routes6 then acc'.${h.linkName}.routes6 else [ ])
                             ++ r6;
                         };
-                      }
-            )
-            { }
-            dstNodes;
+                      };
+                in
+                builtins.foldl' attachTo acc hops
+          ) { } dstNodes;
         in
         perDst;
 
-      nodes1 = lib.mapAttrs
-        (
-          n: node:
-            let
-              perIface = perNode n;
-              linkNames = builtins.attrNames perIface;
-            in
-            builtins.foldl'
-              (
-                acc: lname:
-                  let
-                    v = perIface.${lname};
-                  in
-                  appendIfaceRoutes acc lname v.routes4 v.routes6
-              )
-              node
-              linkNames
-        )
-        nodes0;
+      nodes1 = lib.mapAttrs (
+        n: node:
+        let
+          perIface = perNode n;
+          linkNames = builtins.attrNames perIface;
+        in
+        builtins.foldl' (
+          acc: lname:
+          let
+            v = perIface.${lname};
+          in
+          appendIfaceRoutes acc lname v.routes4 v.routes6
+        ) node linkNames
+      ) nodes0;
 
     in
     topo // { nodes = nodes1; };
