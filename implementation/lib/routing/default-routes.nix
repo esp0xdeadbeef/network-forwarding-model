@@ -44,12 +44,20 @@ in
           [ ]
         else
           [
-            ((if family == 4 then routeContext.mkRoute4 else routeContext.mkRoute6) {
-              dst = if family == 4 then helpers.default4 else helpers.default6For (topo.nodes or { });
-              ${if family == 4 then "via4" else "via6"} = nextHop;
-              proto = "default";
-              intentKind = "default-reachability";
-            })
+            (
+              (if family == 4 then routeContext.mkRoute4 else routeContext.mkRoute6) {
+                dst = if family == 4 then helpers.default4 else helpers.default6For (topo.nodes or { });
+                ${if family == 4 then "via4" else "via6"} = nextHop;
+                proto = "default";
+                intentKind = "default-reachability";
+              }
+              // lib.optionalAttrs (family == 4) {
+                # The IPv4 default is advertised to clients as part of the
+                # RFC 3442 classless routes so option 121 does not suppress the
+                # default (RFC 3442 overrides option 3 when present).
+                advertisedToClients = true;
+              }
+            )
           ];
 
       overlayTerminatingCores = overlayCoreSelection.overlayTerminatingCores topo;
