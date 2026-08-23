@@ -45,7 +45,7 @@ in
         else
           [
             ((if family == 4 then routeContext.mkRoute4 else routeContext.mkRoute6) {
-              dst = if family == 4 then helpers.default4 else helpers.default6;
+              dst = if family == 4 then helpers.default4 else helpers.default6For (topo.nodes or { });
               ${if family == 4 then "via4" else "via6"} = nextHop;
               proto = "default";
               intentKind = "default-reachability";
@@ -79,33 +79,30 @@ in
         let
           uplinks = routeFacts.uplinkCores or [ ];
           candidates = overlayCoreSelection.nonOverlayUplinkCores topo uplinks;
-          reachable = lib.filter
-            (candidate: candidate.path != null && builtins.length candidate.path >= 2 && avoidsOverlayTransit candidate.path)
-            (
-              map
-                (
-                  target:
-                  {
-                    inherit target;
-                    path = shortestPathAvoiding {
-                      src = nodeName;
-                      dst = target;
-                      forbidden = overlayTerminatingCores;
-                    };
-                  }
-                )
-                candidates
-            );
-          sortedReachable = lib.sort
-            (
-              left: right:
-              let
-                leftLength = builtins.length left.path;
-                rightLength = builtins.length right.path;
-              in
-              leftLength < rightLength || (leftLength == rightLength && left.target < right.target)
-            )
-            reachable;
+          reachable =
+            lib.filter
+              (
+                candidate:
+                candidate.path != null && builtins.length candidate.path >= 2 && avoidsOverlayTransit candidate.path
+              )
+              (
+                map (target: {
+                  inherit target;
+                  path = shortestPathAvoiding {
+                    src = nodeName;
+                    dst = target;
+                    forbidden = overlayTerminatingCores;
+                  };
+                }) candidates
+              );
+          sortedReachable = lib.sort (
+            left: right:
+            let
+              leftLength = builtins.length left.path;
+              rightLength = builtins.length right.path;
+            in
+            leftLength < rightLength || (leftLength == rightLength && left.target < right.target)
+          ) reachable;
         in
         if uplinks == [ ] || lib.elem nodeName uplinks || sortedReachable == [ ] then
           null

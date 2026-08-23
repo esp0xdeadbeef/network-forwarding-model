@@ -1,4 +1,10 @@
-{ lib, self ? { outPath = ./.; }, ... }:
+{
+  lib,
+  self ? {
+    outPath = ./.;
+  },
+  ...
+}:
 
 let
   ip = import (self.outPath + "/implementation/lib/net/ip-utils.nix") { inherit lib self; };
@@ -8,6 +14,32 @@ let
 
   default4 = "0.0.0.0/0";
   default6 = "::/0";
+
+  # The IPv6 egress default is derived from the declared WAN uplink prefixes,
+  # not hardcoded to ::/0. Routed client GUA sites declare 2::/3 (global
+  # unicast) so the fabric default only attracts internet-bound GUA, while ULA,
+  # link-local and multicast stay on their more-specific routes. Falls back to
+  # ::/0 when no uplink declares an IPv6 prefix.
+  default6For =
+    nodes:
+    let
+      prefixLength =
+        prefix:
+        let
+          m = builtins.match ".*/([0-9]+)$" (toString prefix);
+        in
+        if m == null then 128 else builtins.fromJSON (builtins.head m);
+      uplinkIpv6Prefixes = builtins.concatLists (
+        builtins.concatMap (
+          nodeName:
+          builtins.map (
+            uplinkName: ((((nodes.${nodeName} or { }).uplinks or { }).${uplinkName} or { }).ipv6 or [ ])
+          ) (builtins.attrNames ((nodes.${nodeName} or { }).uplinks or { }))
+        ) (builtins.attrNames (if builtins.isAttrs nodes then nodes else { }))
+      );
+      sorted = builtins.sort (a: b: prefixLength a < prefixLength b) uplinkIpv6Prefixes;
+    in
+    if sorted == [ ] then default6 else builtins.head sorted;
 
   stripMask = ip.stripMask;
   canonicalCidr = prefix.canonicalCidr;
@@ -98,7 +130,8 @@ let
           cur = accIfs.${linkName} or { };
           curRoutes = ifaceRoutes cur;
         in
-        accIfs // {
+        accIfs
+        // {
           "${linkName}" = cur // {
             routes = {
               ipv4 = normalizeRouteList 4 (curRoutes.ipv4 ++ (add.routes4 or [ ]));
@@ -119,6 +152,7 @@ in
   inherit
     default4
     default6
+    default6For
     stripMask
     canonicalCidr
     ifaceRoutes
