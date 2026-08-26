@@ -15,14 +15,33 @@ let
   default4 = "0.0.0.0/0";
   default6 = "::/0";
 
-  # The IPv6 egress default is derived from the declared WAN uplink prefixes,
-  # not hardcoded to ::/0. Routed client GUA sites declare 2::/3 (global
-  # unicast) so the fabric default only attracts internet-bound GUA, while ULA,
-  # link-local and multicast stay on their more-specific routes. Falls back to
-  # ::/0 when no uplink declares an IPv6 prefix.
-  default6For =
-    nodes:
+  overlayUplinkNameSet =
+    topo:
     let
+      links = topo.links or { };
+      overlayReachabilityNames = builtins.attrNames (topo.overlayReachability or { });
+      linkOverlayNames = lib.filter (name: name != null) (
+        map (linkName: (links.${linkName}.overlay or null)) (builtins.attrNames links)
+      );
+    in
+    lib.listToAttrs (
+      map (name: {
+        inherit name;
+        value = true;
+      }) (lib.unique (overlayReachabilityNames ++ linkOverlayNames))
+    );
+
+  # The IPv6 egress default is derived from declared non-overlay WAN uplink
+  # prefixes, never hardcoded to ::/0 and never from overlay (tunnel) uplinks.
+  # Routed client GUA sites declare 2000::/3 (global unicast) so the fabric
+  # default only attracts internet-bound GUA, while ULA, link-local and
+  # multicast stay on their more-specific routes. Sites with no non-overlay
+  # IPv6 uplink have no IPv6 egress default at all (null).
+  default6For =
+    topo:
+    let
+      nodes = topo.nodes or { };
+      overlaySet = overlayUplinkNameSet topo;
       prefixLength =
         prefix:
         let
@@ -33,13 +52,17 @@ let
         builtins.concatMap (
           nodeName:
           builtins.map (
-            uplinkName: ((((nodes.${nodeName} or { }).uplinks or { }).${uplinkName} or { }).ipv6 or [ ])
+            uplinkName:
+            if builtins.hasAttr uplinkName overlaySet then
+              [ ]
+            else
+              ((((nodes.${nodeName} or { }).uplinks or { }).${uplinkName} or { }).ipv6 or [ ])
           ) (builtins.attrNames ((nodes.${nodeName} or { }).uplinks or { }))
         ) (builtins.attrNames (if builtins.isAttrs nodes then nodes else { }))
       );
       sorted = builtins.sort (a: b: prefixLength a < prefixLength b) uplinkIpv6Prefixes;
     in
-    if sorted == [ ] then default6 else builtins.head sorted;
+    if sorted == [ ] then null else builtins.head sorted;
 
   stripMask = ip.stripMask;
   canonicalCidr = prefix.canonicalCidr;
@@ -153,6 +176,7 @@ in
     default4
     default6
     default6For
+    overlayUplinkNameSet
     stripMask
     canonicalCidr
     ifaceRoutes

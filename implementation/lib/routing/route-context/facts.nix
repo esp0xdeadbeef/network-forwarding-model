@@ -30,25 +30,14 @@ let
     in
     (entry 4 (loopback.ipv4 or null)) ++ (entry 6 (loopback.ipv6 or null));
 
-  overlayUplinkNames =
-    topo: links:
-    let
-      overlayReachabilityNames = builtins.attrNames (topo.overlayReachability or { });
-      linkOverlayNames = lib.filter (name: name != null) (
-        map (linkName: (links.${linkName}.overlay or null)) (builtins.attrNames links)
-      );
-    in
-    lib.listToAttrs (
-      map (name: {
-        inherit name;
-        value = true;
-      }) (lib.unique (overlayReachabilityNames ++ linkOverlayNames))
-    );
+  overlayUplinkNames = topo: helpers.overlayUplinkNameSet topo;
 
   uplinkHasDefaultSet =
-    nodes: links:
+    topo:
     let
-      default6ForNodes = helpers.default6For nodes;
+      nodes = topo.nodes or { };
+      links = topo.links or { };
+      default6ForNodes = helpers.default6For topo;
       addDefault = acc: uplinkName: acc // { "${uplinkName}" = true; };
       addNode =
         acc: nodeName:
@@ -123,7 +112,7 @@ in
     let
       nodes = topo.nodes or { };
       links = topo.links or { };
-      overlayUplinkNameSet = overlayUplinkNames topo links;
+      overlayUplinkNameSet = overlayUplinkNames topo;
       nonOverlayUplinkNames = lib.filter (
         uplinkName: !(builtins.hasAttr uplinkName overlayUplinkNameSet)
       ) (topo.uplinkNames or [ ]);
@@ -142,7 +131,7 @@ in
             value = true;
           }) uplinkCores
         );
-        uplinkHasDefaultSet = uplinkHasDefaultSet nodes links;
+        uplinkHasDefaultSet = uplinkHasDefaultSet topo;
         uplinkCoreNamesByUplink = uplinkCoreNamesByUplink nodes links uplinkCores;
         defaultReachabilityUplinkNames =
           if nonOverlayUplinkNames != [ ] then nonOverlayUplinkNames else topo.uplinkNames or [ ];
