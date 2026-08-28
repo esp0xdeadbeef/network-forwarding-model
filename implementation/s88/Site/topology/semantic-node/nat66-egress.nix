@@ -95,7 +95,7 @@ let
 in
 {
   forUplinks =
-    site: uplinkNames: uplinks:
+    site: overlayUplinkNameSet: uplinkNames: uplinks:
     let
       contract = attrsOrEmpty (site.communicationContract or null);
       relations =
@@ -124,6 +124,19 @@ in
           sourcePrefixes = sortedUnique (
             map (tenantName: tenantPrefixes.${tenantName} or null) sourceTenantNames
           );
+          translatedPrefixes = sortedUnique (
+            builtins.filter (prefix: prefix != null && prefix != "") (
+              listOrEmpty (translation.translatedPrefixes or null)
+              ++ listOrEmpty (translation.translatedAddressOrPrefix or null)
+              ++ listOrEmpty (translation.translatedAddresses or null)
+              ++ [
+                (translation.translatedPrefix or "")
+                (translation.translatedAddress or "")
+                (translation.prefix or "")
+                (translation.address or "")
+              ]
+            )
+          );
         in
         if !enabled then
           null
@@ -133,7 +146,10 @@ in
             value = {
               mode = "nat66";
               sourcePrefixes = sourcePrefixes;
+              egressSurface = uplinkName;
+              providerRealized = builtins.hasAttr uplinkName overlayUplinkNameSet;
             }
+            // lib.optionalAttrs (translatedPrefixes != [ ]) { inherit translatedPrefixes; }
             // lib.optionalAttrs ((translation.warning or null) != null) {
               warning = toString translation.warning;
             };

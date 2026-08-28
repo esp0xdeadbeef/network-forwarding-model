@@ -1,28 +1,34 @@
-{ lib, self ? { outPath = ./.; }, ... }:
+{
+  lib,
+  self ? {
+    outPath = ./.;
+  },
+  ...
+}:
 
 site:
 
 let
   overlays = ((site.transport or { }).overlays or [ ]);
-  overlayNames =
+  fromTransport =
     if builtins.isList overlays then
-      map
-        (
-          overlay:
-          if builtins.isAttrs overlay && (overlay.name or null) != null then
-            toString overlay.name
-          else
-            toString overlay
-        )
-        overlays
+      map (
+        overlay:
+        if builtins.isAttrs overlay && (overlay.name or null) != null then
+          toString overlay.name
+        else
+          toString overlay
+      ) overlays
     else if builtins.isAttrs overlays then
       builtins.attrNames overlays
     else
       [ ];
+  fromReachability = builtins.attrNames (site.overlayReachability or { });
+  overlayNames = lib.unique (fromTransport ++ fromReachability);
 in
-lib.listToAttrs (map
-  (name: {
+lib.listToAttrs (
+  map (name: {
     inherit name;
     value = true;
-  })
-  overlayNames)
+  }) overlayNames
+)

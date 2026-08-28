@@ -93,7 +93,11 @@ let
     in
     (to.kind or null) == "external" && builtins.elem uplinkName uplinks;
 
-  validNat44Modes = [ "nat44" "masquerade" "snat" ];
+  validNat44Modes = [
+    "nat44"
+    "masquerade"
+    "snat"
+  ];
 
   isHostOnlyProviderPrefix =
     tenantPrefixOwners: prefix:
@@ -105,7 +109,7 @@ let
 in
 {
   forUplinks =
-    site: uplinkNames: uplinks:
+    site: overlayUplinkNameSet: uplinkNames: uplinks:
     let
       contract = attrsOrEmpty (site.communicationContract or null);
       relations =
@@ -137,8 +141,12 @@ in
             map (tenantName: tenantPrefixes.${tenantName} or null) sourceTenantNames
           );
           # FS-380-HDS-010-SDS-010-SMS-040: filter out host-only-provider-prefix
-          sourcePrefixes = builtins.filter (p: !(isHostOnlyProviderPrefix tenantPrefixOwners p)) allSourcePrefixes;
-          hostOnlyFiltered = builtins.filter (p: isHostOnlyProviderPrefix tenantPrefixOwners p) allSourcePrefixes;
+          sourcePrefixes = builtins.filter (
+            p: !(isHostOnlyProviderPrefix tenantPrefixOwners p)
+          ) allSourcePrefixes;
+          hostOnlyFiltered = builtins.filter (
+            p: isHostOnlyProviderPrefix tenantPrefixOwners p
+          ) allSourcePrefixes;
           egressSurfaceName = uplinkName;
         in
         if !enabled then
@@ -152,6 +160,7 @@ in
               mode = mode;
               sourcePrefixes = sourcePrefixes;
               egressSurface = egressSurfaceName;
+              providerRealized = builtins.hasAttr uplinkName overlayUplinkNameSet;
             }
             // lib.optionalAttrs (hostOnlyFiltered != [ ]) {
               hostOnlyFiltered = hostOnlyFiltered;
