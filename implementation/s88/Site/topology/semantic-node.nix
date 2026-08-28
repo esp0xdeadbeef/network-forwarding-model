@@ -1,12 +1,14 @@
-{ lib
-, self ? {
+{
+  lib,
+  self ? {
     outPath = ./.;
-  }
-, ...
+  },
+  ...
 }:
 
 let
   roleCapabilities = import ./role-capabilities.nix { };
+  overlayNameSet = import ./overlay-name-set.nix { inherit lib self; };
 
   sortedUnique =
     xs:
@@ -46,18 +48,16 @@ let
       names = builtins.attrNames interfaces;
     in
     sortedUnique (
-      lib.filter
-        (
-          ifName:
-          let
-            iface = interfaces.${ifName};
-            kind = iface.kind or null;
-            carrier = iface.carrier or null;
-            type = iface.type or null;
-          in
-          kind == "wan" || carrier == "wan" || type == "wan"
-        )
-        names
+      lib.filter (
+        ifName:
+        let
+          iface = interfaces.${ifName};
+          kind = iface.kind or null;
+          carrier = iface.carrier or null;
+          type = iface.type or null;
+        in
+        kind == "wan" || carrier == "wan" || type == "wan"
+      ) names
     );
 
   declaredUplinksForNode =
@@ -68,16 +68,16 @@ let
       [ ];
 
   build =
-    { nodeName
-    , node
-    , site
-    , role
-    , siteExternalDomains
-    , siteUplinkCoreNames
-    , siteUplinkNames ? [ ]
-    , siteEgressCoreNames ? siteUplinkCoreNames
-    , siteEgressUplinkNames ? siteUplinkNames
-    ,
+    {
+      nodeName,
+      node,
+      site,
+      role,
+      siteExternalDomains,
+      siteUplinkCoreNames,
+      siteUplinkNames ? [ ],
+      siteEgressCoreNames ? siteUplinkCoreNames,
+      siteEgressUplinkNames ? siteUplinkNames,
     }:
     let
       exitNode = lib.elem nodeName siteEgressCoreNames;
@@ -90,18 +90,22 @@ let
 
       interfaceUplinks = sortedUnique (map (ifName: ifaceUplinkName interfaces.${ifName}) wanIfaces);
       nodeSpecificUplinks = sortedUnique ((declaredUplinksForNode node) ++ interfaceUplinks);
-      eligibleUplinks =
-        lib.filter (uplink: builtins.elem uplink siteEgressUplinkNames) (
-          if nodeSpecificUplinks != [ ] then nodeSpecificUplinks else siteEgressUplinkNames
-        );
+      eligibleUplinks = lib.filter (uplink: builtins.elem uplink siteEgressUplinkNames) (
+        if nodeSpecificUplinks != [ ] then nodeSpecificUplinks else siteEgressUplinkNames
+      );
+      overlayUplinkNameSet = overlayNameSet site;
       nat66ByUplink =
         if eligible then
-          nat66Egress.forUplinks site eligibleUplinks (attrsOrEmpty (node.uplinks or null))
+          nat66Egress.forUplinks site overlayUplinkNameSet eligibleUplinks (
+            attrsOrEmpty (node.uplinks or null)
+          )
         else
           { };
       nat44ByUplink =
         if eligible then
-          nat44Egress.forUplinks site eligibleUplinks (attrsOrEmpty (node.uplinks or null))
+          nat44Egress.forUplinks site overlayUplinkNameSet eligibleUplinks (
+            attrsOrEmpty (node.uplinks or null)
+          )
         else
           { };
 
@@ -112,11 +116,15 @@ let
         else if wanIfaces != [ ] then
           wanIfaces
         else
-          eligibleUplinks
-      ;
+          eligibleUplinks;
 
       capabilityArgs = {
-        inherit exitNode role uplinkAnchor upstreamSelection;
+        inherit
+          exitNode
+          role
+          uplinkAnchor
+          upstreamSelection
+          ;
       };
     in
     {
