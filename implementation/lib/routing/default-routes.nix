@@ -38,19 +38,15 @@ in
           ;
       };
 
-      default6ForNodes = helpers.default6For topo;
-
       nearestDefaultRoute =
         family: nextHop:
         if nextHop == null then
-          [ ]
-        else if family == 6 && default6ForNodes == null then
           [ ]
         else
           [
             (
               (if family == 4 then routeContext.mkRoute4 else routeContext.mkRoute6) {
-                dst = if family == 4 then helpers.default4 else default6ForNodes;
+                dst = if family == 4 then helpers.default4 else helpers.default6For (topo.nodes or { });
                 ${if family == 4 then "via4" else "via6"} = nextHop;
                 proto = "default";
                 intentKind = "default-reachability";
