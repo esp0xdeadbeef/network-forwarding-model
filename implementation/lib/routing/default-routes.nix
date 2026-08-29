@@ -191,11 +191,9 @@ in
     {
       inherit addDefaultTowardNearestUplinkCore nearestUplinkCoreDefaultPlan;
       downstreamSelectorPolicyDefaultPlan = laneDefaults.downstreamSelectorPolicyDefaultPlan passArgs;
-      policyDownstreamDefaultPlan = laneDefaults.policyDownstreamDefaultPlan passArgs;
       policyUpstreamSelectorDefaultPlan = laneDefaults.policyUpstreamSelectorDefaultPlan passArgs;
       upstreamSelectorPolicyLaneCoreDefaultPlan = laneDefaults.policyLaneCoreDefaultPlan passArgs;
       addDownstreamSelectorPolicyLaneDefaults = laneDefaults.addDownstreamSelectorPolicyDefaults passArgs;
-      addPolicyDownstreamDefaults = laneDefaults.addPolicyDownstreamDefaults passArgs;
       addPolicyUpstreamSelectorLaneDefaults = laneDefaults.addPolicyUpstreamSelectorDefaults passArgs;
       addUpstreamSelectorPolicyLaneCoreDefaults = laneDefaults.addUpstreamSelectorPolicyLaneCoreDefaults passArgs;
       addDirectWanDefaults = directWanDefaults.apply { inherit node routeContext; };

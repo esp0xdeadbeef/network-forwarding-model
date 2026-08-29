@@ -1,10 +1,4 @@
-{
-  lib,
-  self ? {
-    outPath = ./.;
-  },
-  ...
-}:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 let
   link = import (self.outPath + "/implementation/lib/topology/link-utils.nix") { inherit lib self; };
@@ -13,7 +7,7 @@ let
   routeBuilder = import ./lane-default-route-builder.nix { inherit lib self; };
   laneMetadata = import ./lane-metadata.nix { inherit lib self; };
   upstreamSelectorLaneDefaults = import ./upstream-selector-lane-defaults.nix { inherit lib self; };
-  inherit (routeBuilder) mkDefaultRoutes mkMultipathDefaultRoutes;
+  inherit (routeBuilder) mkDefaultRoutes;
   inherit (laneMetadata)
     defaultMetricForLane
     hasUplinkLane
@@ -22,7 +16,8 @@ let
     ;
 
   uplinkHasDefault =
-    routeFacts: uplinkName: builtins.hasAttr uplinkName (routeFacts.uplinkHasDefaultSet or { });
+    routeFacts: uplinkName:
+    builtins.hasAttr uplinkName (routeFacts.uplinkHasDefaultSet or { });
 
   uplinkHasExecutableDefault =
     routeFacts: uplinkName:
@@ -32,12 +27,12 @@ let
 in
 rec {
   downstreamSelectorPolicyDefaultPlan =
-    {
-      topo,
-      nodeName,
-      node,
-      routeContext,
-      routeFacts ? routeContext.buildFacts topo,
+    { topo
+    , nodeName
+    , node
+    , routeContext
+    , routeFacts ? routeContext.buildFacts topo
+    ,
     }:
     let
       inherit (routeContext) mkRoute4 mkRoute6;
@@ -50,168 +45,71 @@ rec {
         if role != "downstream-selector" || policyNodeName == null then
           [ ]
         else
-          lib.filter (
-            linkName:
-            let
-              linkObj = links.${linkName};
-              members = link.membersOf linkObj;
-            in
-            lib.elem nodeName members && lib.elem policyNodeName members && laneAccessNodeName linkObj != null
-          ) (lib.sort (a: b: a < b) (builtins.attrNames links));
+          lib.filter
+            (
+              linkName:
+              let
+                linkObj = links.${linkName};
+                members = link.membersOf linkObj;
+              in
+              lib.elem nodeName members
+              && lib.elem policyNodeName members
+              && laneAccessNodeName linkObj != null
+            )
+            (lib.sort (a: b: a < b) (builtins.attrNames links));
     in
-    builtins.foldl' (
-      acc: linkName:
-      let
-        linkObj = links.${linkName};
-        accessName = laneAccessNodeName linkObj;
-        uplinks = uplinksForAccess accessName;
-        uplinkName = if uplinks == [ ] then null else builtins.head (lib.sort (a: b: a < b) uplinks);
-        routes = mkDefaultRoutes {
-          inherit
-            mkRoute4
-            mkRoute6
-            ;
-          epTo = link.getEp linkName linkObj policyNodeName;
-          lane = {
-            access = accessName;
-            uplink = uplinkName;
-          };
-          policyOnly = true;
-          reason = "policy-derived-default";
-          relationIds =
-            if uplinkName != null then
-              defaultRoutePolicy.relationIdsForAccessUplink topo accessName uplinkName
-            else
-              null;
-          direction = "outbound";
-          returnBehavior =
-            if uplinkName != null then
-              defaultRoutePolicy.returnBehaviorForAccessUplink topo accessName uplinkName
-            else
-              null;
-        };
-      in
-      acc
-      // {
-        "${linkName}" = {
-          routes4 = (acc.${linkName}.routes4 or [ ]) ++ routes.routes4;
-          routes6 = (acc.${linkName}.routes6 or [ ]) ++ routes.routes6;
-        };
-      }
-    ) { } laneLinks;
-
-  addDownstreamSelectorPolicyDefaults =
-    args: helpers.addRoutePlan args.node (downstreamSelectorPolicyDefaultPlan args);
-
-  policyDownstreamDefaultPlan =
-    {
-      topo,
-      nodeName,
-      node,
-      routeContext,
-      routeFacts ? routeContext.buildFacts topo,
-    }:
-    let
-      inherit (routeContext) mkRoute4 mkRoute6;
-
-      policyNodeName = topo.policyNodeName or null;
-      upstreamSelectorNodeName = topo.upstreamSelectorNodeName or null;
-      links = topo.links or { };
-      role = node.role or null;
-      uplinksForAccess = defaultRoutePolicy.anyTrafficDefaultUplinksForAccess topo;
-
-      accessLinks =
-        if role != "policy" || policyNodeName != nodeName || upstreamSelectorNodeName == null then
-          [ ]
-        else
-          lib.filter (
-            linkName:
-            let
-              linkObj = links.${linkName};
-              members = link.membersOf linkObj;
-            in
-            lib.elem policyNodeName members && laneAccessNodeName linkObj != null && !(hasUplinkLane linkObj)
-          ) (lib.sort (a: b: a < b) (builtins.attrNames links));
-
-      uplinkLaneLinksForAccess =
-        access:
-        lib.filter (
-          linkName:
-          let
-            linkObj = links.${linkName};
-            members = link.membersOf linkObj;
-          in
-          lib.elem policyNodeName members && hasUplinkLane linkObj && laneAccessNodeName linkObj == access
-        ) (builtins.attrNames links);
-    in
-    builtins.foldl' (
-      acc: linkName:
-      let
-        access = laneAccessNodeName links.${linkName};
-        uplinks = lib.sort (a: b: a < b) (uplinksForAccess access);
-        entries = builtins.map (
-          uplinkLinkName:
-          let
-            uplinkLink = links.${uplinkLinkName};
-          in
-          {
-            uplink = laneUplinkName uplinkLink;
-            epTo = link.getEp uplinkLinkName uplinkLink upstreamSelectorNodeName;
-            metric = defaultMetricForLane topo uplinkLink;
-          }
-        ) (uplinkLaneLinksForAccess access);
-        metricGroups = builtins.attrValues (lib.groupBy (e: toString e.metric) entries);
-        multipathGroups = builtins.filter (
-          group: builtins.length group > 1 && !(builtins.elem null (map (e: e.epTo) group))
-        ) metricGroups;
-        routesFor =
-          group:
-          let
-            relationIds = lib.unique (
-              builtins.concatMap (e: defaultRoutePolicy.relationIdsForAccessUplink topo access e.uplink) group
-            );
-          in
-          mkMultipathDefaultRoutes {
-            inherit mkRoute4 mkRoute6;
-            epsTo = map (e: e.epTo) group;
-            multipathAuthority = "${access}-default";
-            metric = (builtins.head group).metric;
+    builtins.foldl'
+      (
+        acc: linkName:
+        let
+          linkObj = links.${linkName};
+          accessName = laneAccessNodeName linkObj;
+          uplinks = uplinksForAccess accessName;
+          uplinkName = if uplinks == [ ] then null else builtins.head (lib.sort (a: b: a < b) uplinks);
+          routes = mkDefaultRoutes {
+            inherit
+              mkRoute4
+              mkRoute6
+              ;
+            epTo = link.getEp linkName linkObj policyNodeName;
             lane = {
-              inherit access;
-              uplink = null;
+              access = accessName;
+              uplink = uplinkName;
             };
             policyOnly = true;
             reason = "policy-derived-default";
-            inherit relationIds;
+            relationIds =
+              if uplinkName != null then
+                defaultRoutePolicy.relationIdsForAccessUplink topo accessName uplinkName
+              else null;
             direction = "outbound";
-            returnBehavior = "symmetric";
+            returnBehavior =
+              if uplinkName != null then
+                defaultRoutePolicy.returnBehaviorForAccessUplink topo accessName uplinkName
+              else null;
           };
-      in
-      if builtins.length uplinks <= 1 || multipathGroups == [ ] then
-        acc
-      else
-        let
-          built = map routesFor multipathGroups;
         in
         acc
         // {
           "${linkName}" = {
-            routes4 = (acc.${linkName}.routes4 or [ ]) ++ builtins.concatMap (x: x.routes4) built;
-            routes6 = (acc.${linkName}.routes6 or [ ]) ++ builtins.concatMap (x: x.routes6) built;
+            routes4 = (acc.${linkName}.routes4 or [ ]) ++ routes.routes4;
+            routes6 = (acc.${linkName}.routes6 or [ ]) ++ routes.routes6;
           };
         }
-    ) { } accessLinks;
+      )
+      { }
+      laneLinks;
 
-  addPolicyDownstreamDefaults =
-    args: helpers.addRoutePlan args.node (policyDownstreamDefaultPlan args);
+  addDownstreamSelectorPolicyDefaults =
+    args: helpers.addRoutePlan args.node (downstreamSelectorPolicyDefaultPlan args);
 
   policyUpstreamSelectorDefaultPlan =
-    {
-      topo,
-      nodeName,
-      node,
-      routeContext,
-      routeFacts ? routeContext.buildFacts topo,
+    { topo
+    , nodeName
+    , node
+    , routeContext
+    , routeFacts ? routeContext.buildFacts topo
+    ,
     }:
     let
       inherit (routeContext) mkRoute4 mkRoute6;
@@ -224,62 +122,63 @@ rec {
         if role != "policy" || policyNodeName != nodeName || selectorNodeName == null then
           [ ]
         else
-          lib.filter (
-            linkName:
-            let
-              linkObj = links.${linkName};
-              members = link.membersOf linkObj;
-            in
-            lib.elem policyNodeName members
-            && lib.elem selectorNodeName members
-            && laneAccessNodeName linkObj != null
-            && hasUplinkLane linkObj
-          ) (lib.sort (a: b: a < b) (builtins.attrNames links));
+          lib.filter
+            (
+              linkName:
+              let
+                linkObj = links.${linkName};
+                members = link.membersOf linkObj;
+              in
+              lib.elem policyNodeName members
+              && lib.elem selectorNodeName members
+              && laneAccessNodeName linkObj != null
+              && hasUplinkLane linkObj
+            )
+            (lib.sort (a: b: a < b) (builtins.attrNames links));
     in
-    builtins.foldl' (
-      acc: linkName:
-      let
-        uplinkName = laneUplinkName links.${linkName};
-      in
-      if
-        uplinkName == null
-        || !(uplinkHasExecutableDefault routeFacts uplinkName)
-        || !(defaultRoutePolicy.accessMayUseDefault topo (laneAccessNodeName links.${linkName}) uplinkName)
-      then
-        acc
-      else
+    builtins.foldl'
+      (
+        acc: linkName:
         let
-          linkObj = links.${linkName};
-          routes = mkDefaultRoutes {
-            inherit
-              mkRoute4
-              mkRoute6
-              ;
-            epTo = link.getEp linkName linkObj selectorNodeName;
-            lane = {
-              access = laneAccessNodeName linkObj;
-              uplink = uplinkName;
-            };
-            metric = defaultMetricForLane topo linkObj;
-            policyOnly = true;
-            reason = "policy-derived-default";
-            relationIds =
-              defaultRoutePolicy.relationIdsForAccessUplink topo (laneAccessNodeName linkObj)
-                uplinkName;
-            direction = "outbound";
-            returnBehavior =
-              defaultRoutePolicy.returnBehaviorForAccessUplink topo (laneAccessNodeName linkObj)
-                uplinkName;
-          };
+          uplinkName = laneUplinkName links.${linkName};
         in
-        acc
-        // {
-          "${linkName}" = {
-            routes4 = (acc.${linkName}.routes4 or [ ]) ++ routes.routes4;
-            routes6 = (acc.${linkName}.routes6 or [ ]) ++ routes.routes6;
-          };
-        }
-    ) { } laneLinks;
+        if
+          uplinkName == null
+          || !(uplinkHasExecutableDefault routeFacts uplinkName)
+          || !(defaultRoutePolicy.accessMayUseDefault topo (laneAccessNodeName links.${linkName}) uplinkName)
+        then
+          acc
+        else
+          let
+            linkObj = links.${linkName};
+            routes = mkDefaultRoutes {
+              inherit
+                mkRoute4
+                mkRoute6
+                ;
+              epTo = link.getEp linkName linkObj selectorNodeName;
+              lane = {
+                access = laneAccessNodeName linkObj;
+                uplink = uplinkName;
+              };
+              metric = defaultMetricForLane topo linkObj;
+              policyOnly = true;
+              reason = "policy-derived-default";
+              relationIds = defaultRoutePolicy.relationIdsForAccessUplink topo (laneAccessNodeName linkObj) uplinkName;
+              direction = "outbound";
+              returnBehavior = defaultRoutePolicy.returnBehaviorForAccessUplink topo (laneAccessNodeName linkObj) uplinkName;
+            };
+          in
+          acc
+          // {
+            "${linkName}" = {
+              routes4 = (acc.${linkName}.routes4 or [ ]) ++ routes.routes4;
+              routes6 = (acc.${linkName}.routes6 or [ ]) ++ routes.routes6;
+            };
+          }
+      )
+      { }
+      laneLinks;
 
   addPolicyUpstreamSelectorDefaults =
     args: helpers.addRoutePlan args.node (policyUpstreamSelectorDefaultPlan args);

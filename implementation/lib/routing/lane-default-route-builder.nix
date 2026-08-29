@@ -1,10 +1,4 @@
-{
-  lib,
-  self ? {
-    outPath = ./.;
-  },
-  ...
-}:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 let
   link = import (self.outPath + "/implementation/lib/topology/link-utils.nix") { inherit lib self; };
@@ -12,17 +6,17 @@ let
 in
 rec {
   mkDefaultRoutes =
-    {
-      epTo,
-      mkRoute4,
-      mkRoute6,
-      metric ? null,
-      lane ? null,
-      policyOnly ? false,
-      reason ? null,
-      relationIds ? null,
-      direction ? null,
-      returnBehavior ? null,
+    { epTo
+    , mkRoute4
+    , mkRoute6
+    , metric ? null
+    , lane ? null
+    , policyOnly ? false
+    , reason ? null
+    , relationIds ? null
+    , direction ? null
+    , returnBehavior ? null
+    ,
     }:
     let
       via4 = if epTo ? addr4 && epTo.addr4 != null then helpers.stripMask epTo.addr4 else null;
@@ -74,46 +68,21 @@ rec {
           ];
     };
 
-  mkMultipathDefaultRoutes =
-    args@{ epsTo, multipathAuthority, ... }:
-    let
-      base = builtins.removeAttrs args [
-        "epsTo"
-        "multipathAuthority"
-      ];
-      per = map (epTo: mkDefaultRoutes (base // { inherit epTo; })) epsTo;
-      tagRoutes =
-        routes:
-        map (
-          r:
-          r
-          // {
-            multipath = {
-              authority = multipathAuthority;
-            };
-          }
-        ) routes;
-    in
-    {
-      routes4 = builtins.concatMap (x: tagRoutes x.routes4) per;
-      routes6 = builtins.concatMap (x: tagRoutes x.routes6) per;
-    };
-
   addDefaultsTowardPeer =
-    {
-      links,
-      node,
-      linkName,
-      peerNodeName,
-      mkRoute4,
-      mkRoute6,
-      metric ? null,
-      lane ? null,
-      policyOnly ? false,
-      reason ? null,
-      relationIds ? null,
-      direction ? null,
-      returnBehavior ? null,
+    { links
+    , node
+    , linkName
+    , peerNodeName
+    , mkRoute4
+    , mkRoute6
+    , metric ? null
+    , lane ? null
+    , policyOnly ? false
+    , reason ? null
+    , relationIds ? null
+    , direction ? null
+    , returnBehavior ? null
+    ,
     }:
     let
       linkObj = links.${linkName};
