@@ -195,7 +195,9 @@ in
       upstreamSelectorPolicyLaneCoreDefaultPlan = laneDefaults.policyLaneCoreDefaultPlan passArgs;
       addDownstreamSelectorPolicyLaneDefaults = laneDefaults.addDownstreamSelectorPolicyDefaults passArgs;
       addPolicyUpstreamSelectorLaneDefaults = laneDefaults.addPolicyUpstreamSelectorDefaults passArgs;
+      addPolicyUpstreamSelectorCombinedDefaults = laneDefaults.addPolicyUpstreamSelectorCombinedDefaults passArgs;
       addUpstreamSelectorPolicyLaneCoreDefaults = laneDefaults.addUpstreamSelectorPolicyLaneCoreDefaults passArgs;
+      addUpstreamSelectorPolicyCombinedCoreDefaults = laneDefaults.addUpstreamSelectorPolicyCombinedCoreDefaults passArgs;
       addDirectWanDefaults = directWanDefaults.apply { inherit node routeContext; };
     };
 }
