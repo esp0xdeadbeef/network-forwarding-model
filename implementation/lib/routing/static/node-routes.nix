@@ -1,50 +1,25 @@
-{
-  lib,
-  self ? {
-    outPath = ./.;
-  },
-  ...
-}:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 let
-  internalRoutes = import (self.outPath + "/implementation/lib/routing/internal-routes.nix") {
+  internalRoutes = import (self.outPath + "/implementation/lib/routing/internal-routes.nix") { inherit lib self; };
+  defaultRoutes = import (self.outPath + "/implementation/lib/routing/default-routes.nix") { inherit lib self; };
+  externalIngressUplinkDefaults =
+    import (self.outPath + "/implementation/lib/routing/external-ingress-uplink-defaults.nix") { inherit lib self; };
+  uplinkLearnedRoutes = import (self.outPath + "/implementation/lib/routing/uplink-learned-routes.nix") {
     inherit lib self;
   };
-  defaultRoutes = import (self.outPath + "/implementation/lib/routing/default-routes.nix") {
-    inherit lib self;
-  };
-  externalIngressUplinkDefaults = import (
-    self.outPath + "/implementation/lib/routing/external-ingress-uplink-defaults.nix"
-  ) { inherit lib self; };
-  uplinkLearnedRoutes =
-    import (self.outPath + "/implementation/lib/routing/uplink-learned-routes.nix")
-      {
-        inherit lib self;
-      };
 
   addExternalIngressUplinkDefaults =
     ctx: nodeName: node:
     externalIngressUplinkDefaults.apply {
       inherit nodeName node;
-      inherit (ctx)
-        topo
-        routeContext
-        routeFacts
-        routeGraph
-        ;
+      inherit (ctx) topo routeContext routeFacts routeGraph;
     };
 
-  defaultsFor =
-    ctx: nodeName: node:
+  defaultsFor = ctx: nodeName: node:
     defaultRoutes.apply {
       inherit nodeName node;
-      inherit (ctx)
-        topo
-        routeContext
-        routeFacts
-        routeGraph
-        nonOverlayTransitGraph
-        ;
+      inherit (ctx) topo routeContext routeFacts routeGraph nonOverlayTransitGraph;
     };
 in
 {
@@ -58,15 +33,7 @@ in
           internalRoutes.apply {
             nodeName = n;
             inherit node;
-            inherit (ctx)
-              topo
-              routeContext
-              routeFacts
-              remotePrefixFacts
-              routeGraph
-              realRouteGraph
-              internalRoutePlan
-              ;
+            inherit (ctx) topo routeContext routeFacts remotePrefixFacts routeGraph realRouteGraph internalRoutePlan;
           };
 
       withNearestUplinkDefault =
@@ -87,17 +54,11 @@ in
         else
           (defaultsFor ctx n withPolicyLaneDefaults).addPolicyUpstreamSelectorLaneDefaults;
 
-      withPolicyDownstreamMultipathDefaults =
+      withUpstreamCoreLaneDefaults =
         if ctx.skipLaneDefaults then
           withPolicyUpstreamLaneDefaults
         else
-          (defaultsFor ctx n withPolicyUpstreamLaneDefaults).addPolicyDownstreamDefaults;
-
-      withUpstreamCoreLaneDefaults =
-        if ctx.skipLaneDefaults then
-          withPolicyDownstreamMultipathDefaults
-        else
-          (defaultsFor ctx n withPolicyDownstreamMultipathDefaults).addUpstreamSelectorPolicyLaneCoreDefaults;
+          (defaultsFor ctx n withPolicyUpstreamLaneDefaults).addUpstreamSelectorPolicyLaneCoreDefaults;
 
       withExternalIngressDefaults =
         if ctx.skipExternalIngress then
@@ -114,11 +75,6 @@ in
     ctx: nodeName: node:
     uplinkLearnedRoutes.addToSelector {
       inherit nodeName node;
-      inherit (ctx)
-        topo
-        routeContext
-        routeFacts
-        routeGraph
-        ;
+      inherit (ctx) topo routeContext routeFacts routeGraph;
     };
 }
