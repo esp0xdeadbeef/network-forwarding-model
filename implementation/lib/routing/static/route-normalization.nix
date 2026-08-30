@@ -52,7 +52,19 @@ let
         route = builtins.head (rawDedupeRoutes staticRoutes);
         dst = if routePreservesDst route then route.dst else canonicalCidr route.dst;
       in
-      [ (routeBase route // { inherit dst; }) ]
+      [
+        (
+          routeBase route
+          // {
+            inherit dst;
+          }
+          # A single-route normalize call is how a freshly attached loopback
+          # first lands on an interface; dropping the marker here strips it
+          # before the route can later be grouped with its neighbors, which
+          # then re-summarizes adjacent /32 host routes into a /31.
+          // (if routePreservesDst route then { preserveDst = true; } else { })
+        )
+      ]
     else
       let
         keyedRoutes = map (
