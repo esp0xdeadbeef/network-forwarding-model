@@ -79,8 +79,6 @@ let
         ipv6 = iface.routes6 or [ ];
       };
 
-  withoutPreserveDst = map (route: builtins.removeAttrs route [ "preserveDst" ]);
-
   addRoutesOnLink =
     node: linkName: add4: add6:
     let
@@ -112,8 +110,14 @@ let
       interfaces = ifs // {
         "${linkName}" = cur // {
           routes = {
-            ipv4 = normalizeRouteList 4 ((withoutPreserveDst curRoutes.ipv4) ++ add4);
-            ipv6 = normalizeRouteList 6 ((withoutPreserveDst curRoutes.ipv6) ++ add6);
+            # Keep the preserveDst marker on the pre-existing routes: it is
+            # what keeps /32 (and /128) host routes, such as router loopbacks,
+            # from being summarized into wider prefixes when the default lanes
+            # are added on top. Stripping it here re-summarized 10.1.1.8/32 +
+            # 10.1.1.9/32 into 10.1.1.8/31 and erased the distinct core
+            # loopback next hops.
+            ipv4 = normalizeRouteList 4 (curRoutes.ipv4 ++ add4);
+            ipv6 = normalizeRouteList 6 (curRoutes.ipv6 ++ add6);
           };
         };
       };
