@@ -1,12 +1,12 @@
-{ canonicalCidr
-, dedupeDynamicRoutes
-, lib
-, rawDedupeRoutes
-, routeUsesDynamicSource
-, stripMask
-, summarizeCidrs
-, trace
-,
+{
+  canonicalCidr,
+  dedupeDynamicRoutes,
+  lib,
+  rawDedupeRoutes,
+  routeUsesDynamicSource,
+  stripMask,
+  summarizeCidrs,
+  trace,
 }:
 
 let
@@ -19,23 +19,25 @@ let
 
   sortRoutesByJSON =
     rs:
-    map
-      (entry: entry.route)
-      (builtins.sort (a: b: a.key < b.key) (
-        map
-          (route: {
-            key = builtins.toJSON route;
-            inherit route;
-          })
-          rs
-      ));
+    map (entry: entry.route) (
+      builtins.sort (a: b: a.key < b.key) (
+        map (route: {
+          key = builtins.toJSON route;
+          inherit route;
+        }) rs
+      )
+    );
 
   uniqueStrings =
     xs:
-    builtins.attrNames (builtins.listToAttrs (map (x: {
-      name = x;
-      value = true;
-    }) xs));
+    builtins.attrNames (
+      builtins.listToAttrs (
+        map (x: {
+          name = x;
+          value = true;
+        }) xs
+      )
+    );
 
   detectRouteFamily = r: if lib.hasInfix ":" (stripMask r.dst) then 6 else 4;
 
@@ -53,48 +55,53 @@ let
       [ (routeBase route // { inherit dst; }) ]
     else
       let
-        keyedRoutes = map
-          (
-            r:
-            let
-              base = routeBase r;
-            in
-            {
-              inherit base;
-              key = builtins.toJSON base;
-              preserveDst = routePreservesDst r;
-              rawDst = r.dst;
-            }
-          )
-          staticRoutes;
+        keyedRoutes = map (
+          r:
+          let
+            base = routeBase r;
+          in
+          {
+            inherit base;
+            key = builtins.toJSON base;
+            preserveDst = routePreservesDst r;
+            rawDst = r.dst;
+          }
+        ) staticRoutes;
         grouped = builtins.groupBy (r: r.key) keyedRoutes;
 
-        normalizedGroups = builtins.concatMap
-          (
-            key:
-            let
-              group = grouped.${key};
-              base = (builtins.head group).base;
-              preservesDst = builtins.any (r: r.preserveDst) group;
-              cidrs =
-                if preservesDst then
-                  uniqueStrings (map (r: r.rawDst) group)
-                else
-                  uniqueStrings (map (r: canonicalCidr r.rawDst) group);
-              renderedCidrs =
-                if preservesDst then
-                  builtins.sort (a: b: a < b) cidrs
-                else if
-                  builtins.length cidrs <= 1
-                  && !(family == 6 && builtins.match ".*/0" (builtins.head cidrs) != null)
-                then
-                  cidrs
-                else
-                  summarizeCidrs family cidrs;
-            in
-            map (dst: base // { dst = dst; }) renderedCidrs
-          )
-          (builtins.attrNames grouped);
+        normalizedGroups = builtins.concatMap (
+          key:
+          let
+            group = grouped.${key};
+            base = (builtins.head group).base;
+            preservesDst = builtins.any (r: r.preserveDst) group;
+            cidrs =
+              if preservesDst then
+                uniqueStrings (map (r: r.rawDst) group)
+              else
+                uniqueStrings (map (r: canonicalCidr r.rawDst) group);
+            renderedCidrs =
+              if preservesDst then
+                builtins.sort (a: b: a < b) cidrs
+              else if
+                builtins.length cidrs <= 1 && !(family == 6 && builtins.match ".*/0" (builtins.head cidrs) != null)
+              then
+                cidrs
+              else
+                summarizeCidrs family cidrs;
+          in
+          map (
+            dst:
+            base
+            // {
+              inherit dst;
+            }
+            # Carry the preserve marker forward so later normalization
+            # stages (default-lane materialization) do not re-summarize
+            # the /32 (or /128) host route into a wider prefix.
+            // (if preservesDst then { preserveDst = true; } else { })
+          ) renderedCidrs
+        ) (builtins.attrNames grouped);
       in
       sortRoutesByJSON normalizedGroups;
 
