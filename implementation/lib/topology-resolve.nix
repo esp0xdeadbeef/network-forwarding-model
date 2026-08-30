@@ -1,4 +1,10 @@
-{ lib, self ? { outPath = ./.; }, ... }:
+{
+  lib,
+  self ? {
+    outPath = ./.;
+  },
+  ...
+}:
 
 topoRaw:
 
@@ -8,10 +14,14 @@ let
   interfaceResolution = import ./topology/resolve/interfaces.nix { inherit lib self; };
   linkValidation = import ./topology/resolve/link-validation.nix { inherit lib self; };
   overlayResolution = import ./topology/resolve/overlays.nix { inherit lib self; };
-  overlayUnderlayVirtualEdgesMod = import ./topology/resolve/overlay-underlay-virtual-edges.nix { inherit lib self; };
+  overlayUnderlayVirtualEdgesMod = import ./topology/resolve/overlay-underlay-virtual-edges.nix {
+    inherit lib self;
+  };
   tenantOwnersMod = import ./routing/tenant-prefix-owners.nix { inherit lib self; };
   prefixAuthorityMod = import ./model/prefix-authority.nix { inherit lib self; };
-  publicIpv4DestinationPolicyMod = import ./model/public-ipv4-destination-policy.nix { inherit lib self; };
+  publicIpv4DestinationPolicyMod = import ./model/public-ipv4-destination-policy.nix {
+    inherit lib self;
+  };
   trafficPathValidationMod = import ./model/traffic-path-validation.nix { inherit lib self; };
   graphContext = import ./routing/graph/context.nix { inherit lib self; };
 
@@ -97,11 +107,9 @@ let
 
   stripLinuxSpecific = node: builtins.removeAttrs node [ "routingDomain" ];
 
-  nodes' = lib.mapAttrs
-    (
-      n: node: (stripLinuxSpecific node) // { interfaces = interfacesForNode n; }
-    )
-    nodes0;
+  nodes' = lib.mapAttrs (
+    n: node: (stripLinuxSpecific node) // { interfaces = interfacesForNode n; }
+  ) nodes0;
 
   normalizeLink =
     linkName: l:
@@ -109,21 +117,19 @@ let
       members = linkMembersFor linkName l;
 
       normEndpoints = lib.listToAttrs (
-        map
-          (
-            nodeName:
-            let
-              ep = getEpStrict linkName l nodeName;
-            in
-            {
-              name = nodeName;
-              value = ep // {
-                node = nodeName;
-                interface = linkName;
-              };
-            }
-          )
-          members
+        map (
+          nodeName:
+          let
+            ep = getEpStrict linkName l nodeName;
+          in
+          {
+            name = nodeName;
+            value = ep // {
+              node = nodeName;
+              interface = linkName;
+            };
+          }
+        ) members
       );
     in
     l
@@ -160,13 +166,33 @@ let
   routingStatic = import ./routing/static/attach.nix { inherit lib self; };
 
   skipRouting = builtins.getEnv "S88_NFM_PROFILE_SKIP_ROUTING" == "1";
-  routeGraph =
-    graphContext.build (topo2.links or { }) {
-      nodeNames = builtins.attrNames (topo2.nodes or { });
-      virtualEdges = overlayUnderlayVirtualEdges;
-    };
-  topo3 = if skipRouting then topo2 else resolveLoopbacks.attachWith { topo = topo2; inherit routeGraph; };
-  topo4 = if skipRouting then topo3 else routingStatic.attachWith { topo = topo3; inherit routeGraph; };
+  routeGraph = graphContext.build (topo2.links or { }) {
+    nodeNames = builtins.attrNames (topo2.nodes or { });
+    virtualEdges = overlayUnderlayVirtualEdges;
+  };
+  # Loopback routes follow the real fabric links only. Overlay-underlay
+  # virtual edges exist to carry the overlay's underlay reachability; using
+  # them for loopback next-hop selection would short-circuit a core's loopback
+  # through a shared-tenant access node instead of the core's own fabric link.
+  realRouteGraph = graphContext.build (topo2.links or { }) {
+    nodeNames = builtins.attrNames (topo2.nodes or { });
+  };
+  topo3 =
+    if skipRouting then
+      topo2
+    else
+      resolveLoopbacks.attachWith {
+        topo = topo2;
+        routeGraph = realRouteGraph;
+      };
+  topo4 =
+    if skipRouting then
+      topo3
+    else
+      routingStatic.attachWith {
+        topo = topo3;
+        inherit routeGraph;
+      };
 
 in
 builtins.seq _validatedLinks (builtins.seq _p2pLinkMembershipValidated topo4)
