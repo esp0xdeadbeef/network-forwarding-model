@@ -39,7 +39,7 @@ cat >"$PI" <<'NIX'
 };};}
 NIX
 
-nix run --no-warn-dirty "path:$compiler_path#compile" -- "$PI" >"$PC" || { fail "P1-compile"; exit 1; }
+nix run --no-write-lock-file "path:$compiler_path#compile" -- "$PI" >"$PC" || { fail "P1-compile"; exit 1; }
 nix run "$repo_root#compile-and-build-forwarding-model" -- "$PI" >"$PN" || { fail "P1-nfm"; exit 1; }
 
 jq -e '[.sites.esp0xdeadbeef."site-a".trafficPaths[]|select(.relationId=="allow-client-wan")][0].action=="allow"' "$PC" >/dev/null \
@@ -72,7 +72,7 @@ cat >"$NI" <<'NIX'
 };};}
 NIX
 
-nix run --no-warn-dirty "path:$compiler_path#compile" -- "$NI" >"$NC" || { fail "N1-compile"; exit 1; }
+nix run --no-write-lock-file "path:$compiler_path#compile" -- "$NI" >"$NC" || { fail "N1-compile"; exit 1; }
 nix run "$repo_root#compile-and-build-forwarding-model" -- "$NI" >"$NN" || { fail "N1-nfm"; exit 1; }
 
 # Compiler DOES produce trafficPath for deny (it's a path mapping, still valid)
@@ -111,7 +111,7 @@ cat >"$WI" <<'NIX'
 };};}
 NIX
 
-nix run --no-warn-dirty "path:$compiler_path#compile" -- "$WI" >"$WC" || { fail "N2-compile"; exit 1; }
+nix run --no-write-lock-file "path:$compiler_path#compile" -- "$WI" >"$WC" || { fail "N2-compile"; exit 1; }
 nix run "$repo_root#compile-and-build-forwarding-model" -- "$WI" >"$WN" || { fail "N2-nfm"; exit 1; }
 
 jq -e '[.sites.esp0xdeadbeef."site-c".trafficPaths[]]|length==1 and .[0].relationId=="allow-https"' "$WC" >/dev/null \

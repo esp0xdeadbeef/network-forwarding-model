@@ -50,14 +50,29 @@ let
   routeRows = [
     { nodeName = "client-edge"; linkName = "tenant-client";
       routes4 = [{ dst = "10.3.172.0/24"; }]; routes6 = [];
-      diagnostics = { exactOnlyCount = 0; finalMaterializedRouteCount = 1; }; }
+      equivalenceKey = {
+        aggregationClass = "tenant";
+        sourceNode = "client-edge";
+        routeAtomIds = [ "tenant-atom-1" ];
+      };
+      diagnostics = { exactOnlyCount = 0; exactDeduplicationCount = 0; prefixSummaryCandidateCount = 0; finalMaterializedRouteCount = 1; routeAtomCount = 1; }; }
     { nodeName = "client-edge"; linkName = "p2p-client-edge-downstream-selector";
       routes4 = [{ dst = "0.0.0.0/0"; via4 = "10.3.255.1"; }];
       routes6 = [{ dst = "::/0"; via6 = "fd42:3ac:fe:0:0:0:0:1"; }];
-      diagnostics = { exactOnlyCount = 1; finalMaterializedRouteCount = 2; }; }
+      equivalenceKey = {
+        aggregationClass = "point-to-point";
+        sourceNode = "client-edge";
+        routeAtomIds = [ "p2p-atom-1" "p2p-atom-2" ];
+      };
+      diagnostics = { exactOnlyCount = 1; exactDeduplicationCount = 0; prefixSummaryCandidateCount = 0; finalMaterializedRouteCount = 2; routeAtomCount = 2; }; }
     { nodeName = "downstream-selector"; linkName = "p2p-client-edge-downstream-selector";
       routes4 = [{ dst = "0.0.0.0/0"; via4 = "10.3.255.0"; }]; routes6 = [];
-      diagnostics = { exactOnlyCount = 1; finalMaterializedRouteCount = 1; }; }
+      equivalenceKey = {
+        aggregationClass = "point-to-point";
+        sourceNode = "downstream-selector";
+        routeAtomIds = [ "p2p-atom-3" ];
+      };
+      diagnostics = { exactOnlyCount = 1; exactDeduplicationCount = 0; prefixSummaryCandidateCount = 0; finalMaterializedRouteCount = 1; routeAtomCount = 1; }; }
   ];
   remoteGroups = {};
   remotePrefixFacts = { remoteByNode = {}; tenantOwnerEntries = []; overlayRouteEntries = []; p2pEntries = []; };

@@ -1,4 +1,10 @@
-{ lib, self ? { outPath = ./.; }, ... }:
+{
+  lib,
+  self ? {
+    outPath = ./.;
+  },
+  ...
+}:
 
 let
   link = import (self.outPath + "/implementation/lib/topology/link-utils.nix") { inherit lib self; };
@@ -7,10 +13,12 @@ let
   };
   inherit (laneMetadata)
     laneAccessNodeName
+    laneMeta
     laneUplinkName
     ;
 
-  addUnique = acc: name: value:
+  addUnique =
+    acc: name: value:
     acc // { "${name}" = lib.unique ((acc.${name} or [ ]) ++ [ value ]); };
 
 in
@@ -24,26 +32,29 @@ in
           linkObj = links.${linkName};
           uplinkName = laneUplinkName linkObj;
           accessNodeName = laneAccessNodeName linkObj;
+          uplinkNames = if uplinkName != null then [ uplinkName ] else (laneMeta linkObj).uplinks or [ ];
           members = link.membersOf linkObj;
           accWithNodeUplinks =
-            if accessNodeName != null || uplinkName == null then
+            if accessNodeName != null || uplinkNames == [ ] then
               acc
             else
-              builtins.foldl'
-                (
-                  nodeAcc: member:
-                  nodeAcc // { uplinksByNode = addUnique nodeAcc.uplinksByNode member uplinkName; }
-                )
-                acc
-                members;
+              builtins.foldl' (
+                nodeAcc: member:
+                builtins.foldl' (
+                  inner: uplink: inner // { uplinksByNode = addUnique inner.uplinksByNode member uplink; }
+                ) nodeAcc uplinkNames
+              ) acc members;
         in
-        if accessNodeName == null || uplinkName == null then
+        if accessNodeName == null || uplinkNames == [ ] then
           accWithNodeUplinks
         else
-          accWithNodeUplinks // {
-            uplinksByAccess = addUnique accWithNodeUplinks.uplinksByAccess accessNodeName uplinkName;
-          }
+          builtins.foldl' (
+            inner: uplink: inner // { uplinksByAccess = addUnique inner.uplinksByAccess accessNodeName uplink; }
+          ) accWithNodeUplinks uplinkNames
       )
-      { uplinksByNode = { }; uplinksByAccess = { }; }
+      {
+        uplinksByNode = { };
+        uplinksByAccess = { };
+      }
       (builtins.attrNames links);
 }

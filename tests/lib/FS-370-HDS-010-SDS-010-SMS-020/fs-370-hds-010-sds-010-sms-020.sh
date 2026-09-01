@@ -84,21 +84,21 @@ jq -e '
     "s-router-downstream-selector";
     "p2p-s-router-downstream-selector-s-router-policy-only--access-s-router-access-client";
     "ipv6";
-    "fd42:dead:feed:0010:0000:0000:0000:0000/64";
+    "fd42:dead:feed:10::/64";
     "s-router-access-client";
     "east-west")
   and has_route(
     "s-router-policy-only";
-    "p2p-s-router-policy-only-s-router-upstream-selector--access-s-router-access-client--uplink-east-west";
+    "p2p-s-router-policy-only-s-router-upstream-selector--access-s-router-access-client";
     "ipv4";
     "10.60.10.0/24";
     "s-router-access-client";
     "east-west")
   and has_route(
     "s-router-policy-only";
-    "p2p-s-router-policy-only-s-router-upstream-selector--access-s-router-access-client--uplink-east-west";
+    "p2p-s-router-policy-only-s-router-upstream-selector--access-s-router-access-client";
     "ipv6";
-    "fd42:dead:feed:0010:0000:0000:0000:0000/64";
+    "fd42:dead:feed:10::/64";
     "s-router-access-client";
     "east-west")
   and missing_lane_count("s-router-downstream-selector") == 0
