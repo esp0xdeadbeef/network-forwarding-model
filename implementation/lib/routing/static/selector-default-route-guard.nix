@@ -92,7 +92,22 @@ in
       bypassTenantText =
         if bypassTenants == [ ] then "<unknown-tenant>" else builtins.concatStringsSep "," bypassTenants;
 
-      # Check if ANY upstream selector has the required default route for each requirement
+      # Check if ANY upstream selector has the required default route for each
+      # requirement. FS-315 allows a single multipath default (an explicit
+      # member set) to serve all of the requirement's uplinks instead of one
+      # direct route per selector-to-core link.
+      multipathServes =
+        route: requirement:
+        let
+          lane = route.lane or { };
+          uplinks = lane.uplinks or [ ];
+          access = lane.access or null;
+        in
+        builtins.isAttrs (route.multipath or null)
+        && builtins.isString (route.multipath.authority or null)
+        && (access == null || access == requirement.accessName)
+        && (uplinks == [ ] || builtins.elem requirement.uplinkName uplinks);
+
       coreDefaultServedByAnySelector =
         requirement:
         let
@@ -105,11 +120,18 @@ in
             name:
             let
               selector = nodes.${name} or { };
+              interfaces = selector.interfaces or { };
+              direct = builtins.any (
+                linkName: builtins.any isDefaultRoute (ifaceRoutes (interfaces.${linkName} or { }))
+              ) (linksForSelectorCoreUplink topo name coreSet requirement.uplinkName);
+              multipath = builtins.any (
+                ifaceName:
+                builtins.any (route: multipathServes route requirement) (
+                  ifaceRoutes (interfaces.${ifaceName} or { })
+                )
+              ) (builtins.attrNames interfaces);
             in
-            builtins.any (
-              linkName:
-              builtins.any isDefaultRoute (ifaceRoutes ((selector.interfaces or { }).${linkName} or { }))
-            ) (linksForSelectorCoreUplink topo name coreSet requirement.uplinkName)
+            direct || multipath
           ) names;
 
       missing = lib.filter (
