@@ -1,4 +1,10 @@
-{ lib, self ? { outPath = ./.; }, ... }:
+{
+  lib,
+  self ? {
+    outPath = ./.;
+  },
+  ...
+}:
 
 let
   common = import ./common.nix { inherit lib self; };
@@ -6,39 +12,44 @@ let
   roleNames = import (self.outPath + "/implementation/s88/Site/topology/emission/role-names.nix") {
     inherit lib self;
   };
-  transitOrderingMod = import (self.outPath + "/implementation/s88/Site/topology/emission/transit-ordering.nix") {
-    inherit lib self;
-  };
-  uplinkMetadata = import (self.outPath + "/implementation/s88/Site/topology/emission/uplink-metadata.nix") {
+  transitOrderingMod =
+    import (self.outPath + "/implementation/s88/Site/topology/emission/transit-ordering.nix")
+      {
+        inherit lib self;
+      };
+  uplinkMetadata =
+    import (self.outPath + "/implementation/s88/Site/topology/emission/uplink-metadata.nix")
+      {
+        inherit lib self;
+      };
+  siteRouting = import (self.outPath + "/implementation/lib/routing/site-routing.nix") {
     inherit lib self;
   };
 in
 {
   materialize =
-    { enterprise
-    , siteId
-    , siteName
-    , topologyPairs
-    , rolesResult
-    , wanResult
-    , policyNodeName
-    , upstreamSelectorNodeName
-    , coreNodeNames
-    , overlayReachability
-    , routedSite
-    ,
+    {
+      enterprise,
+      siteId,
+      siteName,
+      topologyPairs,
+      rolesResult,
+      wanResult,
+      policyNodeName,
+      upstreamSelectorNodeName,
+      coreNodeNames,
+      overlayReachability,
+      routedSite,
     }:
     let
       normalizedRouteSite = routedSite // {
-        nodes = lib.mapAttrs
-          (
-            _: node:
-              node
-                // {
-                interfaces = lib.mapAttrs (_: common.normalizeRoutes) (node.interfaces or { });
-              }
-          )
-          (routedSite.nodes or { });
+        nodes = lib.mapAttrs (
+          _: node:
+          node
+          // {
+            interfaces = lib.mapAttrs (_: common.normalizeRoutes) (node.interfaces or { });
+          }
+        ) (routedSite.nodes or { });
       };
 
       finalPolicyNodeName = roleNames.finalPolicyNodeName { inherit normalizedRouteSite policyNodeName; };
@@ -65,7 +76,12 @@ in
       realizedTransitAdjacencies = transit.transitAdjacenciesFromLinks (normalizedRouteSite.links or { });
 
       transitOrdering = transitOrderingMod.build {
-        inherit enterprise siteId rolesResult realizedTransitAdjacencies;
+        inherit
+          enterprise
+          siteId
+          rolesResult
+          realizedTransitAdjacencies
+          ;
       };
 
       existingTopology =
@@ -106,12 +122,10 @@ in
           { }
         else
           builtins.listToAttrs (
-            map
-              (overlayName: {
-                name = overlayName;
-                value = overlayPool;
-              })
-              overlayNames
+            map (overlayName: {
+              name = overlayName;
+              value = overlayPool;
+            }) overlayNames
           );
     in
     builtins.removeAttrs normalizedRouteSite [
@@ -125,13 +139,14 @@ in
       "ulaPrefix"
       "routerLoopbacks"
       "transport"
-      "recursiveDnsIntent"     # FS-540: migrated to dns.recursive by compiler-input/sites/build.nix
-      "localDnsSharingIntent"  # FS-540: migrated to dns.localSharing by compiler-input/sites/build.nix
+      "recursiveDnsIntent" # FS-540: migrated to dns.recursive by compiler-input/sites/build.nix
+      "localDnsSharingIntent" # FS-540: migrated to dns.localSharing by compiler-input/sites/build.nix
     ]
     // {
       inherit enterprise siteId overlayReachability;
       siteName = normalizedRouteSite.siteName or siteName;
       inherit hostNatIngress;
+      routing = siteRouting.siteRouting (normalizedRouteSite.nodes or { });
       overlayAddressPools = overlayAddressPools;
       coreNodeNames = finalCoreNodeNames;
       policyNodeName = finalPolicyNodeName;
