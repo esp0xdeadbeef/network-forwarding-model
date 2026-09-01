@@ -39,7 +39,7 @@ in
       };
 
       nearestDefaultRoute =
-        family: nextHop:
+        family: nextHop: lane:
         if nextHop == null then
           [ ]
         else
@@ -51,6 +51,7 @@ in
                 proto = "default";
                 intentKind = "default-reachability";
               }
+              // lib.optionalAttrs (lane != null) { inherit lane; }
               // lib.optionalAttrs (family == 4) {
                 # The IPv4 default is advertised to clients as part of the
                 # RFC 3442 classless routes so option 121 does not suppress the
@@ -117,14 +118,22 @@ in
             selectedIsOverlayUplink =
               selectedUplinkName != null && builtins.hasAttr selectedUplinkName overlayUplinkNameSet;
             skipOverlayGenericDefault = nonOverlayUplinkNames != [ ] && selectedIsOverlayUplink;
+            accessLane =
+              if (node.role or null) == "access" && selectedUplinkName != null then
+                {
+                  access = nodeName;
+                  uplink = selectedUplinkName;
+                }
+              else
+                null;
           in
           if selectedPath == null || nextHop.linkName == null || skipOverlayGenericDefault then
             { }
           else
             {
               "${nextHop.linkName}" = {
-                routes4 = nearestDefaultRoute 4 nextHop.via4;
-                routes6 = nearestDefaultRoute 6 nextHop.via6;
+                routes4 = nearestDefaultRoute 4 nextHop.via4 accessLane;
+                routes6 = nearestDefaultRoute 6 nextHop.via6 accessLane;
               };
             };
 
