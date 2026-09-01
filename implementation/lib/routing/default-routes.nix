@@ -119,10 +119,9 @@ in
               selectedUplinkName != null && builtins.hasAttr selectedUplinkName overlayUplinkNameSet;
             skipOverlayGenericDefault = nonOverlayUplinkNames != [ ] && selectedIsOverlayUplink;
             accessLane =
-              if (node.role or null) == "access" && selectedUplinkName != null then
+              if (node.role or null) == "access" then
                 {
                   access = nodeName;
-                  uplink = selectedUplinkName;
                 }
               else
                 null;
