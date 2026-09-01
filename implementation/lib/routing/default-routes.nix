@@ -9,6 +9,7 @@
 let
   graphContext = import ./graph/context.nix { inherit lib self; };
   helpers = import ./static-helpers.nix { inherit lib self; };
+  defaultRoutePolicy = import ./default-route-policy.nix { inherit lib; };
   directWanDefaults = import ./direct-wan-defaults.nix { inherit lib self; };
   laneDefaults = import ./lane-defaults.nix { inherit lib self; };
   nearestTargetModule = import ./nearest-default-target.nix { inherit lib self; };
@@ -120,8 +121,13 @@ in
             skipOverlayGenericDefault = nonOverlayUplinkNames != [ ] && selectedIsOverlayUplink;
             accessLane =
               if (node.role or null) == "access" then
+                let
+                  accessUplinks = defaultRoutePolicy.anyTrafficDefaultUplinksForAccess topo nodeName;
+                in
                 {
                   access = nodeName;
+                  uplink =
+                    if accessUplinks == [ ] then null else builtins.head (lib.sort (a: b: a < b) accessUplinks);
                 }
               else
                 null;
