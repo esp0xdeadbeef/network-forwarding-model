@@ -6,6 +6,7 @@
     nixpkgs-network.url = "github:NixOS/nixpkgs/ac56c456ebe4901c561d3ebf1c98fbd970aea753";
     network-compiler.url = "github:esp0xdeadbeef/network-compiler";
     network-compiler.inputs.nixpkgs.follows = "nixpkgs";
+    network-compiler.inputs.network-labs.follows = "network-labs";
     network-labs.url = "github:esp0xdeadbeef/network-labs";
   };
 
