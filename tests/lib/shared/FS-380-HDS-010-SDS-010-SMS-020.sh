@@ -166,6 +166,7 @@ let
         mode = "nat44";
         sourcePrefixes = [ "10.37.20.0/24" ];
         egressSurface = "wan";
+        providerRealized = false;
       };
 
     # SMS-020: egressIntent.nat44 has expected structure keys
@@ -179,6 +180,7 @@ let
         mode = "masquerade";
         sourcePrefixes = [ "10.37.20.0/24" ];
         egressSurface = "wan";
+        providerRealized = false;
       };
 
     # SMS-020: snat mode works correctly
@@ -187,6 +189,7 @@ let
         mode = "snat";
         sourcePrefixes = [ "10.37.20.0/24" ];
         egressSurface = "wan";
+        providerRealized = false;
       };
 
     # SMS-020 seeded negative: no translation mode → nat44 is empty

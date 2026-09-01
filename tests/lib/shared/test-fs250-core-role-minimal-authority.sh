@@ -184,6 +184,8 @@ let
       explicitNat66Core.egressIntent.nat66.wan == {
         mode = "nat66";
         sourcePrefixes = [ "fd00:250:10::/64" ];
+        egressSurface = "wan";
+        providerRealized = false;
       };
   };
 in
