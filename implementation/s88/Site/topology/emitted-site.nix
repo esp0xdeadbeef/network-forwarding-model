@@ -25,6 +25,9 @@ let
   siteRouting = import (self.outPath + "/implementation/lib/routing/site-routing.nix") {
     inherit lib self;
   };
+  siteResolverPaths = import (self.outPath + "/implementation/lib/routing/site-resolver-paths.nix") {
+    inherit lib self;
+  };
 in
 {
   materialize =
@@ -147,6 +150,7 @@ in
       siteName = normalizedRouteSite.siteName or siteName;
       inherit hostNatIngress;
       routing = siteRouting.siteRouting (normalizedRouteSite.nodes or { });
+      resolverPaths = siteResolverPaths.resolverPaths normalizedRouteSite;
       overlayAddressPools = overlayAddressPools;
       coreNodeNames = finalCoreNodeNames;
       policyNodeName = finalPolicyNodeName;
