@@ -7,21 +7,31 @@
 let
   siteTenantsFromOwnership =
     site:
+    # Consume the compiler's normalized tenants (site.tenants), not the raw
+    # intent. The compiler owns the tenant DNS-domain derivation (explicit
+    # domain or named-zone reference); a downstream layer must not read raw
+    # intent (FS-982). Fall back to the raw ownership prefixes only when the
+    # compiler output carries no tenants (a non-compiler input shape).
     let
-      prefixes = getAttrPathOr [ "ownership" "prefixes" ] [ ] site;
-      isTenantPrefix = prefix: (prefix.kind or null) == "tenant";
-      mkTenant =
-        prefix:
-        {
-          name = prefix.name;
-        }
-        // lib.optionalAttrs (prefix ? ipv4) { ipv4 = prefix.ipv4; }
-        // lib.optionalAttrs (prefix ? ipv6) { ipv6 = prefix.ipv6; }
-        // lib.optionalAttrs (prefix ? ra6Prefixes) { ra6Prefixes = prefix.ra6Prefixes; }
-        // lib.optionalAttrs (prefix ? routedPrefixes) { routedPrefixes = prefix.routedPrefixes; }
-        // lib.optionalAttrs (prefix ? dnsDomain) { dnsDomain = prefix.dnsDomain; };
+      compiledTenants = site.tenants or [ ];
+      rawTenants =
+        let
+          prefixes = getAttrPathOr [ "ownership" "prefixes" ] [ ] site;
+          isTenantPrefix = prefix: (prefix.kind or null) == "tenant";
+          mkTenant =
+            prefix:
+            {
+              name = prefix.name;
+            }
+            // lib.optionalAttrs (prefix ? ipv4) { ipv4 = prefix.ipv4; }
+            // lib.optionalAttrs (prefix ? ipv6) { ipv6 = prefix.ipv6; }
+            // lib.optionalAttrs (prefix ? ra6Prefixes) { ra6Prefixes = prefix.ra6Prefixes; }
+            // lib.optionalAttrs (prefix ? routedPrefixes) { routedPrefixes = prefix.routedPrefixes; }
+            // lib.optionalAttrs (prefix ? dnsDomain) { dnsDomain = prefix.dnsDomain; };
+        in
+        builtins.map mkTenant (builtins.filter isTenantPrefix prefixes);
     in
-    builtins.map mkTenant (builtins.filter isTenantPrefix prefixes);
+    if compiledTenants != [ ] then compiledTenants else rawTenants;
 
   rawPolicyInterfaceTags =
     site:
