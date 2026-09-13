@@ -161,15 +161,21 @@ let
         inherit namespace;
         # The canonical stage roles crossed, policy included by construction.
         pathStages = stages;
-        # Concrete node names, filled with the endpoint nodes and the fabric
-        # role nodes between them when present in the topology.
-        pathNodes = builtins.filter (n: n != null) [
-          requesterNode
-          (firstRoleNode nodes "downstream-selector")
-          (firstRoleNode nodes "policy")
-          (firstRoleNode nodes "downstream-selector")
-          authorityNode
-        ];
+        # Concrete node names, one per stage role crossed. The first stage role
+        # is the requester endpoint, the last is the authority endpoint; the
+        # middle roles resolve to their fabric nodes in the topology.
+        pathNodes =
+          let
+            roleNodeForStage =
+              idx: role:
+              if idx == 0 then
+                requesterNode
+              else if idx == (builtins.length stages - 1) then
+                authorityNode
+              else
+                firstRoleNode nodes role;
+          in
+          builtins.filter (n: n != null) (lib.imap0 roleNodeForStage stages);
         policyPoint = firstRoleNode nodes "policy";
       };
 
