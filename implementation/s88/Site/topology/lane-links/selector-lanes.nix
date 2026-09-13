@@ -44,7 +44,16 @@
           in
           if upstreamSelectorUnit == null then
             [ ]
-          else if builtins.length uplinks <= 1 then
+          else
+            # One access-uplink lane PER permitted uplink. FS-370-SMS-050: a lane
+            # with kind "access-uplink" shall carry a non-null uplink field
+            # matching the intent's to.uplinks[] value, and the CPM shall not
+            # silently drop uplink annotations for tenants with explicit
+            # allow-{tenant}-to-{uplink} rules. The upstream selector still
+            # realizes the choice AMONG these permitted uplinks (URS: upstream
+            # selectors realize permitted paths, they do not create policy);
+            # modeling one lane per permitted uplink does not move that choice
+            # into the policy point.
             map (
               uplinkName:
               {
@@ -55,7 +64,6 @@
                   kind = "access-uplink";
                   access = toString accessUnit;
                   uplink = toString uplinkName;
-                  uplinks = [ (toString uplinkName) ];
                 };
                 name =
                   canonicalP2pLinkNameForEndpointsWithSuffix policyUnit upstreamSelectorUnit
@@ -64,30 +72,7 @@
               // lib.optionalAttrs (builtins.hasAttr (toString uplinkName) overlayNameSet) {
                 overlay = toString uplinkName;
               }
-            ) uplinks
-          else
-            # A multi-uplink access unit keeps ONE policy->upstream-selector
-            # lane. The upstream-selector owns the multi-WAN/load-balancing
-            # choice across the permitted cores (URS: "Upstream selectors ...
-            # load balancing ... realize permitted paths"). Splitting this
-            # into per-uplink lanes would move that choice into the policy
-            # point, which is not its role.
-            [
-              {
-                a = policyUnit;
-                b = upstreamSelectorUnit;
-                lane = "access::${toString accessUnit}";
-                laneMeta = {
-                  kind = "access-uplink";
-                  access = toString accessUnit;
-                  uplink = null;
-                  uplinks = map toString uplinks;
-                };
-                name =
-                  canonicalP2pLinkNameForEndpointsWithSuffix policyUnit upstreamSelectorUnit
-                    "access-${toString accessUnit}";
-              }
-            ];
+            ) uplinks;
       in
       (lib.concatMap downstreamPolicyLane accessUnitNames)
       ++ (lib.concatMap policyUpstreamLanes accessUnitNames);
