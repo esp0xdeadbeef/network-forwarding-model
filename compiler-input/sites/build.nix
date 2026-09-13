@@ -55,7 +55,20 @@ let
         siteId:
         let
           explicitSite = explicit.${siteId} or { };
-          mergedSite = mergeAttrs (original.${siteId} or { }) explicitSite;
+          originalSite = original.${siteId} or { };
+          # Audit: every top-level key that reaches the model ONLY from
+          # meta.provenance.originalInputs (the raw intent copy) is a downstream
+          # raw-intent read. It is surfaced here so each such key can be moved to
+          # a compiler-emitted field. Keys present in the explicit compiler
+          # output are not reported (they come from the compiler, as required by
+          # FS-982).
+          keysFromOriginalOnly = lib.filter (k: !(explicitSite ? ${k})) (builtins.attrNames originalSite);
+          _auditOriginalInputs =
+            if keysFromOriginalOnly == [ ] then
+              true
+            else
+              builtins.trace "FS-982 raw-intent read: enterprise='${enterpriseName}' site='${siteId}' reads these keys ONLY from meta.provenance.originalInputs (move each to a compiler-emitted field): ${lib.concatStringsSep ", " keysFromOriginalOnly}" true;
+          mergedSite = builtins.seq _auditOriginalInputs (mergeAttrs originalSite explicitSite);
         in
         {
           name = siteId;
