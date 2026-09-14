@@ -85,32 +85,37 @@ in
           coreTargets = lib.filter (nodeName: (nodes.${nodeName}.role or null) == "core") targets;
 
           # FS-260: a core that terminates an overlay is an overlay endpoint. Its
-          # reachability and egress are the modeled overlay relation (FS-460/470),
-          # so it is NOT required to declare a local uplink. What is forbidden is
-          # reusing the overlay name as a generic WAN/ISP uplink that carries a
-          # prefix list, because that models the overlay as a routed core uplink
-          # with imported prefixes instead of as the overlay itself.
+          # reachability through the overlay is the modeled overlay relation
+          # (FS-460/470), so it needs no overlay-named uplink for that. FS-440
+          # also allows the same node to own a real provider uplink under the
+          # same name when that uplink is a genuine egress surface: a default
+          # route plus a selected translation mode is a provider handoff, not a
+          # prefix list. Only an overlay-named uplink that carries SPECIFIC
+          # prefixes is the retired overlay-as-uplink shape, because it models
+          # the overlay as a routed core uplink with imported prefixes.
+          isDefaultPrefix = prefix: prefix == "0.0.0.0/0" || prefix == "::/0";
+          carriesSpecificPrefix =
+            uplink:
+            let
+              prefixes = (uplink.ipv4 or [ ]) ++ (uplink.ipv6 or [ ]);
+            in
+            builtins.any (prefix: !(isDefaultPrefix prefix)) prefixes || (uplink.routedPrefixes or [ ]) != [ ];
           offenders = lib.filter (
             nodeName:
             let
               uplink = (nodes.${nodeName}.uplinks or { }).${overlayName} or null;
             in
-            # An overlay-named uplink is only an offence when it carries
-            # imported prefixes (the retired overlay-as-uplink shape). A core
-            # with no overlay-named uplink is a valid overlay endpoint.
-            uplink != null
-            && (
-              (uplink.ipv4 or [ ]) != [ ] || (uplink.ipv6 or [ ]) != [ ] || (uplink.routedPrefixes or [ ]) != [ ]
-            )
+            uplink != null && carriesSpecificPrefix uplink
           ) coreTargets;
         in
         common.assert_ (offenders == [ ]) ''
           invariants(overlay-core-uplink-dedicated):
 
-          an overlay must not be modelled as a routed core uplink with imported
-          prefixes. Reachability to the overlay is the modelled overlay or
-          remote-egress relation (FS-260/FS-460), not a local uplink that carries
-          a prefix list. A core that terminates an overlay needs no local uplink.
+          an overlay must not be modelled as a routed core uplink that carries
+          specific prefixes. Reachability through the overlay is the modelled
+          overlay or remote-egress relation (FS-260/FS-460); a provider uplink
+          that happens to share the overlay's name is valid when it is a real
+          egress surface (a default route plus a selected translation mode).
 
             site: ${siteName}
             overlay: ${overlayName}
