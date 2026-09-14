@@ -74,14 +74,29 @@ rec {
           ];
     };
 
+  # `epsTo4`/`epsTo6` carry the per-family member sets (FS-315, SMS-010). A
+  # route selection key carries one address family, so the IPv4 and IPv6 member
+  # sets may differ: an egress that defaults only in one family belongs only to
+  # that family's group. `epsTo` remains the single-set form for callers whose
+  # members serve both families.
   mkMultipathDefaultRoutes =
-    args@{ epsTo, multipathAuthority, ... }:
+    args@{
+      epsTo ? null,
+      epsTo4 ? null,
+      epsTo6 ? null,
+      multipathAuthority,
+      ...
+    }:
     let
       base = builtins.removeAttrs args [
         "epsTo"
+        "epsTo4"
+        "epsTo6"
         "multipathAuthority"
       ];
-      per = map (epTo: mkDefaultRoutes (base // { inherit epTo; })) epsTo;
+      shared = if epsTo == null then [ ] else epsTo;
+      members4 = if epsTo4 == null then shared else epsTo4;
+      members6 = if epsTo6 == null then shared else epsTo6;
       tagRoutes =
         routes:
         map (
@@ -93,10 +108,12 @@ rec {
             };
           }
         ) routes;
+      perRoutes =
+        f: members: builtins.concatMap (epTo: (mkDefaultRoutes (base // { inherit epTo; })).${f}) members;
     in
     {
-      routes4 = builtins.concatMap (x: tagRoutes x.routes4) per;
-      routes6 = builtins.concatMap (x: tagRoutes x.routes6) per;
+      routes4 = tagRoutes (perRoutes "routes4" members4);
+      routes6 = tagRoutes (perRoutes "routes6" members6);
     };
 
   addDefaultsTowardPeer =
