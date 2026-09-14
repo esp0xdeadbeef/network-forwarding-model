@@ -22,6 +22,25 @@ let
     uplinkHasDefault routeFacts uplinkName
     || builtins.hasAttr uplinkName (routeFacts.overlayUplinkNameSet or { });
 
+  # Per-family variants (FS-315, SMS-010): a route selection key carries one
+  # address family, so a member is admissible only when it has a default for
+  # that family. `uplinkHasExecutableDefault` ORs the families and would admit
+  # an egress that only defaults in the other family, producing an IPv6 member
+  # whose nexthop has no IPv6 route.
+  #
+  # An overlay participates through the family its reachability actually
+  # carries: an overlay with only IPv4 peer prefixes is an IPv4 member, not an
+  # IPv6 one. "Is an overlay" is not a default in either family.
+  uplinkHasExecutableDefault4 =
+    routeFacts: uplinkName:
+    builtins.hasAttr uplinkName (routeFacts.uplinkHasDefault4Set or { })
+    || builtins.hasAttr uplinkName (routeFacts.overlayHasMembers4 or { });
+
+  uplinkHasExecutableDefault6 =
+    routeFacts: uplinkName:
+    builtins.hasAttr uplinkName (routeFacts.uplinkHasDefault6Set or { })
+    || builtins.hasAttr uplinkName (routeFacts.overlayHasMembers6 or { });
+
   # Finds the selector-to-core transport link that carries the given uplink
   # name. The core end is the non-selector member of that link.
   coreLinkForUplink =
@@ -62,6 +81,8 @@ in
   inherit
     uplinkHasDefault
     uplinkHasExecutableDefault
+    uplinkHasExecutableDefault4
+    uplinkHasExecutableDefault6
     coreLinkForUplink
     coreEpForUplink
     ;

@@ -10,6 +10,13 @@ let
   helpers = import (self.outPath + "/implementation/lib/routing/static-helpers.nix") {
     inherit lib self;
   };
+  defaultPresence = import ./default-presence.nix { inherit lib helpers; };
+  inherit (defaultPresence)
+    uplinkHasDefaultSet
+    uplinkHasDefault4Set
+    uplinkHasDefault6Set
+    overlayMembersFor
+    ;
   trace = import (self.outPath + "/lib/trace.nix") { };
 
   loopbackEntriesFor =
@@ -45,50 +52,11 @@ let
       }) (lib.unique (overlayReachabilityNames ++ linkOverlayNames))
     );
 
-  uplinkHasDefaultSet =
-    nodes: links:
-    let
-      default6ForNodes = helpers.default6For nodes;
-      addDefault = acc: uplinkName: acc // { "${uplinkName}" = true; };
-      addNode =
-        acc: nodeName:
-        builtins.foldl' (
-          nodeAcc: uplinkName:
-          let
-            uplink = ((nodes.${nodeName} or { }).uplinks or { }).${uplinkName} or { };
-          in
-          if
-            builtins.elem helpers.default4 (uplink.ipv4 or [ ])
-            || builtins.elem default6ForNodes (uplink.ipv6 or [ ])
-          then
-            addDefault nodeAcc uplinkName
-          else
-            nodeAcc
-        ) acc (builtins.attrNames ((nodes.${nodeName} or { }).uplinks or { }));
-      endpointHasDefault =
-        ep:
-        let
-          e = ep.interfaceData or ep;
-        in
-        builtins.elem helpers.default4 (e.uplinkRoutes4 or [ ])
-        || builtins.elem default6ForNodes (e.uplinkRoutes6 or [ ]);
-      addLink =
-        acc: linkName:
-        let
-          link = links.${linkName};
-          uplinkName = link.upstream or link.uplink or null;
-        in
-        if
-          uplinkName != null && builtins.any endpointHasDefault (builtins.attrValues (link.endpoints or { }))
-        then
-          addDefault acc uplinkName
-        else
-          acc;
-    in
-    builtins.foldl' addLink (builtins.foldl' addNode { } (builtins.attrNames nodes)) (
-      builtins.attrNames links
-    );
-
+  # An overlay is not a default in any family by itself: overlay reachability
+  # carries peer prefixes (overlayReachability.<name>.routes4/routes6), never a
+  # 0.0.0.0/0 or ::/0. Treating "is an overlay" as "has an executable default"
+  # in both families admits an egress into a family's multipath member set even
+  # when the overlay carries no prefix in that family (FS-315, SMS-010).
   uplinkCoreNamesByUplink =
     nodes: links: uplinkCores:
     let
@@ -136,6 +104,8 @@ in
           lib.concatMap (loopbackEntriesFor nodes) (builtins.attrNames nodes)
         );
         inherit overlayUplinkNameSet nonOverlayUplinkNames uplinkCores;
+        overlayHasMembers4 = overlayMembersFor topo links 4;
+        overlayHasMembers6 = overlayMembersFor topo links 6;
         uplinkCoreSet = lib.listToAttrs (
           map (name: {
             inherit name;
@@ -143,6 +113,8 @@ in
           }) uplinkCores
         );
         uplinkHasDefaultSet = uplinkHasDefaultSet nodes links;
+        uplinkHasDefault4Set = uplinkHasDefault4Set nodes links;
+        uplinkHasDefault6Set = uplinkHasDefault6Set nodes links;
         uplinkCoreNamesByUplink = uplinkCoreNamesByUplink nodes links uplinkCores;
         defaultReachabilityUplinkNames =
           if nonOverlayUplinkNames != [ ] then nonOverlayUplinkNames else topo.uplinkNames or [ ];
