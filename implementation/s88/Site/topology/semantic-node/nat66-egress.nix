@@ -89,6 +89,7 @@ let
       to = attrsOrEmpty (relation.to or null);
       uplinks =
         (listOrEmpty (to.uplinks or null))
+        ++ (if (to.scope or null) != null then [ (toString to.scope) ] else [ ])
         ++ (if (to.name or null) != null then [ (toString to.name) ] else [ ]);
     in
     (to.kind or null) == "external" && builtins.elem uplinkName uplinks;
