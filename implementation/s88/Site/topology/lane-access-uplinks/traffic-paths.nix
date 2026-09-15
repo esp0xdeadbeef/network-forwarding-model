@@ -1,4 +1,10 @@
-{ lib, self ? { outPath = ./.; }, ... }:
+{
+  lib,
+  self ? {
+    outPath = ./.;
+  },
+  ...
+}:
 
 let
   trace = import (self.outPath + "/lib/trace.nix") { };
@@ -6,10 +12,10 @@ in
 
 {
   uplinksByAccessUnit =
-    { site
-    , accessUnitNames
-    , compilerIndexes
-    ,
+    {
+      site,
+      accessUnitNames,
+      compilerIndexes,
     }:
     let
       inherit (compilerIndexes)
@@ -38,36 +44,28 @@ in
             serviceName = toString (source.name or "");
             providerTenants = serviceProviderTenantsByName.${serviceName} or [ ];
           in
-          lib.unique (lib.filter (x: x != null) (map (tenant: accessUnitByTenant.${tenant} or null) providerTenants))
+          lib.unique (
+            lib.filter (x: x != null) (map (tenant: accessUnitByTenant.${tenant} or null) providerTenants)
+          )
         else
           [ ];
 
       pathAccessUnits =
-        path:
-        lib.filter
-          (
-            nodeName: builtins.elem nodeName accessUnitNames
-          )
-          (map toString path);
+        path: lib.filter (nodeName: builtins.elem nodeName accessUnitNames) (map toString path);
 
       pathUplinks =
         path:
         let
-          pathSet = builtins.listToAttrs (map
-            (nodeName: {
+          pathSet = builtins.listToAttrs (
+            map (nodeName: {
               name = toString nodeName;
               value = true;
-            })
-            path);
+            }) path
+          );
           cores = site.upstreams.cores or { };
           matchingCores = lib.filter (coreName: builtins.hasAttr coreName pathSet) (builtins.attrNames cores);
         in
-        lib.concatMap
-          (
-            coreName:
-            map (u: toString (u.name or "")) (cores.${coreName} or [ ])
-          )
-          matchingCores;
+        lib.concatMap (coreName: map (u: toString (u.name or "")) (cores.${coreName} or [ ])) matchingCores;
 
       destinationUplinks =
         destination:
@@ -80,6 +78,30 @@ in
         else
           [ ];
 
+      selectedSurfacesFor =
+        unit:
+        let
+          sel = ((site.topology or { }).nodes or { }).${unit}.selects or [ ];
+        in
+        lib.unique (
+          lib.concatMap (
+            entry:
+            if !(builtins.isAttrs entry) then
+              [ ]
+            else
+              let
+                surf = entry.surface or null;
+                sc = entry.scope or null;
+              in
+              if surf != null then
+                [ (toString surf) ]
+              else if sc != null then
+                [ (toString sc) ]
+              else
+                [ ]
+          ) (if builtins.isList sel then sel else [ ])
+        );
+
       perPath =
         path:
         if !(builtins.isAttrs path) || (path.action or "allow") != "allow" then
@@ -89,41 +111,47 @@ in
             alternatives = path.nodePathAlternatives or [ (path.nodePath or [ ]) ];
             sourceUnits = sourceAccessUnits (path.source or { });
             pathUnits = lib.concatMap pathAccessUnits alternatives;
-            accessUnits =
-              lib.filter
-                (unit: builtins.elem unit accessUnitNames)
-                (lib.unique (sourceUnits ++ pathUnits));
-            uplinks =
-              let
-                explicit = destinationUplinks (path.destination or { });
-              in
-              if explicit != [ ] then explicit else lib.concatMap pathUplinks alternatives;
+            accessUnits = lib.filter (unit: builtins.elem unit accessUnitNames) (
+              lib.unique (sourceUnits ++ pathUnits)
+            );
+            explicit = destinationUplinks (path.destination or { });
           in
-          lib.concatMap
-            (
-              accessUnit:
-              map
-                (uplinkName: {
-                  inherit accessUnit uplinkName;
-                })
-                uplinks
-            )
-            accessUnits;
+          lib.concatMap (
+            accessUnit:
+            let
+              # FS-322: reachability is the selecting scope's `selects`. For a
+              # bare external destination, use the exit surfaces the access
+              # scope selected, not every uplink the core on the path hosts.
+              selected = if explicit == [ ] then selectedSurfacesFor accessUnit else [ ];
+              uplinks =
+                if explicit != [ ] then
+                  explicit
+                else if selected != [ ] then
+                  selected
+                else
+                  lib.concatMap pathUplinks alternatives;
+            in
+            map (uplinkName: {
+              inherit accessUnit uplinkName;
+            }) uplinks
+          ) accessUnits;
 
       trafficPathEntries = lib.concatMap perPath (site.trafficPaths or [ ]);
     in
-    trace.emit "topology:lane-access-uplinks:traffic-paths=${toString (builtins.length (site.trafficPaths or [ ]))}:entries=${toString (builtins.length trafficPathEntries)}" (
-      builtins.foldl'
-        (
+    trace.emit
+      "topology:lane-access-uplinks:traffic-paths=${
+        toString (builtins.length (site.trafficPaths or [ ]))
+      }:entries=${toString (builtins.length trafficPathEntries)}"
+      (
+        builtins.foldl' (
           acc: entry:
           if (entry.accessUnit or "") == "" || (entry.uplinkName or "") == "" then
             acc
           else
-            acc // {
+            acc
+            // {
               "${entry.accessUnit}" = (acc.${entry.accessUnit} or [ ]) ++ [ entry.uplinkName ];
             }
-        )
-        { }
-        trafficPathEntries
-    );
+        ) { } trafficPathEntries
+      );
 }
