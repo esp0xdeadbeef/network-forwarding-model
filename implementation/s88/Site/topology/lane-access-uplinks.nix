@@ -45,10 +45,16 @@ in
         else if builtins.isAttrs entry then
           let
             up = entry.uplink or null;
+            surface = entry.surface or null;
             sc = entry.scope or null;
           in
+          # Prefer the declared surface (a specific uplink/exit) so a selection
+          # that names one surface is not widened to every uplink the owning
+          # scope hosts; fall back to the owning scope's uplinks.
           if up != null then
             [ (toString up) ]
+          else if surface != null && builtins.elem (toString surface) allUplinkNames then
+            [ (toString surface) ]
           else if sc != null then
             if builtins.elem (toString sc) allUplinkNames then
               [ (toString sc) ]
