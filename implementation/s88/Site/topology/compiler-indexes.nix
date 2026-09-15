@@ -1,98 +1,87 @@
 { lib, ... }:
 
 let
-  addUnique = acc: name: value:
+  addUnique =
+    acc: name: value:
     acc // { "${name}" = lib.unique ((acc.${name} or [ ]) ++ [ value ]); };
 
   cleanName = value: if value == null then "" else toString value;
 in
 {
   build =
-    { site
-    ,
+    {
+      site,
     }:
     let
-      endpointTenantByName =
-        builtins.foldl'
-          (
-            acc: endpoint:
-              if !(builtins.isAttrs endpoint) then
-                acc
-              else
-                let
-                  name = cleanName (endpoint.name or "");
-                  tenant = cleanName (endpoint.tenant or "");
-                in
-                if name == "" || tenant == "" then acc else acc // { "${name}" = tenant; }
-          )
-          { }
-          (site.ownership.endpoints or [ ]);
+      endpointTenantByName = builtins.foldl' (
+        acc: endpoint:
+        if !(builtins.isAttrs endpoint) then
+          acc
+        else
+          let
+            name = cleanName (endpoint.name or "");
+            tenant = cleanName (endpoint.tenant or "");
+          in
+          if name == "" || tenant == "" then acc else acc // { "${name}" = tenant; }
+      ) { } (site.ownership.endpoints or [ ]);
 
-      tenantsByAccessUnit =
-        builtins.foldl'
-          (
-            acc: attachment:
-              if !(builtins.isAttrs attachment) then
-                acc
-              else
-                let
-                  unit = cleanName (attachment.unit or "");
-                  kind = cleanName (attachment.kind or "");
-                  name = cleanName (attachment.name or "");
-                in
-                if unit == "" || kind != "tenant" || name == "" then
-                  acc
-                else
-                  addUnique acc unit name
-          )
-          { }
-          (site.attachments or [ ]);
+      tenantsByAccessUnit = builtins.foldl' (
+        acc: attachment:
+        if !(builtins.isAttrs attachment) then
+          acc
+        else
+          let
+            unit = cleanName (attachment.unit or "");
+            kind = cleanName (attachment.kind or "");
+            name = cleanName (attachment.name or "");
+          in
+          if unit == "" || kind != "tenant" || name == "" then acc else addUnique acc unit name
+      ) { } (site.attachments or [ ]);
 
-      accessUnitByTenant =
-        builtins.foldl'
-          (
-            acc: accessUnit:
-              builtins.foldl'
-                (
-                  tenantAcc: tenant:
-                    tenantAcc // { "${tenant}" = accessUnit; }
-                )
-                acc
-                (tenantsByAccessUnit.${accessUnit} or [ ])
-          )
-          { }
-          (builtins.attrNames tenantsByAccessUnit);
+      accessUnitByTenant = builtins.foldl' (
+        acc: accessUnit:
+        builtins.foldl' (tenantAcc: tenant: tenantAcc // { "${tenant}" = accessUnit; }) acc (
+          tenantsByAccessUnit.${accessUnit} or [ ]
+        )
+      ) { } (builtins.attrNames tenantsByAccessUnit);
 
-      serviceProviderTenantsByName =
-        builtins.foldl'
-          (
-            acc: service:
-              if !(builtins.isAttrs service) then
-                acc
-              else
-                let
-                  serviceName = cleanName (service.name or "");
-                  providerNames =
-                    if builtins.isList (service.providers or null) then map cleanName service.providers else [ ];
-                  providerTenants = lib.unique (
-                    lib.filter (tenant: tenant != "") (
-                      map (provider: endpointTenantByName.${provider} or "") providerNames
-                    )
-                  );
-                in
-                if serviceName == "" then acc else acc // { "${serviceName}" = providerTenants; }
-          )
-          { }
-          (site.communicationContract.services or site.services or [ ]);
+      serviceProviderTenantsByName = builtins.foldl' (
+        acc: service:
+        if !(builtins.isAttrs service) then
+          acc
+        else
+          let
+            serviceName = cleanName (service.name or "");
+            providerNames =
+              if builtins.isList (service.providers or null) then map cleanName service.providers else [ ];
+            providerTenants = lib.unique (
+              lib.filter (tenant: tenant != "") (
+                map (provider: endpointTenantByName.${provider} or "") providerNames
+              )
+            );
+          in
+          if serviceName == "" then acc else acc // { "${serviceName}" = providerTenants; }
+      ) { } (site.communicationContract.services or site.services or [ ]);
 
       allUplinkNames =
         let
+          # FS-322/FS-171: the exit surface names are owned by the topology
+          # nodes that declare `uplinks`. Derive the full uplink name set from
+          # those nodes; fall back to a compiler-emitted `upstreams.cores`
+          # mapping when one is supplied.
+          nodes = (site.topology or { }).nodes or { };
+          fromNodes = lib.concatMap (
+            nodeName:
+            let
+              u = (nodes.${nodeName} or { }).uplinks or { };
+            in
+            if builtins.isAttrs u then map (n: cleanName n) (builtins.attrNames u) else [ ]
+          ) (builtins.attrNames nodes);
           cores = site.upstreams.cores or { };
-          names = lib.concatMap
-            (
-              coreName: map (u: cleanName (u.name or "")) (cores.${coreName} or [ ])
-            )
-            (builtins.attrNames cores);
+          fromCores = lib.concatMap (coreName: map (u: cleanName (u.name or "")) (cores.${coreName} or [ ])) (
+            builtins.attrNames cores
+          );
+          names = if fromCores != [ ] then fromCores else fromNodes;
         in
         lib.sort (a: b: a < b) (lib.unique (lib.filter (s: s != "") names));
     in

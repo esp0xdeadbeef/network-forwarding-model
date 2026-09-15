@@ -26,7 +26,7 @@ in
 
       serviceProviderTenants = serviceName: serviceProviderTenantsByName.${serviceName} or [ ];
 
-      nodes = (site.topology or { }).nodes or { };
+      nodes = ((site.topology or { }).nodes or { }) // (site.nodes or { });
       nodeUplinkNames =
         nodeName:
         let
