@@ -1,36 +1,36 @@
-{ lib, self ? { outPath = ./.; }, ... }:
+{
+  lib,
+  self ? {
+    outPath = ./.;
+  },
+  ...
+}:
 
 let
   common = import ./common.nix { inherit lib self; };
 
   entriesForNode =
-    { siteName
-    , nodeName
-    , node
-    ,
+    {
+      siteName,
+      nodeName,
+      node,
     }:
     let
-      ownEntries = map
-        (ifName: {
-          inherit ifName;
-          where = "${siteName}:nodes.${nodeName}.interfaces";
-        })
-        (builtins.attrNames (node.interfaces or { }));
+      ownEntries = map (ifName: {
+        inherit ifName;
+        where = "${siteName}:nodes.${nodeName}.interfaces";
+      }) (builtins.attrNames (node.interfaces or { }));
 
-      containerEntries = lib.concatMap
-        (
-          cname:
-          let
-            c = node.${cname} or { };
-          in
-          map
-            (ifName: {
-              inherit ifName;
-              where = "${siteName}:nodes.${nodeName}.${cname}.interfaces";
-            })
-            (builtins.attrNames (c.interfaces or { }))
-        )
-        (common.containersOf node);
+      containerEntries = lib.concatMap (
+        cname:
+        let
+          c = node.${cname} or { };
+        in
+        map (ifName: {
+          inherit ifName;
+          where = "${siteName}:nodes.${nodeName}.${cname}.interfaces";
+        }) (builtins.attrNames (c.interfaces or { }))
+      ) (common.containersOf node);
     in
     ownEntries ++ containerEntries;
 
@@ -63,7 +63,11 @@ in
   check =
     { site }:
     let
-      siteName = toString (site.siteName or "<unknown-site>");
+      siteName =
+        let
+          n = site.siteName or null;
+        in
+        if n == null then "<unknown-site>" else toString n;
       nodes = site.nodes or { };
 
       _ = lib.forEach (builtins.attrNames nodes) (
@@ -74,11 +78,9 @@ in
         if (node.role or null) != "core" then
           true
         else
-          builtins.deepSeq
-            (checkUnique (entriesForNode {
-              inherit siteName nodeName node;
-            }))
-            true
+          builtins.deepSeq (checkUnique (entriesForNode {
+            inherit siteName nodeName node;
+          })) true
       );
     in
     builtins.deepSeq _ true;

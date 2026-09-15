@@ -29,8 +29,12 @@ let
     siteCoreNodeNamesFromTopology
     ;
 
-  upstreamOriginalInputs = getAttrPathOr [ "meta" "provenance" "originalInputs" ] { } config;
-
+  # FS-171 Layer Ownership Invariants: the forwarding model consumes only
+  # compiler-emitted fields. It shall not read meta.provenance.originalInputs
+  # (the raw intent copy), which is a foreign source class. The compiler emits
+  # every field this layer needs (relations, topology, transport overlays,
+  # addressPools, dns); a missing field is an upstream canonical-contract gap,
+  # not a license to read raw intent.
   explicitSitesByEnterprise =
     if config ? sites then
       config.sites
@@ -39,46 +43,23 @@ let
     else
       { };
 
-  allEnterpriseNames = lib.unique (
-    (builtins.attrNames explicitSitesByEnterprise) ++ (builtins.attrNames upstreamOriginalInputs)
-  );
+  allEnterpriseNames = builtins.attrNames explicitSitesByEnterprise;
 
   mergeSitesForEnterprise =
     enterpriseName:
     let
       explicit = explicitSitesByEnterprise.${enterpriseName} or { };
-      original = upstreamOriginalInputs.${enterpriseName} or { };
-      siteNames = lib.unique ((builtins.attrNames explicit) ++ (builtins.attrNames original));
+      siteNames = builtins.attrNames explicit;
     in
     builtins.listToAttrs (
       builtins.map (
         siteId:
         let
           explicitSite = explicit.${siteId} or { };
-          originalSite = original.${siteId} or { };
-          # Audit: every top-level key that reaches the model ONLY from
-          # meta.provenance.originalInputs (the raw intent copy) is a downstream
-          # raw-intent read. It is surfaced here so each such key can be moved to
-          # a compiler-emitted field. Keys present in the explicit compiler
-          # output are not reported (they come from the compiler, as required by
-          # FS-982).
-          keysFromOriginalOnly = lib.filter (k: !(explicitSite ? ${k})) (builtins.attrNames originalSite);
-          _auditOriginalInputs =
-            if keysFromOriginalOnly == [ ] then
-              true
-            else
-              builtins.trace "FS-982 raw-intent read: enterprise='${enterpriseName}' site='${siteId}' reads these keys ONLY from meta.provenance.originalInputs (move each to a compiler-emitted field): ${lib.concatStringsSep ", " keysFromOriginalOnly}" true;
-          mergedSite = builtins.seq _auditOriginalInputs (mergeAttrs originalSite explicitSite);
         in
         {
           name = siteId;
-          value = mergedSite // {
-            # FS-982-HDS-010-SDS-010-SMS-120: hostManagement is behavior
-            # authority emitted by the compiler. The originalInputs copy is
-            # provenance only and must never reintroduce an atom omitted by
-            # the explicit compiler output.
-            hostManagement = explicitSite.hostManagement or null;
-          };
+          value = explicitSite;
         }
       ) siteNames
     );
