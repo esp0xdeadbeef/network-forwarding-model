@@ -26,39 +26,71 @@ in
 
       serviceProviderTenants = serviceName: serviceProviderTenantsByName.${serviceName} or [ ];
 
-      relationToUplinkNames =
-        rel:
+      nodes = (site.topology or { }).nodes or { };
+      nodeUplinkNames =
+        nodeName:
         let
-          to = rel.to or { };
-          kind = to.kind or null;
-          uplinks = to.uplinks or null;
-          name = to.name or null;
+          u = (nodes.${nodeName} or { }).uplinks or { };
+        in
+        builtins.attrNames (if builtins.isAttrs u then u else { });
+
+      # FS-322: a scope declares its reachability with `selects`. An entry is a
+      # string (uplink name) or `{ uplink = "..."; }` / `{ scope = "..."; }`.
+      # A selected scope resolves to that scope's own uplinks (or itself when it
+      # is itself an exit surface).
+      selectUplinkNames =
+        entry:
+        if builtins.isString entry then
+          [ entry ]
+        else if builtins.isAttrs entry then
+          let
+            up = entry.uplink or null;
+            sc = entry.scope or null;
+          in
+          if up != null then
+            [ (toString up) ]
+          else if sc != null then
+            if builtins.elem (toString sc) allUplinkNames then
+              [ (toString sc) ]
+            else
+              nodeUplinkNames (toString sc)
+          else
+            [ ]
+        else
+          [ ];
+
+      selectsUplinksFor =
+        unit:
+        let
+          sel = (nodes.${unit} or { }).selects or [ ];
+        in
+        if builtins.isList sel then lib.concatMap selectUplinkNames sel else [ ];
+
+      endpointUplinkNames =
+        ep:
+        let
+          kind = ep.kind or null;
+          uplinks = ep.uplinks or null;
+          scope = ep.scope or null;
+          name = ep.name or null;
         in
         if kind != "external" then
           [ ]
         else if builtins.isList uplinks then
           map toString uplinks
+        else if scope != null && toString scope != "" then
+          if builtins.elem (toString scope) allUplinkNames then
+            [ (toString scope) ]
+          else
+            nodeUplinkNames (toString scope)
         else if name != null && toString name != "" then
           [ (toString name) ]
         else
           [ ];
 
-      relationFromUplinkNames =
-        rel:
-        let
-          from = rel.from or { };
-          kind = from.kind or null;
-          uplinks = from.uplinks or null;
-          name = from.name or null;
-        in
-        if kind != "external" then
-          [ ]
-        else if builtins.isList uplinks then
-          map toString uplinks
-        else if name != null && toString name != "" then
-          [ (toString name) ]
-        else
-          [ ];
+      relationToUplinkNames = rel: endpointUplinkNames (rel.to or { });
+
+      relationFromUplinkNames = rel: endpointUplinkNames (rel.from or { });
 
       trafficPathUplinksByAccessUnit = trafficPaths.uplinksByAccessUnit {
         inherit
@@ -123,8 +155,11 @@ in
             else
               [ ]
           ) relations;
+          selectsUplinks = selectsUplinksFor unit;
           uplinks =
-            if compilerUplinks != [ ] then
+            if selectsUplinks != [ ] then
+              selectsUplinks ++ publicIngressUplinks
+            else if compilerUplinks != [ ] then
               compilerUplinks ++ publicIngressUplinks
             else if !hasAnyAllowRelation then
               allUplinkNames ++ publicIngressUplinks
