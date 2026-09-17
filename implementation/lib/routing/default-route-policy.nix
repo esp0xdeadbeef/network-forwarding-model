@@ -12,6 +12,20 @@ let
         ((path.nodePathAlternatives or [ ]) ++ [ (path.nodePath or [ ]) ])
     );
 
+  # FS-370/FS-171: a default-exit binding belongs to the path's **source**
+  # scope, not to every node that happens to appear in the path. A wildcard
+  # (`to = "any"`) path lists several destination-access variants, so matching
+  # on membership would attribute one access's exit to another. The originating
+  # node is the head of the modeled node path.
+  pathOriginatesAt =
+    accessName: path:
+    let
+      heads = map (
+        nodePath: if builtins.isList nodePath && nodePath != [ ] then toString (builtins.head nodePath) else null
+      ) ((path.nodePathAlternatives or [ ]) ++ [ (path.nodePath or [ ]) ]);
+    in
+    builtins.elem (toString accessName) heads;
+
   # FS-322: reachability is a scope property; a permission relation names only
   # what is allowed and never names uplinks. The default-route authority for a
   # selection is therefore derived from the exit scopes the selection resolves
@@ -160,7 +174,7 @@ let
             path:
             if
               (path.action or null) == "allow"
-              && builtins.elem accessName (pathNodes path)
+              && pathOriginatesAt accessName path
             then
               pathDefaultUplinks { routeFacts = facts; inherit path; }
             else
@@ -192,7 +206,7 @@ let
           (
             path:
             (path.action or null) == "allow"
-            && builtins.elem accessName (pathNodes path)
+            && pathOriginatesAt accessName path
             && builtins.elem uplinkName (pathDefaultUplinks {
               inherit path;
               routeFacts = facts;

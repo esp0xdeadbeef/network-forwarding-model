@@ -23,6 +23,11 @@ rec {
 
   laneUplinkName = link: (laneMeta link).uplink or null;
 
+  # FS-171: the lane identity is the source scope (tenant or access scope).
+  # `laneAccessNodeName` is the realization binding that owns the ports and is
+  # not the lane identity.
+  laneScopeName = link: (laneMeta link).scope or null;
+
   laneAccessNodeName = link: (laneMeta link).access or null;
 
   defaultMetricForLane =

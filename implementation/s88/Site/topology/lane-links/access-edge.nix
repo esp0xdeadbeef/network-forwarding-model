@@ -38,6 +38,12 @@
       // {
         laneMeta = {
           kind = "access-edge";
+          # FS-171: the lane identity is the source scope. The access-edge lane is
+          # shared by the access unit's tenants, so it carries the scope list it
+          # serves (the access unit itself is a scope here) plus the access
+          # realization binding.
+          scope = builtins.head matchingAccessUnits;
+          scopes = matchingAccessUnits;
           access = builtins.head matchingAccessUnits;
           uplink = null;
           uplinks = [ ];

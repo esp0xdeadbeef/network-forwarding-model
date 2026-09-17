@@ -18,6 +18,8 @@ let
     defaultMetricForUplinks
     laneAccessNodeName
     laneMeta
+    laneScopeName
+    laneUplinkName
     ;
   inherit (selectorCoreLink)
     coreEpForUplink
@@ -60,30 +62,30 @@ rec {
             in
             lib.elem policyNodeName members
             && lib.elem selectorNodeName members
-            && laneAccessNodeName linkObj != null
+            && laneScopeName linkObj != null
             && (meta.kind or null) == "access-uplink"
             && (meta.uplink or null) != null
           ) linkNames;
 
-      # Group the per-uplink lanes by their access unit. A group with two or
-      # more distinct permitted uplinks is the multi-uplink case that owns an
-      # ECMP default; a single-uplink access keeps its ordinary per-uplink
-      # default route and is handled by the per-lane route builders.
-      lanesByAccess = builtins.foldl' (
+      # FS-171/FS-481: group the per-exit lanes by their **source scope** (the
+      # tenant), not the access node. A scope with two or more distinct permitted
+      # exits has a multi-exit selection that owns one ECMP default on the
+      # selector; a single-exit scope keeps its ordinary per-exit default route.
+      lanesByScope = builtins.foldl' (
         acc: laneLinkName:
         let
-          access = laneAccessNodeName links.${laneLinkName};
-          key = toString access;
+          scope = laneScopeName links.${laneLinkName};
+          key = toString scope;
         in
         acc // { ${key} = (acc.${key} or [ ]) ++ [ laneLinkName ]; }
       ) { } accessUplinkLanes;
 
-      accessUplinks =
-        access: accessGroup:
+      scopeUplinks =
+        scope: scopeGroup:
         lib.sort (a: b: a < b) (
           lib.unique (
             builtins.filter (u: u != null) (
-              map (laneLinkName: (laneMeta links.${laneLinkName}).uplink or null) accessGroup
+              map (laneLinkName: (laneMeta links.${laneLinkName}).uplink or null) scopeGroup
             )
           )
         );
@@ -92,7 +94,7 @@ rec {
       (
         acc: accessUplinkEntry:
         let
-          access = accessUplinkEntry.access;
+          access = accessUplinkEntry.scope;
           uplinks = accessUplinkEntry.uplinks;
           group = accessUplinkEntry.group;
           linkAndPolicyEligible =
@@ -125,6 +127,12 @@ rec {
               entry: defaultRoutePolicy.relationIdsForAccessUplink topo access entry.uplinkName
             ) (coreEntries4 ++ coreEntries6)
           );
+          # FS-481: the upstream-selector owns the ECMP member set across the
+          # scope's selected exits. The same member set is installed on every
+          # policy<->selector lane of the scope, because the policy point picks
+          # one of the scope's lanes and every lane must reach every selected
+          # exit. This is the selector's own selection authority, not a route
+          # copied into an unrelated sibling lane (FS-315).
           routes =
             if coreEntries4 == [ ] && coreEntries6 == [ ] then
               {
@@ -150,9 +158,6 @@ rec {
                 returnBehavior = "symmetric";
               };
         in
-        # The same ECMP member set is installed on every per-uplink lane of the
-        # group: the policy point selects one of the access' lanes, and each lane
-        # must be able to reach every permitted core member.
         builtins.foldl' (
           inner: laneLinkName:
           inner
@@ -170,17 +175,18 @@ rec {
           lib.mapAttrsToList (
             access: group:
             let
-              uplinks = accessUplinks access group;
+              uplinks = scopeUplinks access group;
             in
             if builtins.length uplinks <= 1 then
               [ ]
             else
               [
                 {
-                  inherit access group uplinks;
+                  scope = access;
+                  inherit group uplinks;
                 }
               ]
-          ) lanesByAccess
+          ) lanesByScope
         )
       );
 
