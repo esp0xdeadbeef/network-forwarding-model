@@ -173,11 +173,73 @@ in
               relationUplinks ++ publicIngressUplinks;
         in
         lib.sort (a: b: a < b) (lib.unique (lib.filter (s: s != "") (map toString uplinks)));
+
+      # FS-370 / FS-171: the lane identity is the **source scope** (a tenant or
+      # access scope), not the access node. A tenant's reachability is its own
+      # `selects`; the access unit is only the realization binding that carries
+      # its ports. Two tenants on one access unit therefore get separate lane
+      # sets, and adding an exit to a tenant's `selects` adds it to that tenant's
+      # lane set only.
+      #
+      # For a tenant, the allowed uplinks are the union of:
+      #   - the uplinks of the access scope the tenant attaches to (its selects),
+      #   - the relations that grant that tenant external reachability, and
+      #   - the public-ingress surfaces targeting services the tenant provides.
+      allowedUplinksForTenant =
+        tenant:
+        let
+          unit = compilerIndexes.accessUnitByTenant.${tenant} or null;
+          unitUplinks = if unit == null then [ ] else allowedUplinksFor unit;
+          relations = site.communicationContract.allowedRelations or [ ];
+          tenantRelations = lib.filter (
+            rel:
+            (rel.action or null) == "allow"
+            && (
+              let
+                from = rel.from or { };
+                kind = from.kind or null;
+              in
+              (kind == "tenant" && toString (from.name or "") == tenant)
+              || (
+                kind == "tenant-set"
+                && builtins.isList (from.members or null)
+                && builtins.elem tenant (map toString from.members)
+              )
+            )
+          ) relations;
+          relationUplinks = lib.concatMap relationToUplinkNames tenantRelations;
+          publicIngressUplinks = lib.concatMap (
+            rel:
+            if
+              (rel.action or null) == "allow"
+              && builtins.isAttrs (rel.publicIngressTupleAuthority or null)
+              && (rel.from or { }).kind or null == "external"
+              && (rel.to or { }).kind or null == "service"
+              && builtins.elem tenant (serviceProviderTenants (toString ((rel.to or { }).name or "")))
+            then
+              relationFromUplinkNames rel
+            else
+              [ ]
+          ) relations;
+        in
+        lib.sort (a: b: a < b) (
+          lib.unique (lib.filter (s: s != "") (map toString (unitUplinks ++ relationUplinks ++ publicIngressUplinks)))
+        );
+
+      tenantScopeNames = builtins.attrNames compilerIndexes.accessUnitByTenant;
     in
-    builtins.listToAttrs (
-      map (unit: {
-        name = unit;
-        value = allowedUplinksFor unit;
-      }) accessUnitNames
-    );
+    {
+      byAccessUnit = builtins.listToAttrs (
+        map (unit: {
+          name = unit;
+          value = allowedUplinksFor unit;
+        }) accessUnitNames
+      );
+      byScope = builtins.listToAttrs (
+        map (tenant: {
+          name = tenant;
+          value = allowedUplinksForTenant tenant;
+        }) tenantScopeNames
+      );
+    };
 }

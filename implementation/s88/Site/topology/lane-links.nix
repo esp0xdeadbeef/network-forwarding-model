@@ -31,7 +31,9 @@ in
         ;
 
       baseP2pPairs = lib.filter (p: builtins.isList p && builtins.length p == 2) topologyPairs;
-      allowedUplinksByAccessUnit = accessUplinks.derive { inherit site accessUnitNames compilerIndexes; };
+      allowedUplinksByAccessUnit = (accessUplinks.derive { inherit site accessUnitNames compilerIndexes; }).byAccessUnit;
+      allowedUplinksByScope = (accessUplinks.derive { inherit site accessUnitNames compilerIndexes; }).byScope;
+      accessUnitByTenant = compilerIndexes.accessUnitByTenant;
       overlayNameSet = overlayNameSetFor site;
 
       coreLaneResult = coreUplinks.derive {
@@ -79,7 +81,8 @@ in
       derivedLaneSpecs = selectorLanes.derive {
         inherit
           accessUnitNames
-          allowedUplinksByAccessUnit
+          accessUnitByTenant
+          allowedUplinksByScope
           canonicalP2pLinkNameForEndpointsWithSuffix
           downstreamSelectorUnit
           overlayNameSet
