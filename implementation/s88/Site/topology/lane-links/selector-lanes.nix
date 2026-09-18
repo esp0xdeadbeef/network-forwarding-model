@@ -39,6 +39,9 @@
           if downstreamSelectorUnit == null then
             [ ]
           else
+            let
+              access = scopeAccessUnit scope;
+            in
             [
               {
                 a = policyUnit;
@@ -47,13 +50,16 @@
                 laneMeta = {
                   kind = "access";
                   scope = toString scope;
-                  access = toString (scopeAccessUnit scope);
+                  access = toString access;
                   uplink = null;
                   uplinks = map toString (allowedUplinksByScope.${scope} or [ ]);
                 };
+                # The link name is a realization name (it binds to the access
+                # unit's ports in inventory), so it stays keyed on the access
+                # unit; the lane identity is the scope in laneMeta (FS-171).
                 name =
                   canonicalP2pLinkNameForEndpointsWithSuffix policyUnit downstreamSelectorUnit
-                    "access-${toString scope}";
+                    "access-${toString access}";
               }
             ];
 
@@ -62,6 +68,9 @@
           if upstreamSelectorUnit == null then
             [ ]
           else
+            let
+              access = scopeAccessUnit scope;
+            in
             map (
               uplinkName:
               {
@@ -71,13 +80,13 @@
                 laneMeta = {
                   kind = "access-uplink";
                   scope = toString scope;
-                  access = toString (scopeAccessUnit scope);
+                  access = toString access;
                   uplink = toString uplinkName;
                   uplinks = [ (toString uplinkName) ];
                 };
                 name =
                   canonicalP2pLinkNameForEndpointsWithSuffix policyUnit upstreamSelectorUnit
-                    "access-${toString scope}--exit-${toString uplinkName}";
+                    "access-${toString access}--uplink-${toString uplinkName}";
               }
               // lib.optionalAttrs (builtins.hasAttr (toString uplinkName) overlayNameSet) {
                 overlay = toString uplinkName;
