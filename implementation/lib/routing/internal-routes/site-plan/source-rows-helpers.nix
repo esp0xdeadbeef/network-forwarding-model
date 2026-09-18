@@ -90,7 +90,11 @@ let
       node = nodes.${nodeName} or { };
       nodeRole = node.role or null;
       uplinksOnNode = remotePrefixFacts.uplinksByNode.${nodeName} or [ ];
-      allowedUplinks = remotePrefixFacts.uplinksByAccess.${entry.owner} or [ ];
+      # FS-171: the prefix owner is a source scope (tenant or access scope).
+      # Prefer the scope-keyed uplink map; fall back to the access-keyed map for
+      # an owner that is an access unit.
+      allowedUplinks =
+        remotePrefixFacts.uplinksByScope.${entry.owner} or remotePrefixFacts.uplinksByAccess.${entry.owner} or [ ];
     in
     nodeRole != "core"
     || uplinksOnNode == [ ]

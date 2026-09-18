@@ -14,6 +14,7 @@ let
   inherit (laneMetadata)
     laneAccessNodeName
     laneMeta
+    laneScopeName
     laneUplinkName
     ;
 
@@ -32,6 +33,7 @@ in
           linkObj = links.${linkName};
           uplinkName = laneUplinkName linkObj;
           accessNodeName = laneAccessNodeName linkObj;
+          scopeName = laneScopeName linkObj;
           uplinkNames = if uplinkName != null then [ uplinkName ] else (laneMeta linkObj).uplinks or [ ];
           members = link.membersOf linkObj;
           accWithNodeUplinks =
@@ -49,12 +51,18 @@ in
           accWithNodeUplinks
         else
           builtins.foldl' (
-            inner: uplink: inner // { uplinksByAccess = addUnique inner.uplinksByAccess accessNodeName uplink; }
+            inner: uplink:
+            inner
+            // { uplinksByAccess = addUnique inner.uplinksByAccess accessNodeName uplink; }
+            // lib.optionalAttrs (scopeName != null) {
+              uplinksByScope = addUnique inner.uplinksByScope scopeName uplink;
+            }
           ) accWithNodeUplinks uplinkNames
       )
       {
         uplinksByNode = { };
         uplinksByAccess = { };
+        uplinksByScope = { };
       }
       (builtins.attrNames links);
 }

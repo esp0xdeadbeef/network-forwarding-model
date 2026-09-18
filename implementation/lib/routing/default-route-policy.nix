@@ -158,6 +158,27 @@ let
       )
       ((topo.communicationContract or { }).allowedRelations or [ ]);
 
+  # FS-171/FS-370: a default-exit binding belongs to a **source scope**. A
+  # scope name may be a tenant or an access scope; resolve both to the same
+  # exit set. The access node is the realization binding that carries the
+  # scope's ports, so a scope's selections are the union of the scopes/tenants
+  # it serves.
+  scopeNamesFor =
+    topo: scopeName:
+    let
+      byTenant = tenantAccessUnits topo;
+      name = toString scopeName;
+      tenantsOnAccess = builtins.filter (t: builtins.elem name (byTenant.${t} or [ ])) (
+        builtins.attrNames byTenant
+      );
+      accessUnitsForTenant = byTenant.${name} or [ ];
+    in
+    lib.unique (
+      lib.filter (s: s != "") (
+        [ name ] ++ tenantsOnAccess ++ accessUnitsForTenant
+      )
+    );
+
   anyTrafficDefaultUplinksForAccessFor =
     { topo, routeFacts ? null, accessName }:
     let
@@ -166,6 +187,7 @@ let
           routeFacts
         else
           (import ./route-context/facts.nix { inherit lib; self = { outPath = ../../..; }; }).build topo;
+      scopes = scopeNamesFor topo accessName;
     in
     lib.sort (a: b: a < b) (
       lib.unique (
@@ -174,14 +196,16 @@ let
             path:
             if
               (path.action or null) == "allow"
-              && pathOriginatesAt accessName path
+              && builtins.any (scope: pathOriginatesAt scope path) scopes
             then
               pathDefaultUplinks { routeFacts = facts; inherit path; }
             else
               [ ]
           )
           (topo.trafficPaths or [ ])
-        ++ relationDefaultUplinksForAccess { inherit topo routeFacts accessName; }
+        ++ lib.concatMap (
+          scope: relationDefaultUplinksForAccess { inherit topo routeFacts; accessName = scope; }
+        ) scopes
       )
     );
 
@@ -199,6 +223,7 @@ let
           routeFacts
         else
           (import ./route-context/facts.nix { inherit lib; self = { outPath = ../../..; }; }).build topo;
+      scopes = scopeNamesFor topo accessName;
     in
     lib.unique (
       map (path: path.relationId or null) (
@@ -206,7 +231,7 @@ let
           (
             path:
             (path.action or null) == "allow"
-            && pathOriginatesAt accessName path
+            && builtins.any (scope: pathOriginatesAt scope path) scopes
             && builtins.elem uplinkName (pathDefaultUplinks {
               inherit path;
               routeFacts = facts;
