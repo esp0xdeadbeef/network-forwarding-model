@@ -15,16 +15,30 @@ let
   # FS-370/FS-171: a default-exit binding belongs to the path's **source**
   # scope, not to every node that happens to appear in the path. A wildcard
   # (`to = "any"`) path lists several destination-access variants, so matching
-  # on membership would attribute one access's exit to another. The originating
-  # node is the head of the modeled node path.
+  # on membership would attribute one access's exit to another. The source is
+  # the path's `source` scope (a tenant or access scope); resolve it to the
+  # access that serves it. A path whose source is an access scope directly is
+  # matched by its head.
   pathOriginatesAt =
-    accessName: path:
+    topo: accessName: path:
     let
+      byTenant = tenantAccessUnits topo;
+      source = if builtins.isAttrs (path.source or null) then path.source else { };
+      sourceName = if source.name or null != null then toString source.name else null;
+      sourceAccess =
+        if sourceName == null then
+          null
+        else
+          let
+            units = byTenant.${sourceName} or [ ];
+          in
+          if units == [ ] then sourceName else toString (builtins.head units);
       heads = map (
         nodePath: if builtins.isList nodePath && nodePath != [ ] then toString (builtins.head nodePath) else null
       ) ((path.nodePathAlternatives or [ ]) ++ [ (path.nodePath or [ ]) ]);
     in
-    builtins.elem (toString accessName) heads;
+    (sourceAccess != null && sourceAccess == toString accessName)
+    || builtins.elem (toString accessName) heads;
 
   # FS-322: reachability is a scope property; a permission relation names only
   # what is allowed and never names uplinks. The default-route authority for a
@@ -196,7 +210,7 @@ let
             path:
             if
               (path.action or null) == "allow"
-              && builtins.any (scope: pathOriginatesAt scope path) scopes
+              && builtins.any (scope: pathOriginatesAt topo scope path) scopes
             then
               pathDefaultUplinks { routeFacts = facts; inherit path; }
             else
@@ -231,7 +245,7 @@ let
           (
             path:
             (path.action or null) == "allow"
-            && builtins.any (scope: pathOriginatesAt scope path) scopes
+            && builtins.any (scope: pathOriginatesAt topo scope path) scopes
             && builtins.elem uplinkName (pathDefaultUplinks {
               inherit path;
               routeFacts = facts;
