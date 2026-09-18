@@ -54,9 +54,18 @@ in
             serviceName = cleanName (service.name or "");
             providerNames =
               if builtins.isList (service.providers or null) then map cleanName service.providers else [ ];
+            # FS-210/FS-230: prefer the provider tenants the compiler resolved
+            # from endpoint ownership; fall back to resolving endpoint names
+            # from the endpoint->tenant index when it is present.
+            declaredProviderTenants =
+              if builtins.isList (service.providerTenants or null) then
+                map cleanName service.providerTenants
+              else
+                [ ];
             providerTenants = lib.unique (
               lib.filter (tenant: tenant != "") (
-                map (provider: endpointTenantByName.${provider} or "") providerNames
+                declaredProviderTenants
+                ++ map (provider: endpointTenantByName.${provider} or "") providerNames
               )
             );
           in
