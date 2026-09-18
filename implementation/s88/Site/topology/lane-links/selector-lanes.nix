@@ -35,29 +35,28 @@
         scopeAccessUnit =
           scope: accessUnitByTenant.${scope} or scope;
 
+        # The access<->downstream<->policy transport lane is one per **access
+        # unit** (FS-260: access reaches the policy point as access <->
+        # downstream-selector <-> policy). It is fabric transport, not a
+        # per-scope selection lane; the per-scope egress selection lives on the
+        # policy<->upstream-selector lane below.
         downstreamPolicyLane =
-          scope:
+          access:
           if downstreamSelectorUnit == null then
             [ ]
           else
-            let
-              access = scopeAccessUnit scope;
-            in
             [
               {
                 a = policyUnit;
                 b = downstreamSelectorUnit;
-                lane = "scope::${toString scope}";
+                lane = "access::${toString access}";
                 laneMeta = {
                   kind = "access";
-                  scope = toString scope;
+                  scope = toString access;
                   access = toString access;
                   uplink = null;
-                  uplinks = map toString (allowedUplinksByScope.${scope} or [ ]);
+                  uplinks = [ ];
                 };
-                # The link name is a realization name (it binds to the access
-                # unit's ports in inventory), so it stays keyed on the access
-                # unit; the lane identity is the scope in laneMeta (FS-171).
                 name =
                   canonicalP2pLinkNameForEndpointsWithSuffix policyUnit downstreamSelectorUnit
                     "access-${toString access}";
@@ -131,7 +130,7 @@
             ];
         ingressLanes = lib.concatMap ingressLaneForAccess ingressTargetAccessUnits;
       in
-      (lib.concatMap downstreamPolicyLane scopeNames)
+      (lib.concatMap downstreamPolicyLane accessUnitNames)
       ++ lanesFromScopes
       ++ ingressLanes;
 }
