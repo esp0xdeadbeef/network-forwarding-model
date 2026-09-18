@@ -8,6 +8,7 @@
       allowedUplinksByScope,
       canonicalP2pLinkNameForEndpointsWithSuffix,
       downstreamSelectorUnit,
+      ingressTargetAccessUnits,
       overlayNameSet,
       policyUnit,
       upstreamSelectorUnit,
@@ -93,5 +94,44 @@
               }
             ) (allowedUplinksByScope.${scope} or [ ]);
       in
-      (lib.concatMap downstreamPolicyLane scopeNames) ++ (lib.concatMap policyUpstreamLanes scopeNames);
+      let
+        # FS-210/FS-230: the ingress/return lane for a public-ingress target
+        # access. It is a transport lane to the access (uplink = null), not an
+        # exit selection, so it grants no default/NAT/outbound authority to that
+        # access. Emit only for access units that do not already have a
+        # scope-emitted policy<->upstream-selector lane, to avoid duplicates.
+        lanesFromScopes = lib.concatMap policyUpstreamLanes scopeNames;
+        accessUnitsWithScopeLane = lib.unique (
+          map (l: l.laneMeta.access) (
+            lib.filter (l: builtins.isAttrs (l.laneMeta or null)) lanesFromScopes
+          )
+        );
+        ingressLaneForAccess =
+          access:
+          if upstreamSelectorUnit == null || builtins.elem (toString access) accessUnitsWithScopeLane then
+            [ ]
+          else
+            [
+              {
+                a = policyUnit;
+                b = upstreamSelectorUnit;
+                lane = "ingress-return::${toString access}";
+                laneMeta = {
+                  kind = "access-uplink";
+                  scope = toString access;
+                  access = toString access;
+                  uplink = null;
+                  uplinks = [ ];
+                  ingressReturn = true;
+                };
+                name =
+                  canonicalP2pLinkNameForEndpointsWithSuffix policyUnit upstreamSelectorUnit
+                    "access-${toString access}--uplink-wan";
+              }
+            ];
+        ingressLanes = lib.concatMap ingressLaneForAccess ingressTargetAccessUnits;
+      in
+      (lib.concatMap downstreamPolicyLane scopeNames)
+      ++ lanesFromScopes
+      ++ ingressLanes;
 }
