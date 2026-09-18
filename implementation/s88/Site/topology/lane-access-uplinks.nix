@@ -217,7 +217,21 @@ in
               && (rel.to or { }).kind or null == "service"
               && builtins.elem tenant (serviceProviderTenants (toString ((rel.to or { }).name or "")))
             then
-              relationFromUplinkNames rel
+              # FS-210/FS-230: the provider's public surface is named by the
+              # tuple authority (`publicSurface`), not by `from` (which names the
+              # external source scope). The service endpoint's tenant still needs
+              # the ingress/return transport lane to its access, keyed by the
+              # provider scope; this adds the lane, not egress authority (the
+              # tenant declares no `selects`).
+              let
+                surface = (rel.publicIngressTupleAuthority or { }).publicSurface or null;
+              in
+              if surface == null then
+                [ ]
+              else if builtins.elem (toString surface) allUplinkNames then
+                [ (toString surface) ]
+              else
+                nodeUplinkNames (toString surface)
             else
               [ ]
           ) relations;
@@ -227,6 +241,7 @@ in
         );
 
       tenantScopeNames = builtins.attrNames compilerIndexes.accessUnitByTenant;
+      _dbg = { vlan3 = allowedUplinksForTenant "vlan3"; svcTenants = serviceProviderTenants "s-nebula-container"; };
     in
     {
       byAccessUnit = builtins.listToAttrs (
@@ -235,6 +250,7 @@ in
           value = allowedUplinksFor unit;
         }) accessUnitNames
       );
+      _dbgOut = _dbg;
       byScope = builtins.listToAttrs (
         map (tenant: {
           name = tenant;
