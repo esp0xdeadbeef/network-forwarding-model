@@ -57,6 +57,13 @@ in
             // lib.optionalAttrs (scopeName != null) {
               uplinksByScope = addUnique inner.uplinksByScope scopeName uplink;
             }
+            # FS-171/FS-370: a route entry's owner may be the source scope (a
+            # tenant) or the access unit that serves it. Index the lane's
+            # uplinks under both so the internal-route reachability check
+            # resolves regardless of which identity the owner carries.
+            // lib.optionalAttrs (accessNodeName != null) {
+              uplinksByScope = addUnique inner.uplinksByScope accessNodeName uplink;
+            }
           ) accWithNodeUplinks uplinkNames
       )
       {
