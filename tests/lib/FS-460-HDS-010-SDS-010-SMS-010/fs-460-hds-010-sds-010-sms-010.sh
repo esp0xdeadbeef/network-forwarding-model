@@ -162,7 +162,7 @@ nix run "${repo_root}#debug" -- "${input_json}" >"${model_json}"
 
 jq -e '
   .enterprise.acme.site.ams.links["p2p-policy1-upstream1--access-access1--uplink-east-west"] as $lane
-  | $lane.lane == "access::access1::uplink::east-west"
+  | $lane.lane == "scope::tenant-a::exit::east-west"
     and $lane.laneMeta.kind == "access-uplink"
     and $lane.laneMeta.access == "access1"
     and $lane.laneMeta.uplink == "east-west"
