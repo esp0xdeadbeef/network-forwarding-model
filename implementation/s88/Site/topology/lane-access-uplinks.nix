@@ -237,7 +237,13 @@ in
           ) relations;
         in
         lib.sort (a: b: a < b) (
-          lib.unique (lib.filter (s: s != "") (map toString (unitUplinks ++ relationUplinks ++ publicIngressUplinks)))
+          # A public-ingress surface is NOT an egress uplink. Adding it here made
+          # the scope look like an egress access, so the downstream-selector/
+          # policy installed a default route instead of the served tenant
+          # prefix, and the dedicated ingress/return lane (selector-lanes.nix,
+          # uplink=null) was skipped. The ingress/return lane is derived
+          # independently from the tuple's traffic path.
+          lib.unique (lib.filter (s: s != "") (map toString (unitUplinks ++ relationUplinks)))
         );
 
       tenantScopeNames = builtins.attrNames compilerIndexes.accessUnitByTenant;
