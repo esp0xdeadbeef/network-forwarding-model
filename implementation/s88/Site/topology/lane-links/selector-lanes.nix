@@ -86,7 +86,7 @@
                 };
                 name =
                   canonicalP2pLinkNameForEndpointsWithSuffix policyUnit upstreamSelectorUnit
-                    "scope-${toString scope}--uplink-${toString uplinkName}";
+                    "access-${toString access}--uplink-${toString uplinkName}";
               }
               // lib.optionalAttrs (builtins.hasAttr (toString uplinkName) overlayNameSet) {
                 overlay = toString uplinkName;

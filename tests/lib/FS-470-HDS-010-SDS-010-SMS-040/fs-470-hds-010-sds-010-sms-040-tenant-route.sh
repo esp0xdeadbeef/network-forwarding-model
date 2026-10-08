@@ -163,7 +163,7 @@ nix run "${repo_root}#debug" -- "${input_json}" >"${model_json}"
 # terminating core, so the tenant prefix must resolve through the fabric to the
 # access, not via the overlay core (underlay reachability is not tenant payload
 # reachability).
-access_lane='p2p-policy1-upstream1--scope-tenant-a--uplink-east-west'
+access_lane='p2p-policy1-upstream1--access-access1--uplink-east-west'
 core_lane='p2p-core-overlay-upstream1'
 jq -e --arg a "${access_lane}" --arg c "${core_lane}" '
   .enterprise.acme.site.ams.nodes.upstream1.interfaces as $i

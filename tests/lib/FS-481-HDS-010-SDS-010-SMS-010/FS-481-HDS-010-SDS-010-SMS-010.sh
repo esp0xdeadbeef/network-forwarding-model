@@ -26,7 +26,7 @@ result="$(nix eval --impure --json --expr "
     forwarding = nfm.libBySystem.\${builtins.currentSystem}.model compiled;
     us = forwarding.enterprise.mini-smt.site.smt-shape.nodes.upstream-selector;
     laneNames = builtins.filter
-      (n: builtins.match \".*--scope-multi-client--uplink-.*\" n != null)
+      (n: builtins.match \".*--access-access-multi--uplink-.*\" n != null)
       (builtins.attrNames us.interfaces);
     viasOf = laneName: family:
       let
@@ -110,7 +110,7 @@ seeded="$(nix eval --impure --json --expr "
     forwarding = nfm.libBySystem.\${builtins.currentSystem}.model compiled;
     us = forwarding.enterprise.mini-smt.site.smt-shape.nodes.upstream-selector;
     laneNames = builtins.filter
-      (n: builtins.match \".*--scope-multi-client--uplink-.*\" n != null)
+      (n: builtins.match \".*--access-access-multi--uplink-.*\" n != null)
       (builtins.attrNames us.interfaces);
     viasOf = laneName: family:
       let
