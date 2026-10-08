@@ -161,7 +161,7 @@ nix eval --impure --json --expr "import ${input_nix}" >"${input_json}"
 nix run "${repo_root}#debug" -- "${input_json}" >"${model_json}"
 
 jq -e '
-  .enterprise.acme.site.ams.links["p2p-policy1-upstream1--access-access1--uplink-east-west"] as $lane
+  .enterprise.acme.site.ams.links["p2p-policy1-upstream1--scope-tenant-a--uplink-east-west"] as $lane
   | $lane.lane == "scope::tenant-a::exit::east-west"
     and $lane.laneMeta.kind == "access-uplink"
     and $lane.laneMeta.access == "access1"
