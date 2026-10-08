@@ -21,13 +21,7 @@
         relations = [
           {
             action = "allow";
-            from = {
-              kind = "external";
-              uplinks = [
-                "isp-a"
-                "isp-b"
-              ];
-            };
+            from = { kind = "external"; };
             id = "allow-site-wan-icmp-anywhere";
             priority = 6;
             to = "any";
@@ -137,13 +131,7 @@
             };
             id = "allow-site-dns-service-to-uplinks";
             priority = 24;
-            to = {
-              kind = "external";
-              uplinks = [
-                "isp-a"
-                "isp-b"
-              ];
-            };
+            to = { kind = "external"; };
             trafficType = "dns";
           returnBehavior = "symmetric"; }
           {
@@ -159,13 +147,7 @@
             };
             id = "deny-tenant-dns-to-uplinks";
             priority = 25;
-            to = {
-              kind = "external";
-              uplinks = [
-                "isp-a"
-                "isp-b"
-              ];
-            };
+            to = { kind = "external"; };
             trafficType = "dns";
           }
           {
@@ -176,13 +158,7 @@
             };
             id = "deny-hostile-to-local-uplinks";
             priority = 26;
-            to = {
-              kind = "external";
-              uplinks = [
-                "isp-a"
-                "isp-b"
-              ];
-            };
+            to = { kind = "external"; };
             trafficType = "any";
           }
           {
@@ -239,13 +215,7 @@
             };
             id = "allow-user-tenants-to-uplinks";
             priority = 100;
-            to = {
-              kind = "external";
-              uplinks = [
-                "isp-a"
-                "isp-b"
-              ];
-            };
+            to = { kind = "external"; };
             trafficType = "any";
           returnBehavior = "symmetric"; }
           {
@@ -270,13 +240,7 @@
             };
             id = "allow-dmz-to-uplinks";
             priority = 101;
-            to = {
-              kind = "external";
-              uplinks = [
-                "isp-a"
-                "isp-b"
-              ];
-            };
+            to = { kind = "external"; };
             trafficType = "any";
           returnBehavior = "symmetric"; }
           {
@@ -295,13 +259,7 @@
           returnBehavior = "symmetric"; }
           {
             action = "allow";
-            from = {
-              kind = "external";
-              uplinks = [
-                "isp-a"
-                "isp-b"
-              ];
-            };
+            from = { kind = "external"; };
             id = "allow-wan-to-dmz-nebula";
             priority = 120;
             to = {
@@ -318,13 +276,7 @@
             };
             id = "allow-nebula-underlay-to-uplinks";
             priority = 130;
-            to = {
-              kind = "external";
-              uplinks = [
-                "isp-a"
-                "isp-b"
-              ];
-            };
+            to = { kind = "external"; };
             trafficType = "nebula";
           returnBehavior = "symmetric"; }
           {
@@ -335,13 +287,7 @@
             };
             id = "allow-nebula-runtime-underlay-to-uplinks";
             priority = 131;
-            to = {
-              kind = "external";
-              uplinks = [
-                "isp-a"
-                "isp-b"
-              ];
-            };
+            to = { kind = "external"; };
             trafficType = "nebula-runtime";
           returnBehavior = "symmetric"; }
         ];
@@ -612,6 +558,10 @@
         ];
         nodes = {
           home-example-router-access-admin = {
+            selects = [
+              "home-example-router-core-isp-a"
+              "home-example-router-core-isp-b"
+            ];
             attachments = [
               {
                 kind = "tenant";
@@ -621,6 +571,10 @@
             role = "access";
           };
           home-example-router-access-client = {
+            selects = [
+              "home-example-router-core-isp-a"
+              "home-example-router-core-isp-b"
+            ];
             attachments = [
               {
                 kind = "tenant";
@@ -630,6 +584,10 @@
             role = "access";
           };
           home-example-router-access-dmz = {
+            selects = [
+              "home-example-router-core-isp-a"
+              "home-example-router-core-isp-b"
+            ];
             attachments = [
               {
                 kind = "tenant";
@@ -639,6 +597,10 @@
             role = "access";
           };
           home-example-router-access-mgmt = {
+            selects = [
+              "home-example-router-core-isp-a"
+              "home-example-router-core-isp-b"
+            ];
             attachments = [
               {
                 kind = "tenant";
@@ -648,6 +610,10 @@
             role = "access";
           };
           home-example-router-access-hostile = {
+            selects = [
+              "home-example-router-core-isp-a"
+              "home-example-router-core-isp-b"
+            ];
             attachments = [
               {
                 kind = "tenant";
@@ -657,6 +623,10 @@
             role = "access";
           };
           home-example-router-access-streaming = {
+            selects = [
+              "home-example-router-core-isp-a"
+              "home-example-router-core-isp-b"
+            ];
             attachments = [
               {
                 kind = "tenant";
@@ -691,30 +661,6 @@
               }
             ];
             role = "core";
-            uplinks = {
-              east-west = {
-                ipv4 = [
-                  "10.50.10.0/24"
-                  "10.50.15.0/24"
-                  "10.50.20.0/24"
-                  "10.50.30.0/24"
-                  "10.50.50.0/24"
-                  "10.70.10.0/24"
-                  "10.90.10.0/24"
-                  "0.0.0.0/0"
-                ];
-                ipv6 = [
-                  "fd42:dead:feed:10::/64"
-                  "fd42:dead:feed:15::/64"
-                  "fd42:dead:feed:20::/64"
-                  "fd42:dead:feed:30::/64"
-                  "fd42:dead:feed:50::/64"
-                  "fd42:dead:feed:70::/64"
-                  "fd42:dead:cafe:10::/64"
-                  "::/0"
-                ];
-              };
-            };
           };
           home-example-router-downstream = {
             role = "downstream-selector";
@@ -732,6 +678,28 @@
           {
             mustTraverse = [ "policy" ];
             name = "east-west";
+            prefixes = {
+              imported = {
+                ipv4 = [
+                "10.50.10.0/24"
+                "10.50.15.0/24"
+                "10.50.20.0/24"
+                "10.50.30.0/24"
+                "10.50.50.0/24"
+                "10.70.10.0/24"
+                "10.90.10.0/24"
+                ];
+                ipv6 = [
+                "fd42:dead:feed:10::/64"
+                "fd42:dead:feed:15::/64"
+                "fd42:dead:feed:20::/64"
+                "fd42:dead:feed:30::/64"
+                "fd42:dead:feed:50::/64"
+                "fd42:dead:feed:70::/64"
+                "fd42:dead:cafe:10::/64"
+                ];
+              };
+            };
             peerSites = [
               "esp.lab"
               "esp.edge"
@@ -763,7 +731,7 @@
             action = "allow";
             from = {
               kind = "external";
-              uplinks = [ "wan" ];
+              scope = "edge-example-router-core";
             };
             id = "allow-edge-wan-icmp-anywhere";
             priority = 6;
@@ -805,7 +773,7 @@
             priority = 25;
             to = {
               kind = "external";
-              name = "wan";
+              scope = "edge-example-router-core";
             };
             trafficType = "dns";
           }
@@ -819,7 +787,7 @@
             priority = 100;
             to = {
               kind = "external";
-              name = "wan";
+              scope = "edge-example-router-core";
             };
             trafficType = "any";
           returnBehavior = "symmetric"; }
@@ -833,7 +801,7 @@
             priority = 101;
             to = {
               kind = "external";
-              name = "wan";
+              scope = "edge-example-router-core";
             };
             trafficType = "any";
           returnBehavior = "symmetric"; }
@@ -861,7 +829,7 @@
             priority = 110;
             to = {
               kind = "external";
-              name = "wan";
+              scope = "edge-example-router-core";
             };
             trafficType = "dns";
           returnBehavior = "symmetric"; }
@@ -875,7 +843,7 @@
             priority = 120;
             to = {
               kind = "external";
-              uplinks = [ "wan" ];
+              scope = "edge-example-router-core";
             };
             trafficType = "any";
           returnBehavior = "symmetric"; }
@@ -883,7 +851,7 @@
             action = "allow";
             from = {
               kind = "external";
-              uplinks = [ "wan" ];
+              scope = "edge-example-router-core";
             };
             id = "allow-wan-to-dmz-nebula";
             priority = 125;
@@ -911,7 +879,7 @@
             action = "allow";
             from = {
               kind = "external";
-              uplinks = [ "wan" ];
+              scope = "edge-example-router-core";
             };
             id = "allow-wan-to-home-hostile-4444";
             priority = 130;
@@ -925,7 +893,7 @@
             action = "allow";
             from = {
               kind = "external";
-              uplinks = [ "wan" ];
+              scope = "edge-example-router-core";
             };
             id = "allow-wan-to-lab-client-4445";
             priority = 131;
@@ -939,7 +907,7 @@
             action = "allow";
             from = {
               kind = "external";
-              uplinks = [ "wan" ];
+              scope = "edge-example-router-core";
             };
             id = "allow-wan-to-edge-client-4446";
             priority = 132;
@@ -1191,6 +1159,9 @@
         ];
         nodes = {
           edge-example-router-access-client = {
+            selects = [
+              "edge-example-router-core"
+            ];
             attachments = [
               {
                 kind = "tenant";
@@ -1222,22 +1193,6 @@
           };
           edge-example-router-nebula-core = {
             role = "core";
-            uplinks = {
-              east-west = {
-                ipv4 = [
-                  "10.20.70.0/24"
-                  "10.50.20.0/24"
-                  "10.50.70.0/24"
-                  "10.70.10.0/24"
-                ];
-                ipv6 = [
-                  "fd42:dead:beef:70::/64"
-                  "fd42:dead:feed:20::/64"
-                  "fd42:dead:feed:70::/64"
-                  "fd42:dead:feed:7000::/56"
-                ];
-              };
-            };
           };
           edge-example-router-policy = {
             role = "policy";
@@ -1252,6 +1207,22 @@
           {
             mustTraverse = [ "policy" ];
             name = "east-west";
+            prefixes = {
+              imported = {
+                ipv4 = [
+                "10.20.70.0/24"
+                "10.50.20.0/24"
+                "10.50.70.0/24"
+                "10.70.10.0/24"
+                ];
+                ipv6 = [
+                "fd42:dead:beef:70::/64"
+                "fd42:dead:feed:20::/64"
+                "fd42:dead:feed:70::/64"
+                "fd42:dead:feed:7000::/56"
+                ];
+              };
+            };
             peerSites = [
               "esp.home"
               "esp.lab"
@@ -1286,7 +1257,7 @@
             action = "allow";
             from = {
               kind = "external";
-              name = "wan";
+              scope = "lab-example-router-core-simulated-isp";
             };
             id = "allow-lab-wan-icmp-anywhere";
             priority = 6;
@@ -1404,7 +1375,7 @@
             priority = 25;
             to = {
               kind = "external";
-              name = "wan";
+              scope = "lab-example-router-core-simulated-isp";
             };
             trafficType = "dns";
           }
@@ -1451,7 +1422,7 @@
             priority = 100;
             to = {
               kind = "external";
-              name = "wan";
+              scope = "lab-example-router-core-simulated-isp";
             };
             trafficType = "any";
           returnBehavior = "symmetric"; }
@@ -1465,7 +1436,7 @@
             priority = 101;
             to = {
               kind = "external";
-              name = "wan";
+              scope = "lab-example-router-core-simulated-isp";
             };
             trafficType = "any";
           }
@@ -1521,7 +1492,7 @@
             priority = 130;
             to = {
               kind = "external";
-              uplinks = [ "wan" ];
+              scope = "lab-example-router-core-simulated-isp";
             };
             trafficType = "nebula";
           returnBehavior = "symmetric"; }
@@ -1799,6 +1770,9 @@
             role = "access";
           };
           lab-example-router-access-client = {
+            selects = [
+              "lab-example-router-core-simulated-isp"
+            ];
             attachments = [
               {
                 kind = "tenant";
@@ -1851,28 +1825,6 @@
               }
             ];
             role = "core";
-            uplinks = {
-              east-west = {
-                ipv4 = [
-                  "10.20.10.0/24"
-                  "10.20.15.0/24"
-                  "10.20.20.0/24"
-                  "10.20.30.0/24"
-                  "10.20.50.0/24"
-                  "10.90.10.0/24"
-                  "0.0.0.0/0"
-                ];
-                ipv6 = [
-                  "fd42:dead:beef:10::/64"
-                  "fd42:dead:beef:15::/64"
-                  "fd42:dead:beef:20::/64"
-                  "fd42:dead:beef:30::/64"
-                  "fd42:dead:beef:50::/64"
-                  "fd42:dead:cafe:10::/64"
-                  "::/0"
-                ];
-              };
-            };
           };
           lab-example-router-core-simulated-isp = {
             role = "core";
@@ -1899,6 +1851,26 @@
           {
             mustTraverse = [ "policy" ];
             name = "east-west";
+            prefixes = {
+              imported = {
+                ipv4 = [
+                "10.20.10.0/24"
+                "10.20.15.0/24"
+                "10.20.20.0/24"
+                "10.20.30.0/24"
+                "10.20.50.0/24"
+                "10.90.10.0/24"
+                ];
+                ipv6 = [
+                "fd42:dead:beef:10::/64"
+                "fd42:dead:beef:15::/64"
+                "fd42:dead:beef:20::/64"
+                "fd42:dead:beef:30::/64"
+                "fd42:dead:beef:50::/64"
+                "fd42:dead:cafe:10::/64"
+                ];
+              };
+            };
             peerSites = [
               "esp.home"
               "esp.edge"

@@ -82,7 +82,7 @@
             priority = 50;
             to = {
               kind = "external";
-              name = "wan";
+              scope = "s-router-core-wan";
             };
             trafficType = "web";
           }
@@ -101,7 +101,7 @@
             priority = 100;
             to = {
               kind = "external";
-              name = "wan";
+              scope = "s-router-core-wan";
             };
             trafficType = "any";
           returnBehavior = "symmetric"; }
@@ -109,7 +109,7 @@
             action = "allow";
             from = {
               kind = "external";
-              name = "wan";
+              scope = "s-router-core-wan";
             };
             id = "allow-wan-to-jump-host";
             priority = 110;
@@ -123,7 +123,7 @@
             action = "allow";
             from = {
               kind = "external";
-              name = "wan";
+              scope = "s-router-core-wan";
             };
             id = "allow-wan-to-mgmt-icmp";
             priority = 115;
@@ -137,7 +137,7 @@
             action = "allow";
             from = {
               kind = "external";
-              name = "wan";
+              scope = "s-router-core-wan";
             };
             id = "allow-wan-to-admin-web";
             priority = 120;
