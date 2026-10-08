@@ -99,7 +99,16 @@
         # exit selection, so it grants no default/NAT/outbound authority to that
         # access. Emit only for access units that do not already have a
         # scope-emitted policy<->upstream-selector lane, to avoid duplicates.
-        lanesFromScopes = lib.concatMap policyUpstreamLanes scopeNames;
+        # FS-370 / FS-260: the policy<->upstream-selector lane is the physical
+        # lane between the two fabric stages. Two scopes on one access unit that
+        # share an exit share that physical lane, so collapse lanes with the same
+        # link name (access-keyed) to one; the lane identity (lane field) stays
+        # scope-keyed on the first scope's record.
+        lanesFromScopes = builtins.attrValues (
+          builtins.listToAttrs (
+            map (l: { name = l.name; value = l; }) (lib.concatMap policyUpstreamLanes scopeNames)
+          )
+        );
         accessUnitsWithScopeLane = lib.unique (
           map (l: l.laneMeta.access) (
             lib.filter (l: builtins.isAttrs (l.laneMeta or null)) lanesFromScopes
