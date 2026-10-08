@@ -56,6 +56,27 @@ let
       ipv6 = builtins.filter (value: builtins.isString value && value != "") (map (node: node.addr6 or null) values);
     };
 
+  # URS (Reachability, Routing, and Overlays): "Overlay transport shall model
+  # endpoint identity, permitted peers, bootstrap dependencies, imported and
+  # exported prefixes, payload classes, MTU constraints, secret lifecycle,
+  # readiness, and fail-closed or failover behavior."
+  #
+  # A peer overlay's route set toward the peer is the overlay's MODELED
+  # imported prefixes (what this site routes through the overlay), for both
+  # address families. The peer's tenant subnets are only a fallback when the
+  # peer site is present in the compile.
+  modeledImportedPrefixes =
+    overlay: family:
+    let
+      prefixes = overlay.prefixes or null;
+      imported = if builtins.isAttrs prefixes then prefixes.imported or null else null;
+      value = if builtins.isAttrs imported then imported.${family} or [ ] else [ ];
+    in
+    if builtins.isList value then map toString value else [ ];
+
+  overlayDeclaresModeledPrefixes =
+    overlay: builtins.isAttrs (overlay.prefixes or null);
+
   overlayReachabilityForPeer =
     allSites: overlay: peerSiteRef:
     let
@@ -78,6 +99,19 @@ let
       explicitPrefixes = explicitPrefixesOf overlay;
       explicitPrefixValues = explicitPrefixes.ipv4 ++ explicitPrefixes.ipv6;
       peerLabel = if peerSiteRef == null then "<none>" else toString peerSiteRef;
+      importedIpv4 = modeledImportedPrefixes overlay "ipv4";
+      importedIpv6 = modeledImportedPrefixes overlay "ipv6";
+      hasModeledPrefixes = overlayDeclaresModeledPrefixes overlay;
+      # Fail closed (URS: "A routing feature that cannot be satisfied by the
+      # modeled selection fails loudly at the owning layer instead of being
+      # silently omitted or approximated."): a peer overlay that reaches a peer
+      # the compile does not contain and models no imported prefixes would
+      # otherwise emit an empty route set that looks like a working feature.
+      _peerReachabilitySatisfiable =
+        peerSite != null
+        || peerSiteRef == null
+        || hasModeledPrefixes
+        || throw "overlay-peer-prefixes-unbound: overlay '${overlayName}' peer '${peerLabel}' is not present in this compile and the overlay declares no modeled imported prefixes; model the overlay's imported/exported prefixes (URS: overlay transport models imported and exported prefixes) so the peer route set is explicit";
       explicitPrefixesAreBound =
         if explicitPrefixValues == [ ] then
           true
@@ -92,10 +126,18 @@ let
           }
         else
           overlayNodePrefixesOf peerSite overlayName;
+      # Modeled imported prefixes are the authoritative peer route set; the
+      # peer-site derivation remains for the both-sites-compiled case.
+      routePrefixesFor =
+        family: peerFamily: imported:
+        if hasModeledPrefixes then
+          lib.unique (imported ++ explicitPrefixes.${family})
+        else
+          lib.unique (peerFamily ++ overlayNodePrefixes.${family} ++ explicitPrefixes.${family});
     in
     {
       name = overlayName;
-      value = {
+      value = builtins.seq _peerReachabilitySatisfiable (builtins.seq explicitPrefixesAreBound {
         overlay = overlayName;
         peerSite = peerSiteRef;
         terminateOn = terminateOn;
@@ -103,18 +145,14 @@ let
         routes4 = normalizedPrefixRoutes {
           inherit overlayName peerSiteRef;
           family = 4;
-          prefixes = builtins.seq explicitPrefixesAreBound (
-            lib.unique (peerPrefixes.ipv4 ++ overlayNodePrefixes.ipv4 ++ explicitPrefixes.ipv4)
-          );
+          prefixes = routePrefixesFor "ipv4" peerPrefixes.ipv4 importedIpv4;
         };
         routes6 = normalizedPrefixRoutes {
           inherit overlayName peerSiteRef;
           family = 6;
-          prefixes = builtins.seq explicitPrefixesAreBound (
-            lib.unique (peerPrefixes.ipv6 ++ overlayNodePrefixes.ipv6 ++ explicitPrefixes.ipv6)
-          );
+          prefixes = routePrefixesFor "ipv6" peerPrefixes.ipv6 importedIpv6;
         };
-      };
+      });
     };
 
   overlayReachabilityForOverlay =

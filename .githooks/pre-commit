@@ -1,30 +1,21 @@
 #!/usr/bin/env bash
+# Pre-commit: parse-check staged Nix files.
+#
+# This repository's committed Nix style is the leading-comma form; it is NOT
+# nixfmt-rfc-style. Running nixfmt here rewrote whole files on every commit and
+# mixed formatting churn into unrelated semantic changes. The hook therefore
+# only verifies that each staged file parses, and never rewrites the author's
+# formatting.
 set -euo pipefail
 
 mapfile -t changed < <(git diff --cached --name-only --diff-filter=ACMR | grep '\.nix$' || true)
 [ ${#changed[@]} -eq 0 ] && exit 0
-
-echo "[hook] formatting staged nix files..."
-
-for f in "${changed[@]}"; do
-    [ -f "$f" ] || continue
-    #sed -i 's/^[[:space:]]*#.*$//' "$f"
-done
-
-for f in "${changed[@]}"; do
-    [ -f "$f" ] || continue
-    nix shell nixpkgs#nixfmt-rfc-style --command nixfmt "$f"
-done
-
-git add "${changed[@]}" 2>/dev/null || true
 
 echo "[hook] parsing staged nix files..."
 
 for f in "${changed[@]}"; do
     [ -f "$f" ] || continue
     nix-instantiate --parse "$f" >/dev/null
-    #sed -i 's/^#.*//g' "$f"
-    #sed -i 's/# .*//g' "$f"
 done
 
 echo "[hook] done"
