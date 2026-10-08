@@ -59,14 +59,14 @@ jq -e '
       "east-west")
     and has_route(
       "s-router-policy-only";
-      "p2p-s-router-policy-only-s-router-upstream-selector--access-s-router-access-client";
+      "p2p-s-router-policy-only-s-router-upstream-selector--scope-client--uplink-east-west";
       "ipv4";
       "10.60.10.0/24";
       "s-router-access-client";
       "east-west")
     and has_route(
       "s-router-policy-only";
-      "p2p-s-router-policy-only-s-router-upstream-selector--access-s-router-access-client";
+      "p2p-s-router-policy-only-s-router-upstream-selector--scope-client--uplink-east-west";
       "ipv6";
       "fd42:dead:feed:10::/64";
       "s-router-access-client";
