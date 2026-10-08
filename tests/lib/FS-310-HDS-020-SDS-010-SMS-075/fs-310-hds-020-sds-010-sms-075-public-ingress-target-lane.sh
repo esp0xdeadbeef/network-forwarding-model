@@ -55,14 +55,14 @@ cat >"${input_nix}" <<'NIX'
           id = "client-to-wan";
           action = "allow";
           from = { kind = "tenant"; name = "client"; };
-          to = { kind = "external"; uplinks = [ "wan" ]; };
+          to = { kind = "external"; scope = "core"; };
           trafficType = "nebula";
           returnBehavior = "symmetric";
         }
         {
           id = "wan-to-nebula";
           action = "allow";
-          from = { kind = "external"; uplinks = [ "wan" ]; };
+          from = { kind = "external"; scope = "core"; };
           to = { kind = "service"; name = "nebula"; };
           trafficType = "nebula";
           publicIngressTupleAuthority = {
@@ -82,7 +82,7 @@ cat >"${input_nix}" <<'NIX'
         {
           id = "wan-to-unrelated-without-public-ingress-authority";
           action = "allow";
-          from = { kind = "external"; uplinks = [ "wan" ]; };
+          from = { kind = "external"; scope = "core"; };
           to = { kind = "service"; name = "unrelated-service"; };
           trafficType = "nebula";
           returnBehavior = "one-way";

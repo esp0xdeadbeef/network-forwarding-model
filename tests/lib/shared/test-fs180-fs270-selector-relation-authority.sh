@@ -59,7 +59,7 @@ cat >"${positive_input}" <<'NIX'
           id = "allow-client-to-wan-https";
           priority = 100;
           from = { kind = "tenant"; name = "client"; };
-          to = { kind = "external"; uplinks = [ "wan" ]; };
+          to = { kind = "external"; scope = "core-wan"; };
           trafficType = "any";
           action = "allow";
           returnBehavior = "symmetric";
@@ -191,7 +191,7 @@ cat >"${negative_input}" <<'NIX'
           id = "deny-client-to-wan";
           priority = 100;
           from = { kind = "tenant"; name = "client"; };
-          to = { kind = "external"; uplinks = [ "wan" ]; };
+          to = { kind = "external"; scope = "core-wan"; };
           trafficType = "any";
           action = "deny";
         }
@@ -199,7 +199,7 @@ cat >"${negative_input}" <<'NIX'
           id = "allow-mgmt-to-wan";
           priority = 200;
           from = { kind = "tenant"; name = "mgmt"; };
-          to = { kind = "external"; uplinks = [ "wan" ]; };
+          to = { kind = "external"; scope = "core-wan"; };
           trafficType = "any";
           action = "allow";
           returnBehavior = "symmetric";

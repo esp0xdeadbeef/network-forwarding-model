@@ -46,7 +46,7 @@ cat >"${input_file}" <<'NIX'
           id = "allow-client-to-wan";
           priority = 100;
           from = { kind = "tenant"; name = "client"; };
-          to = { kind = "external"; uplinks = [ "wan" ]; };
+          to = { kind = "external"; scope = "core-wan"; };
           trafficType = "any";
           action = "allow";
           returnBehavior = "symmetric";
