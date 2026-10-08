@@ -9,7 +9,20 @@ let
   normalizedTenants =
     site:
     let
-      tenants = (attrsOrEmpty (site.domains or null)).tenants or [ ];
+      # The compiler output is the forwarding model's authority and carries the
+      # normalized tenants on `site.tenants`; `site.domains.tenants` is only the
+      # raw/legacy shape. Read the compiler-normalized list first so a tenant's
+      # ipv4 subnet is available for NAT source-prefix derivation (FS-380).
+      compiledTenants = site.tenants or [ ];
+      tenants =
+        if builtins.isList compiledTenants && compiledTenants != [ ] then
+          compiledTenants
+        else if builtins.isAttrs compiledTenants && compiledTenants != { } then
+          lib.mapAttrsToList (
+            name: tenant: (attrsOrEmpty tenant) // { name = toString ((attrsOrEmpty tenant).name or name); }
+          ) compiledTenants
+        else
+          (attrsOrEmpty (site.domains or null)).tenants or [ ];
     in
     if builtins.isList tenants then
       builtins.filter (tenant: builtins.isAttrs tenant && (tenant.name or null) != null) tenants
