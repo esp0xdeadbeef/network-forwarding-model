@@ -15,10 +15,11 @@
 - state=solved
 - owner: network-forwarding-model
 - scope: FS-310-HDS-020-SDS-010-SMS-075 public-ingress path realization
-- first-bad-artifact: The 2026-07-17 `s-router-prod` audit found an explicit `wan` to `s-nebula-container` public-ingress tuple whose provider endpoint belongs to `access-vlan3`, while NFM emitted access-uplink lanes only for outbound VLAN2 and VLAN7 relations. CPM consequently had no WAN/access-vlan3 lane to select and widened the tuple over the unrelated VLAN2 and VLAN7 lanes; a live hotpatch probe stopped at the upstream selector.
-- evidence: compare `forwardingOut.enterprise.esp0xdeadbeef.site.site-a.links` with `communicationContract.relations[id=allow-wan-to-s-nebula-container].publicIngressTupleAuthority` and the service provider tenant/access ownership.
-- verification: `NETWORK_REPO_DIRECT_TEST_OK=1 bash tests/fs-310-hds-020-sds-010-sms-075-public-ingress-target-lane.sh`; `NETWORK_REPO_DIRECT_TEST_OK=1 bash run-all-tests.sh` passed 62/62 construction tests after the entry was closed.
-- note: topology lane presence is not packet authority. NFM must derive the one target access/uplink lane from the explicit public-ingress relation; CPM remains responsible for tuple-scoped policy, routes, translation, and fail-closed realization.
+- first-bad-artifact: The focused construction case expressed its site only through the legacy `units` + `transit.ordering` raw shape, so the fabric graph produced no `policy`↔`upstream-selector` p2p link and the loopback resolver failed closed (`missing policy -> upstream-selector p2p adjacency`), and its assertions still named access-keyed lanes while FS-370 keys a policy-upstream lane by source scope.
+- required-fix: Model the site with `topology.nodes`/`topology.links` so the fabric graph is complete, and assert the scope-keyed lane identity.
+- implemented-fix: The fixture now carries `topology.nodes`/`topology.links`; the ingress lane is `scope::dmz::exit::wan` and the egress lane is `p2p-policy-upstream--scope-client--uplink-wan`.
+- evidence: `NETWORK_REPO_SWEEP=1 bash tests/FS-310-HDS-020-SDS-010-SMS-075.sh`.
+- note: topology lane presence is not packet authority. NFM derives the one target access/uplink lane from the explicit public-ingress relation; CPM remains responsible for tuple-scoped policy, routes, translation, and fail-closed realization.
 
 ## FS-350 runtime delegated-prefix derivation metadata
 
