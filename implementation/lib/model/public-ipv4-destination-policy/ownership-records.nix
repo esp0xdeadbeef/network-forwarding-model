@@ -109,7 +109,20 @@ let
           })
           (lib.filter isPublicIPv4 values)
       )
-      ((site.ownership or { }).endpoints or [ ]);
+      # FS-390: the compiler owns the modeled endpoint ownership and emits it as
+      # a destination-ownership record, separate from the routing indexes that
+      # consume site.ownership.endpoints for provider-tenant resolution. Fall
+      # back to the raw ownership record for non-compiler input shapes.
+      (
+        let
+          declared =
+            if (site.destinationOwnership or { }) != { } then
+              site.destinationOwnership
+            else
+              site.ownership or { };
+        in
+        declared.endpoints or [ ]
+      );
 
   localRecords =
     topo:

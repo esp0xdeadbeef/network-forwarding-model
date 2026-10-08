@@ -120,8 +120,18 @@ let
             fail "missing returnBehavior on allow relation (must be explicitly declared as symmetric, one-way, or stateful-return; nested publicIngressTupleAuthority.returnBehavior also accepted)"
         )
         rawRelations;
+      # The compiler output is the forwarding model's authority. It carries the
+      # declared communicationContract services (with modeled ownership such as
+      # publicIpv4/publicIngress) alongside a compiled routing-shape service
+      # list. Prefer the declared contract services so modeled ownership is not
+      # lost, and fall back to the compiled list only when no contract exists.
       services =
-        if site ? services && builtins.isList site.services then site.services else cc.services or [ ];
+        if cc ? services && builtins.isList cc.services && cc.services != [ ] then
+          cc.services
+        else if site ? services && builtins.isList site.services then
+          site.services
+        else
+          [ ];
       trafficTypes = cc.trafficTypes or [ ];
     };
 
