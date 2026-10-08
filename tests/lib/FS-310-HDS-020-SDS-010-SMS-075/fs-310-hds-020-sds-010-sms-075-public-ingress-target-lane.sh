@@ -100,9 +100,18 @@ cat >"${input_nix}" <<'NIX'
     ];
 
     units = {
-      access-client.role = "access";
-      access-dmz.role = "access";
-      access-unrelated.role = "access";
+      access-client = {
+        role = "access";
+        selects = [ "core" ];
+      };
+      access-dmz = {
+        role = "access";
+        selects = [ "core" ];
+      };
+      access-unrelated = {
+        role = "access";
+        selects = [ "core" ];
+      };
       downstream.role = "downstream-selector";
       policy.role = "policy";
       upstream.role = "upstream-selector";
@@ -126,7 +135,7 @@ jq -e '
     and ($ingress.laneMeta.kind == "access-uplink")
     and ($ingress.laneMeta.access == "access-dmz")
     and ($ingress.laneMeta.uplink == "wan")
-    and ($links["p2p-policy-upstream--access-access-client--uplink-wan"] != null)
+    and ($links["p2p-policy-upstream--scope-client--uplink-wan"] != null)
     and ($links["p2p-policy-upstream--access-access-unrelated--uplink-wan"] == null)
 ' "${model_json}" >/dev/null
 

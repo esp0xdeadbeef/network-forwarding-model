@@ -59,8 +59,18 @@ let
       isPublicKind = kind != null
         && builtins.elem kind [ "routed-public-ipv4" "runtime-routed-prefix" ];
       cat = authorityClassCategory authorityClass;
+      family = e.family or null;
+      hostOnlyLength = if family == 4 then 32 else 128;
+      # FS-350-HDS-010-SDS-010-SMS-030: a host-only /32 or /128 runtime prefix is
+      # an overlay participant address, not a delegated tenant prefix. It
+      # legitimately carries host-only-provider-prefix authority alongside a
+      # runtime-routed-prefix kind, so it is not an authority-class conflict.
+      isHostOnlyParticipant =
+        kind == "runtime-routed-prefix"
+        && (e.perTenantPrefixLength or null) != null
+        && (e.perTenantPrefixLength or null) == hostOnlyLength;
     in
-    if isPublicKind && cat == "protected" then
+    if isPublicKind && cat == "protected" && !isHostOnlyParticipant then
       { code = "authority-class-mixing";
         message = "entry with kind '${toString kind}' (public) has protected authority class '${authorityClass}'";
         affectedAuthorityClass = authorityClass; conflictingClasses = [ "public" "protected" ];

@@ -60,6 +60,12 @@ cat >"${input_nix}" <<'NIX'
         name = "east-west";
         peerSite = "acme.branch";
         terminateOn = "core-overlay";
+        prefixes = {
+          imported = {
+            ipv4 = [ "10.45.40.0/24" ];
+            ipv6 = [ "fd42:450:40::/64" ];
+          };
+        };
       }
     ];
 
@@ -70,8 +76,8 @@ cat >"${input_nix}" <<'NIX'
       upstream.role = "upstream-selector";
       core-overlay = {
         role = "core";
-        uplinks.east-west.ipv4 = [ "100.96.35.0/24" ];
-        uplinks.east-west.ipv6 = [ "fd42:350:96::/64" ];
+        uplinks.east-west.ipv4 = [ "0.0.0.0/0" ];
+        uplinks.east-west.ipv6 = [ "::/0" ];
       };
     };
   };
@@ -134,6 +140,12 @@ cat >"${input_nix}" <<'NIX'
         name = "east-west";
         peerSite = "acme.ams";
         terminateOn = "core-remote";
+        prefixes = {
+          imported = {
+            ipv4 = [ "10.35.20.0/24" ];
+            ipv6 = [ "fd42:350:20::/64" ];
+          };
+        };
       }
     ];
 
@@ -144,8 +156,8 @@ cat >"${input_nix}" <<'NIX'
       upstream-remote.role = "upstream-selector";
       core-remote = {
         role = "core";
-        uplinks.east-west.ipv4 = [ "100.96.45.0/24" ];
-        uplinks.east-west.ipv6 = [ "fd42:450:96::/64" ];
+        uplinks.east-west.ipv4 = [ "0.0.0.0/0" ];
+        uplinks.east-west.ipv6 = [ "::/0" ];
       };
     };
   };
