@@ -13,7 +13,7 @@ let
   defaultRoutePolicy =
     import (self.outPath + "/implementation/lib/routing/default-route-policy.nix")
       {
-        inherit lib;
+        inherit lib self;
       };
   link = import (self.outPath + "/implementation/lib/topology/link-utils.nix") { inherit lib self; };
   routeCandidates = import (
@@ -59,6 +59,7 @@ in
       resolveGroupMod = import ./resolve-group-helper.nix {
         inherit
           lib
+          self
           helpers
           defaultRoutePolicy
           link

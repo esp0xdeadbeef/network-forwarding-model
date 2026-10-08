@@ -9,7 +9,7 @@
 let
   link = import (self.outPath + "/implementation/lib/topology/link-utils.nix") { inherit lib self; };
   helpers = import ./static-helpers.nix { inherit lib self; };
-  defaultRoutePolicy = import ./default-route-policy.nix { inherit lib; };
+  defaultRoutePolicy = import ./default-route-policy.nix { inherit lib self; };
   routeBuilder = import ./lane-default-route-builder.nix { inherit lib self; };
   laneMetadata = import ./lane-metadata.nix { inherit lib self; };
   inherit (routeBuilder) mkDefaultRoutes;
