@@ -153,13 +153,13 @@ pass_timed "fs-310-public-ingress-target-lane:compile" "${start_ms}"
 
 jq -e '
   .enterprise.acme.site.ams.links as $links
-  | $links["p2p-policy-upstream--scope-dmz--uplink-wan"] as $ingress
+  | $links["p2p-policy-upstream--access-access-dmz--uplink-wan"] as $ingress
   | ($ingress.lane == "scope::dmz::exit::wan")
     and ($ingress.laneMeta.kind == "access-uplink")
     and ($ingress.laneMeta.access == "access-dmz")
     and ($ingress.laneMeta.uplink == "wan")
-    and ($links["p2p-policy-upstream--scope-client--uplink-wan"] != null)
-    and ($links["p2p-policy-upstream--scope-unrelated--uplink-wan"] == null)
+    and ($links["p2p-policy-upstream--access-access-client--uplink-wan"] != null)
+    and ($links["p2p-policy-upstream--access-access-unrelated--uplink-wan"] == null)
 ' "${model_json}" >/dev/null
 
 pass_timed "fs-310-public-ingress-target-lane:authority-bounded"
