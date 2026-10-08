@@ -120,18 +120,8 @@ let
             fail "missing returnBehavior on allow relation (must be explicitly declared as symmetric, one-way, or stateful-return; nested publicIngressTupleAuthority.returnBehavior also accepted)"
         )
         rawRelations;
-      # FS-390: the modeled destination-ownership fields (publicIpv4,
-      # publicIngress) live on the declared communicationContract services. The
-      # compiler also emits a compiled `site.services` list that carries only
-      # routing shape, so prefer the contract services when present and only
-      # fall back to the compiled list when there is no declared contract.
       services =
-        if cc ? services && builtins.isList cc.services && cc.services != [ ] then
-          cc.services
-        else if site ? services && builtins.isList site.services then
-          site.services
-        else
-          [ ];
+        if site ? services && builtins.isList site.services then site.services else cc.services or [ ];
       trafficTypes = cc.trafficTypes or [ ];
     };
 
