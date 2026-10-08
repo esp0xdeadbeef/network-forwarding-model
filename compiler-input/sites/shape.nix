@@ -121,34 +121,15 @@ let
         )
         rawRelations;
       # FS-390: the modeled destination-ownership fields (publicIpv4,
-      # publicIngress) are carried on the declared communicationContract
-      # services, while the compiled `site.services` list carries the routing
-      # shape. Use the compiled list as the base (so routing is unchanged) and
-      # merge the ownership fields back in by name when the declared contract
-      # supplies them.
+      # publicIngress) live on the declared communicationContract services. The
+      # compiler also emits a compiled `site.services` list that carries only
+      # routing shape, so prefer the contract services when present and only
+      # fall back to the compiled list when there is no declared contract.
       services =
-        let
-          declaredServicesByName = builtins.listToAttrs (
-            map
-              (s: {
-                name = s.name;
-                value = s;
-              })
-              (if cc ? services && builtins.isList cc.services then cc.services else [ ])
-          );
-          withOwnership =
-            service:
-            let
-              declared = declaredServicesByName.${service.name} or { };
-            in
-            service
-            // (if declared ? publicIpv4 then { inherit (declared) publicIpv4; } else { })
-            // (if declared ? publicIngress then { inherit (declared) publicIngress; } else { });
-        in
-        if site ? services && builtins.isList site.services then
-          map withOwnership site.services
-        else if cc ? services && builtins.isList cc.services then
+        if cc ? services && builtins.isList cc.services && cc.services != [ ] then
           cc.services
+        else if site ? services && builtins.isList site.services then
+          site.services
         else
           [ ];
       trafficTypes = cc.trafficTypes or [ ];
