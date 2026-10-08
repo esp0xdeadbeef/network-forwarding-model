@@ -9,7 +9,7 @@
 let
   graphContext = import ./graph/context.nix { inherit lib self; };
   helpers = import ./static-helpers.nix { inherit lib self; };
-  defaultRoutePolicy = import ./default-route-policy.nix { inherit lib; };
+  defaultRoutePolicy = import ./default-route-policy.nix { inherit lib self; };
   directWanDefaults = import ./direct-wan-defaults.nix { inherit lib self; };
   laneDefaults = import ./lane-defaults.nix { inherit lib self; };
   nearestTargetModule = import ./nearest-default-target.nix { inherit lib self; };

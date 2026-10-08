@@ -1,153 +1,19 @@
-{ lib, ... }:
+{ lib, self ? { outPath = ./.; }, ... }:
 
 let
-  pathNodes =
-    path:
-    lib.unique (
-      lib.concatMap
-        (
-          nodePath:
-          if builtins.isList nodePath then map toString nodePath else [ ]
-        )
-        ((path.nodePathAlternatives or [ ]) ++ [ (path.nodePath or [ ]) ])
-    );
-
-  # FS-370/FS-171: a default-exit binding belongs to the path's **source**
-  # scope, not to every node that happens to appear in the path. A wildcard
-  # (`to = "any"`) path lists several destination-access variants, so matching
-  # on membership would attribute one access's exit to another. The source is
-  # the path's `source` scope (a tenant or access scope); resolve it to the
-  # access that serves it. A path whose source is an access scope directly is
-  # matched by its head.
-  pathOriginatesAt =
-    topo: accessName: path:
-    let
-      byTenant = tenantAccessUnits topo;
-      source = if builtins.isAttrs (path.source or null) then path.source else { };
-      sourceName = if source.name or null != null then toString source.name else null;
-      sourceAccess =
-        if sourceName == null then
-          null
-        else
-          let
-            units = byTenant.${sourceName} or [ ];
-          in
-          if units == [ ] then sourceName else toString (builtins.head units);
-      heads = map (
-        nodePath: if builtins.isList nodePath && nodePath != [ ] then toString (builtins.head nodePath) else null
-      ) ((path.nodePathAlternatives or [ ]) ++ [ (path.nodePath or [ ]) ]);
-    in
-    (sourceAccess != null && sourceAccess == toString accessName)
-    || builtins.elem (toString accessName) heads;
-
-  # FS-322: reachability is a scope property; a permission relation names only
-  # what is allowed and never names uplinks. The default-route authority for a
-  # selection is therefore derived from the exit scopes the selection resolves
-  # to, not from a `destination.uplinks` list on the relation.
-  #
-  # The compiler's traffic path already carries the resolved exits: the terminal
-  # nodes of `nodePathAlternatives` (and `corePathNodes`) are the exit cores the
-  # selecting scope may reach. Those cores map back to uplink names through the
-  # route facts (`uplinkCoreNamesByUplink`).
-  #
-  # `destination.uplinks`/`destination.name` are the superseded pre-FS-322 shape
-  # (FS-081/FS-984); they are still read here only as a fallback so an already
-  # migrated model does not regress, and are otherwise ignored.
-  uplinkCoresByIndex =
-    routeFacts:
-    let
-      byUplink = routeFacts.uplinkCoreNamesByUplink or { };
-    in
-    builtins.foldl'
-      (acc: uplinkName: builtins.foldl' (inner: coreName: inner // { ${coreName} = uplinkName; }) acc (byUplink.${uplinkName} or [ ]))
-      { }
-      (builtins.attrNames byUplink);
-
-  pathExitCoreNames =
-    path:
-    let
-      alternatives = path.nodePathAlternatives or [ ];
-      paths = if alternatives != [ ] then alternatives else [ (path.nodePath or [ ]) ];
-      terminal =
-        nodePath:
-        if builtins.isList nodePath && nodePath != [ ] then toString (lib.last nodePath) else null;
-      explicit = path.corePathNodes or [ ];
-    in
-    lib.unique (
-      lib.filter (name: name != null) (map terminal paths ++ map toString explicit)
-    );
-
-  coreNamesToUplinkNames =
-    routeFacts: coreNames:
-    let
-      byCore = uplinkCoresByIndex routeFacts;
-    in
-    lib.unique (
-      lib.filter (
-        uplinkName: uplinkName != null
-      ) (map (coreName: byCore.${coreName} or null) coreNames)
-    );
-
-  legacyPathDestinationUplinks =
-    destination:
-    if (destination.kind or null) != "external" then
-      [ ]
-    else if builtins.isList (destination.uplinks or null) then
-      map toString destination.uplinks
-    else if (destination.name or null) != null then
-      [ (toString destination.name) ]
-    else
-      [ ];
-
-  # A default exit is only reachable where the permission relation names an
-  # external destination (FS-210/FS-322): a path to a tenant or service is not
-  # a default. The resolved exit scopes of an external path are its terminal
-  # cores (`corePathNodes` / terminal of `nodePathAlternatives`); they map back
-  # to the modeled uplink names that carry the default.
-  pathDefaultUplinks =
-    { routeFacts, path }:
-    let
-      destination = path.destination or { };
-    in
-    if (destination.kind or null) != "external" then
-      [ ]
-    else
-      let
-        coreUplinks = coreNamesToUplinkNames routeFacts (pathExitCoreNames path);
-      in
-      if coreUplinks != [ ] then
-        coreUplinks
-      else
-        legacyPathDestinationUplinks destination;
-
-  tenantAccessUnits =
-    topo:
-    let
-      attachments = topo.attachments or [ ];
-    in
-    builtins.foldl'
-      (acc: attachment:
-      if (attachment.kind or null) != "tenant" || (attachment.name or null) == null || (attachment.unit or null) == null then
-        acc
-      else
-        let
-          tenant = toString attachment.name;
-        in
-        acc // { "${tenant}" = (acc.${tenant} or [ ]) ++ [ (toString attachment.unit) ]; })
-      { }
-      attachments;
-
-  relationAccessUnits =
-    topo: source:
-    let
-      byTenant = tenantAccessUnits topo;
-    in
-    if (source.kind or null) == "tenant" && (source.name or null) != null then
-      byTenant.${toString source.name} or [ ]
-    else if (source.kind or null) == "tenant-set" && builtins.isList (source.members or null) then
-      lib.concatMap (tenant: byTenant.${toString tenant} or [ ]) source.members
-    else
-      [ ];
+  pathsMod = import ./default-route-policy/paths.nix { inherit lib; };
+  paths = pathsMod.make { topo = null; routeFacts = null; };
+  inherit (paths)
+    pathNodes
+    tenantAccessUnits
+    pathOriginatesAt
+    uplinkCoresByIndex
+    pathExitCoreNames
+    coreNamesToUplinkNames
+    legacyPathDestinationUplinks
+    pathDefaultUplinks
+    relationAccessUnits
+    ;
 
   relationDefaultUplinksForAccess =
     { topo, routeFacts, accessName }:
@@ -200,7 +66,7 @@ let
         if routeFacts != null then
           routeFacts
         else
-          (import ./route-context/facts.nix { inherit lib; self = { outPath = ../../..; }; }).build topo;
+          (import ./route-context/facts.nix { inherit lib self; }).build topo;
       scopes = scopeNamesFor topo accessName;
     in
     lib.sort (a: b: a < b) (
@@ -236,7 +102,7 @@ let
         if routeFacts != null then
           routeFacts
         else
-          (import ./route-context/facts.nix { inherit lib; self = { outPath = ../../..; }; }).build topo;
+          (import ./route-context/facts.nix { inherit lib self; }).build topo;
       scopes = scopeNamesFor topo accessName;
     in
     lib.unique (

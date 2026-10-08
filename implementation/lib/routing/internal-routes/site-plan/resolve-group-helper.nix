@@ -1,5 +1,6 @@
 {
   lib,
+  self ? { outPath = ./.; },
   helpers,
   defaultRoutePolicy,
   link,
@@ -18,8 +19,8 @@ let
     nextHopWithPreferredUplinks
     ;
   links = topo.links or { };
-  pathAvoidance = import ../../graph/path-avoidance.nix { inherit lib; };
-  overlayCoreSelection = import ../../overlay-core-selection.nix { inherit lib; };
+  pathAvoidance = import (self.outPath + "/implementation/lib/routing/graph/path-avoidance.nix") { inherit lib; };
+  overlayCoreSelection = import (self.outPath + "/implementation/lib/routing/overlay-core-selection.nix") { inherit lib; };
   overlayTerminatingCores = overlayCoreSelection.overlayTerminatingCores topo;
 in
 group:

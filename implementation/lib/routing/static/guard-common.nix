@@ -6,7 +6,7 @@ in
 rec {
   inherit link;
 
-  defaultRoutePolicy = import (self.outPath + "/implementation/lib/routing/default-route-policy.nix") { inherit lib; };
+  defaultRoutePolicy = import (self.outPath + "/implementation/lib/routing/default-route-policy.nix") { inherit lib self; };
   helpers = import (self.outPath + "/implementation/lib/routing/static-helpers.nix") { inherit lib self; };
   routeContext = import (self.outPath + "/implementation/lib/routing/route-context.nix") { inherit lib self; };
 
