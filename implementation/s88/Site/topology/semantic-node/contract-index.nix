@@ -43,7 +43,7 @@ let
           builtins.filter (
             endpoint:
             builtins.isAttrs endpoint && (endpoint.name or null) != null && (endpoint.tenant or null) != null
-          ) (listOrEmpty ((attrsOrEmpty (site.ownership or null)).endpoints or null))
+          ) (listOrEmpty ((attrsOrEmpty (if (site.destinationOwnership or { }) != { } then site.destinationOwnership else site.ownership or null)).endpoints or null))
         )
     );
 
