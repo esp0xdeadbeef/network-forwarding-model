@@ -23,7 +23,7 @@ in
             tenant = cleanName (endpoint.tenant or "");
           in
           if name == "" || tenant == "" then acc else acc // { "${name}" = tenant; }
-      ) { } (site.ownership.endpoints or [ ]);
+      ) { } ((if (site.destinationOwnership or { }) != { } then site.destinationOwnership else site.ownership or { }).endpoints or [ ]);
 
       tenantsByAccessUnit = builtins.foldl' (
         acc: attachment:
