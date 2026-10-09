@@ -45,7 +45,7 @@ in
               if endpointName == "" || tenantName == "" then acc else acc // { "${endpointName}" = tenantName; }
           )
           { }
-          ((if (topo.destinationOwnership or { }) != { } then topo.destinationOwnership else topo.ownership or { }).endpoints or [ ]);
+          (topo.ownership.endpoints or [ ]);
 
       serviceProviderAccessUnits =
         serviceName:

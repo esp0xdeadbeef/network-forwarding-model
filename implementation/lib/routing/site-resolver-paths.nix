@@ -94,7 +94,7 @@ let
         tenant = toString (endpoint.tenant or "");
       in
       if name == "" || tenant == "" then acc else acc // { "${name}" = tenant; }
-    ) { } (listOrEmpty ((attrsOrEmpty (if (site.destinationOwnership or { }) != { } then site.destinationOwnership else site.ownership or { })).endpoints or [ ]));
+    ) { } (listOrEmpty ((attrsOrEmpty (site.ownership or { })).endpoints or [ ]));
 
   accessUnitByTenant =
     site:
