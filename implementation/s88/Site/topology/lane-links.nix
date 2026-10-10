@@ -40,45 +40,66 @@ in
       # access that declares no egress selection (a DMZ/namespace-authority
       # access that must not have WAN egress) still requires its ingress/return
       # lane, or the forwarded packet arrives with no return path. The target
-      # access is the terminal hop of the tuple's modeled traffic path; derive
-      # the lane from that, independently of the access's `selects`.
-      publicIngressRelationIds =
-        map (rel: rel.source.id or rel.id or null) (
-          lib.filter
-            (rel:
-              builtins.isAttrs rel
-              && (rel.action or "allow") == "allow"
-              && builtins.isAttrs (rel.publicIngressTupleAuthority or null))
-            (
-              (site.communicationContract or { }).relations
-              or (site.communicationContract or { }).allowedRelations
-              or [ ]
-            )
-        );
+      # access is the access that hosts the tuple's target service provider;
+      # derive it from the relation's service provider tenants, independently of
+      # the access's `selects` and of the (not-yet-computed) traffic paths.
+      publicIngressRelations =
+        lib.filter
+          (rel:
+            builtins.isAttrs rel
+            && (rel.action or "allow") == "allow"
+            && builtins.isAttrs (rel.publicIngressTupleAuthority or null))
+          (
+            (site.communicationContract or { }).relations
+            or (site.communicationContract or { }).allowedRelations
+            or [ ]
+          );
+      publicIngressRelationIds = map (rel: rel.source.id or rel.id or null) publicIngressRelations;
       ingressTargetAccessUnits =
         let
-          paths = lib.filter
-            (p: builtins.elem (p.relationId or null) publicIngressRelationIds)
-            (site.trafficPaths or [ ]);
-          terminal =
-            nodePath:
-            if builtins.isList nodePath && nodePath != [ ] then toString (lib.last nodePath) else null;
           accessUnitSet = builtins.listToAttrs (
             map (u: {
               name = toString u;
               value = true;
             }) accessUnitNames
           );
-          candidates = lib.concatMap (
+          providerTenantsFor =
+            rel:
+            let
+              to = if builtins.isAttrs (rel.to or null) then rel.to else { };
+              serviceName = toString (to.name or "");
+              authority = if builtins.isAttrs (rel.publicIngressTupleAuthority or null) then rel.publicIngressTupleAuthority else { };
+            in
+            let
+              declared = compilerIndexes.serviceProviderTenantsByName.${serviceName} or [ ];
+              endpointTenant = compilerIndexes.endpointTenantByName.${toString (authority.targetEndpoint or "")} or null;
+            in
+            lib.unique (lib.filter (t: t != null) (declared ++ [ endpointTenant ]));
+          fromProviders = lib.concatMap (
+            rel:
+            lib.filter (name: builtins.hasAttr name accessUnitSet) (
+              map (tenant: toString (accessUnitByTenant.${tenant} or null)) (providerTenantsFor rel)
+            )
+          ) publicIngressRelations;
+          # The tuple's modeled traffic path names the terminal target access;
+          # include it when the paths are available so a target access that is
+          # not a service provider is still covered.
+          paths = lib.filter (
+            p: builtins.elem (p.relationId or null) publicIngressRelationIds
+          ) (site.trafficPaths or [ ]);
+          terminal =
+            nodePath:
+            if builtins.isList nodePath && nodePath != [ ] then toString (lib.last nodePath) else null;
+          fromPaths = lib.concatMap (
             p:
             lib.unique (
-              lib.filter (t: t != null) (
+              lib.filter (t: t != null && builtins.hasAttr t accessUnitSet) (
                 map terminal ((p.nodePathAlternatives or [ ]) ++ [ (p.nodePath or [ ]) ])
               )
             )
           ) paths;
         in
-        lib.unique (lib.filter (name: builtins.hasAttr name accessUnitSet) candidates);
+        lib.unique (fromProviders ++ fromPaths);
 
       coreLaneResult = coreUplinks.derive {
         inherit
