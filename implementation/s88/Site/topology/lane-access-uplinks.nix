@@ -58,8 +58,30 @@ in
           relations = site.communicationContract.allowedRelations or [ ];
           hasAnyAllowRelation = lib.any (rel: (rel.action or null) == "allow") relations;
           compilerUplinks = trafficPathUplinksByAccessUnit.${unit} or [ ];
+          # FS-210/FS-230 / FS-310-SMS-075: the target access's ingress/return
+          # lane is keyed by the tuple's ingress surface. The surface is the
+          # tuple authority's `publicSurface` when modeled, otherwise the
+          # relation `from`'s external uplinks. This lane is ingress/return
+          # transport only: it grants no exit selection, NAT/NAT66, or outbound
+          # allow (FS-230-HDS-010-SDS-010).
+          ingressSurfaceNamesFor =
+            rel:
+            let
+              authority = if builtins.isAttrs (rel.publicIngressTupleAuthority or null) then rel.publicIngressTupleAuthority else { };
+              publicSurface = authority.publicSurface or null;
+              from = if builtins.isAttrs (rel.from or null) then rel.from else { };
+              fromUplinks = if builtins.isList (from.uplinks or null) then map toString from.uplinks else [ ];
+            in
+            if publicSurface != null then
+              [ (toString publicSurface) ]
+            else
+              fromUplinks;
           publicIngressUplinks = lib.concatMap (
-            rel: if publicIngressTargetsAccessUnit unit rel then relationFromUplinkNames rel else [ ]
+            rel:
+            if publicIngressTargetsAccessUnit unit rel then
+              lib.filter (u: builtins.elem u allUplinkNames) (ingressSurfaceNamesFor rel)
+            else
+              [ ]
           ) relations;
           relationUplinks = lib.concatMap (
             rel:
