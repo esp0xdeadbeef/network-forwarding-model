@@ -62,10 +62,30 @@ in
               value = true;
             }) path
           );
+          # FS-322/FS-171: exit surface names are owned by the topology nodes
+          # that declare `uplinks`.  Prefer a compiler-emitted
+          # `upstreams.cores` mapping, but fall back to the core nodes' own
+          # `uplinks` (same shape compiler-indexes uses) so a site that only
+          # models node uplinks still yields its per-access selector lanes.
           cores = site.upstreams.cores or { };
-          matchingCores = lib.filter (coreName: builtins.hasAttr coreName pathSet) (builtins.attrNames cores);
+          nodes = (site.topology or { }).nodes or { };
+          uplinksForCore =
+            coreName:
+            let
+              node = nodes.${coreName} or { };
+              nodeUplinks = node.uplinks or { };
+            in
+            if builtins.isAttrs (cores.${coreName} or null) then
+              map (u: toString (u.name or "")) cores.${coreName}
+            else if builtins.isAttrs nodeUplinks then
+              map (n: toString n) (builtins.attrNames nodeUplinks)
+            else
+              [ ];
+          matchingCores = lib.filter (coreName: builtins.hasAttr coreName pathSet) (
+            lib.unique (builtins.attrNames cores ++ builtins.attrNames nodes)
+          );
         in
-        lib.concatMap (coreName: map (u: toString (u.name or "")) (cores.${coreName} or [ ])) matchingCores;
+        lib.concatMap (coreName: uplinksForCore coreName) matchingCores;
 
       destinationUplinks =
         destination:
