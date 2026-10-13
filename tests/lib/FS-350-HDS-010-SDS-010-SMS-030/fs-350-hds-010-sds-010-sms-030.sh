@@ -60,6 +60,12 @@ cat >"${input_nix}" <<'NIX'
         name = "east-west";
         peerSite = "acme.branch";
         terminateOn = "core-overlay";
+        peerNodes = {
+          "acme.branch" = {
+            addr4 = "10.99.0.2/24";
+            addr6 = "fd42:99::2/64";
+          };
+        };
         prefixes = {
           imported = {
             ipv4 = [ "10.45.40.0/24" ];
@@ -140,6 +146,12 @@ cat >"${input_nix}" <<'NIX'
         name = "east-west";
         peerSite = "acme.ams";
         terminateOn = "core-remote";
+        peerNodes = {
+          "acme.ams" = {
+            addr4 = "10.99.0.1/24";
+            addr6 = "fd42:99::1/64";
+          };
+        };
         prefixes = {
           imported = {
             ipv4 = [ "10.35.20.0/24" ];
