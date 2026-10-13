@@ -8,17 +8,31 @@ let
     , peerSiteRef
     , family
     , prefixes
+    , via
     ,
     }:
-    map
-      (dst: {
-        inherit dst family;
-        proto = "overlay";
-        overlay = overlayName;
-        peerSite = peerSiteRef;
-        intent.kind = "overlay-reachability";
-      })
-      (map toString prefixes);
+    let
+      viaField = if family == 4 then "via4" else "via6";
+      peerLabel = if peerSiteRef == null then "<none>" else toString peerSiteRef;
+    in
+    # Every overlay reachability route must carry the peer-site overlay next hop
+    # (FS-460 / SDS-HDS-SMS-030): a `proto = overlay` route is only installable
+    # with a via, and an inner-communication overlay always has a peer endpoint.
+    # Fail closed at this owning layer (the forwarding model is the authoritative
+    # writer of the overlay peer route set) instead of emitting a via-less route.
+    if via == null && prefixes != [ ] then
+      throw "overlay-peer-next-hop-unbound: overlay '${overlayName}' peer '${peerLabel}' has reachable prefixes but no peer overlay node address for family ${toString family} to use as its next hop; model the peer's overlay node address (URS: overlay transport models endpoint identity)"
+    else
+      map
+        (dst: {
+          inherit dst family;
+          proto = "overlay";
+          overlay = overlayName;
+          peerSite = peerSiteRef;
+          intent.kind = "overlay-reachability";
+        }
+        // { ${viaField} = via; })
+        (map toString prefixes);
 
   explicitPrefixesOf =
     overlay:
@@ -49,6 +63,38 @@ let
       ipv4 = builtins.filter (value: builtins.isString value && value != "") (map (node: node.addr4 or null) values);
       ipv6 = builtins.filter (value: builtins.isString value && value != "") (map (node: node.addr6 or null) values);
     };
+
+  # The peer site's overlay participant next hop for a family.  Preference:
+  #   1. the overlay's modeled `peerNodes.<peerSiteRef>.addr4/addr6` (URS: overlay
+  #      transport models endpoint identity) -- available even when the peer site
+  #      is not compiled in this site's pass;
+  #   2. the compiled peer site's overlay node address, when present.
+  # Null when neither exists, so the route fails closed rather than being
+  # emitted without a next hop.
+  overlayPeerNextHopOf =
+    overlay: peerSite: peerSiteRef: overlayName: family:
+    let
+      field = if family == 4 then "addr4" else "addr6";
+      modeled =
+        let
+          raw = (overlay.peerNodes or { }).${toString peerSiteRef} or { };
+          v = raw.${field} or null;
+        in
+        if builtins.isString v && v != "" then v else null;
+      compiled =
+        if peerSite == null then
+          null
+        else
+          let
+            prefixes = overlayNodePrefixesOf peerSite overlayName;
+            raw = if family == 4 then prefixes.ipv4 else prefixes.ipv6;
+            first = if raw == [ ] then null else builtins.head raw;
+          in
+          if builtins.isString first then first else null;
+      chosen = if modeled != null then modeled else compiled;
+      withoutMask = if builtins.isString chosen then builtins.head (lib.splitString "/" chosen) else null;
+    in
+    if builtins.isString withoutMask && withoutMask != "" then withoutMask else null;
 
   # URS (Reachability, Routing, and Overlays): "Overlay transport shall model
   # endpoint identity, permitted peers, bootstrap dependencies, imported and
@@ -145,11 +191,13 @@ in
           inherit overlayName peerSiteRef;
           family = 4;
           prefixes = routePrefixesFor "ipv4" peerPrefixes.ipv4 importedIpv4;
+          via = overlayPeerNextHopOf overlay peerSite peerSiteRef overlayName 4;
         };
         routes6 = normalizedPrefixRoutes {
           inherit overlayName peerSiteRef;
           family = 6;
           prefixes = routePrefixesFor "ipv6" peerPrefixes.ipv6 importedIpv6;
+          via = overlayPeerNextHopOf overlay peerSite peerSiteRef overlayName 6;
         };
       });
     };
