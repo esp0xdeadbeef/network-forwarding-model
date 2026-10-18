@@ -17,17 +17,25 @@ let
   terminatesOverlay =
     site: nodeName:
     let
-      overlays = ((site.transport or { }).overlays or [ ]);
+      name = toString nodeName;
+      transportOverlays = ((site.transport or { }).overlays or [ ]);
+      # The canonical site carries the resolved overlay records (with
+      # terminateOn) under `overlayReachability`; the raw transport.overlays is
+      # the intent form.  Accept either.
+      reachabilityOverlays = builtins.attrValues (site.overlayReachability or { });
+      overlays =
+        (if builtins.isList transportOverlays then transportOverlays else [ ])
+        ++ reachabilityOverlays;
     in
     builtins.any (
       overlay:
       builtins.isAttrs overlay
-      && builtins.elem (toString nodeName) (
+      && builtins.elem name (
         overlaysTopology.overlayTargetNamesFrom (
           overlay.terminateOn or overlay.terminatesOn or overlay.terminatedOn or null
         )
       )
-    ) (if builtins.isList overlays then overlays else [ ]);
+    ) overlays;
 
   sortedUnique =
     xs:
