@@ -9,6 +9,25 @@
 let
   roleCapabilities = import ./role-capabilities.nix { };
   overlayNameSet = import ./overlay-name-set.nix { inherit lib self; };
+  overlaysTopology = import ./overlays.nix { inherit lib self; };
+
+  # FS-460: a node terminates an overlay when it is the modeled terminateOn
+  # target of any overlay.  This is behavior (the overlay's endpoint identity),
+  # not a per-role constant, so it is derived from the intent.
+  terminatesOverlay =
+    site: nodeName:
+    let
+      overlays = ((site.transport or { }).overlays or [ ]);
+    in
+    builtins.any (
+      overlay:
+      builtins.isAttrs overlay
+      && builtins.elem (toString nodeName) (
+        overlaysTopology.overlayTargetNamesFrom (
+          overlay.terminateOn or overlay.terminatesOn or overlay.terminatedOn or null
+        )
+      )
+    ) (if builtins.isList overlays then overlays else [ ]);
 
   sortedUnique =
     xs:
@@ -125,6 +144,7 @@ let
           uplinkAnchor
           upstreamSelection
           ;
+        terminatesOverlays = terminatesOverlay site nodeName;
       };
     in
     {

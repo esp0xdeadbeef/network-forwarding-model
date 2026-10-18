@@ -11,6 +11,7 @@ let
     , exitNode
     , uplinkAnchor ? false
     , upstreamSelection
+    , terminatesOverlays ? false
     ,
     }:
     {
@@ -20,6 +21,7 @@ let
       isUpstreamSelector = upstreamSelection;
       isUplinkCore = uplinkAnchor;
       isEgressExit = exitNode;
+      terminatesOverlays = terminatesOverlays;
     };
 in
 {
@@ -70,7 +72,10 @@ in
       enforcesPolicy = flags.isPolicy;
       explicit = true;
       participatesInUpstreamSelection = flags.isEgressExit || flags.isUpstreamSelector;
-      terminatesOverlays = false;
+      # FS-460: behavior derived from the modeled overlay endpoints, not a
+      # per-role constant.  A core that terminates an overlay is its exit
+      # surface toward the upstream-selector.
+      terminatesOverlays = flags.terminatesOverlays;
       terminatesTenants = flags.isAccess;
     };
 
