@@ -6,6 +6,7 @@
     , wanResult
     , upstreamSelectorUnit
     , canonicalP2pLinkNameForEndpoints
+    , coreOverlayLaneNames ? { }
     ,
     }:
     let
@@ -66,7 +67,21 @@
           a = linkSpecEndpointA pair;
           b = linkSpecEndpointB pair;
           other = endpointOppositeSelector pair;
-          uplinkNames = if other == null then [ ] else uplinkNamesForCore other;
+          wanUplinkNames = if other == null then [ ] else uplinkNamesForCore other;
+          # FS-460 / FS-322: a core that terminates an overlay is that overlay's
+          # exit surface toward the upstream-selector.  When the core has no WAN
+          # uplink of its own, its selector link carries the overlay uplink lane
+          # instead of defaulting to an opaque lane, so the overlay is a modeled
+          # exit on the selector's core-facing interface.
+          overlayLaneNames =
+            if other == null then [ ] else (coreOverlayLaneNames.${other} or [ ]);
+          uplinkNames =
+            if wanUplinkNames != [ ] then
+              wanUplinkNames
+            else if builtins.length overlayLaneNames == 1 then
+              overlayLaneNames
+            else
+              [ ];
         in
         if builtins.length uplinkNames == 1 then
           {
@@ -120,8 +135,14 @@
         let
           existingLane = link.lane or null;
           pair = nodePairForLink link;
+          other =
+            if pair == null then null else endpointOppositeSelector pair;
+          overlayUplinks =
+            if other == null then [ ] else (coreOverlayLaneNames.${other} or [ ]);
           lane = coreUplinkLaneForNodePair pair;
-          uplinks = coreUplinksForNodePair pair;
+          uplinks =
+            let wan = coreUplinksForNodePair pair; in
+            if wan != [ ] then wan else (if builtins.length overlayUplinks == 1 then overlayUplinks else [ ]);
         in
         if (link.kind or null) != "p2p" || uplinks == [ ] then
           link
