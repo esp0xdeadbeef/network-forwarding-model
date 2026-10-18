@@ -4,6 +4,7 @@ let
   accessUplinks = import ./lane-access-uplinks.nix { inherit lib self; };
   coreUplinks = import ./lane-core-uplinks.nix { inherit lib self; };
   overlayNameSetFor = import ./overlay-name-set.nix { inherit lib self; };
+  overlaysTopology = import ./overlays.nix { inherit lib self; };
   accessEdge = import ./lane-links/access-edge.nix { inherit lib; };
   names = import ./lane-links/names.nix { inherit lib; };
   selectorLanes = import ./lane-links/selector-lanes.nix { inherit lib; };
@@ -35,6 +36,33 @@ in
       allowedUplinksByScope = (accessUplinks.derive { inherit site accessUnitNames compilerIndexes; }).byScope;
       accessUnitByTenant = compilerIndexes.accessUnitByTenant;
       overlayNameSet = overlayNameSetFor site;
+
+      # FS-460 / FS-322: a core that terminates an overlay is the overlay's exit
+      # surface toward the upstream-selector, exactly as a WAN core's uplink is
+      # its exit surface.  The core -> upstream-selector link therefore carries
+      # an overlay `uplink` lane (one per terminated overlay) so downstream
+      # stages can recognize the overlay lane on the selector's core-facing
+      # interface instead of defaulting it to an opaque "default" lane.
+      coreOverlayLaneNames =
+        let
+          overlays = ((site.transport or { }).overlays or [ ]);
+          pairs = lib.concatMap (
+            overlay:
+            if !(builtins.isAttrs overlay) || (overlay.name or null) == null then
+              [ ]
+            else
+              let
+                name = toString overlay.name;
+                targets = overlaysTopology.overlayTargetNamesFrom (
+                  overlay.terminateOn or overlay.terminatesOn or overlay.terminatedOn or null
+                );
+              in
+              map (core: { inherit core name; }) targets
+          ) (if builtins.isList overlays then overlays else [ ]);
+        in
+        builtins.mapAttrs (_: entries: lib.unique (map (e: e.name) entries)) (
+          builtins.groupBy (e: e.core) pairs
+        );
 
       # FS-210/FS-230: a public-ingress tuple whose target endpoint lives on an
       # access that declares no egress selection (a DMZ/namespace-authority
@@ -107,6 +135,7 @@ in
           site
           upstreamSelectorUnit
           wanResult
+          coreOverlayLaneNames
           ;
       };
       inherit (coreLaneResult)
