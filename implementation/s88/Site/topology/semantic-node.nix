@@ -18,14 +18,19 @@ let
     site: nodeName:
     let
       name = toString nodeName;
+      # Only the intent form (transport.overlays) defines which node terminates
+      # an overlay.  `overlayReachability` is the resolved per-overlay EXIT /
+      # peer-route record: its terminateOn is merged across every peer
+      # (mergeReachability: `lib.unique (existing.terminateOn ++ item.terminateOn)`)
+      # and it also carries the node that merely holds the peer route.  Unions
+      # of that record are not role authority, so consulting it made a plain
+      # egress core look like an overlay terminator and moved client-egress
+      # forwarding rules (WAN lane -> uplink::<overlay> lane) onto it.
+      #
+      # Roles come from intent; the resolved peer-route record only describes
+      # reachability toward the peer.  Keep them separate.
       transportOverlays = ((site.transport or { }).overlays or [ ]);
-      # The canonical site carries the resolved overlay records (with
-      # terminateOn) under `overlayReachability`; the raw transport.overlays is
-      # the intent form.  Accept either.
-      reachabilityOverlays = builtins.attrValues (site.overlayReachability or { });
-      overlays =
-        (if builtins.isList transportOverlays then transportOverlays else [ ])
-        ++ reachabilityOverlays;
+      overlays = if builtins.isList transportOverlays then transportOverlays else [ ];
     in
     builtins.any (
       overlay:
