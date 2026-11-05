@@ -26,7 +26,8 @@
             priority = 6;
             to = "any";
             trafficType = "icmp";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "allow";
             from = {
@@ -37,7 +38,8 @@
             priority = 7;
             to = "any";
             trafficType = "icmp";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "allow";
             from = {
@@ -51,7 +53,8 @@
               members = [ "mgmt" ];
             };
             trafficType = "any";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "deny";
             from = {
@@ -122,7 +125,8 @@
               name = "site-dns-mgmt";
             };
             trafficType = "dns";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "allow";
             from = {
@@ -133,7 +137,8 @@
             priority = 24;
             to = { kind = "external"; };
             trafficType = "dns";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "deny";
             from = {
@@ -174,7 +179,8 @@
               name = "cast-discovery";
             };
             trafficType = "cast-discovery";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "allow";
             from = {
@@ -188,7 +194,8 @@
               name = "cast-control";
             };
             trafficType = "cast-control";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "allow";
             from = {
@@ -202,7 +209,8 @@
               name = "east-west";
             };
             trafficType = "any";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "allow";
             from = {
@@ -217,7 +225,8 @@
             priority = 100;
             to = { kind = "external"; };
             trafficType = "any";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "allow";
             from = {
@@ -231,7 +240,8 @@
               name = "home-hostile-4444";
             };
             trafficType = "tcp-udp-4444";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "allow";
             from = {
@@ -242,7 +252,8 @@
             priority = 101;
             to = { kind = "external"; };
             trafficType = "any";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "allow";
             from = {
@@ -256,7 +267,8 @@
               name = "site-dns-mgmt";
             };
             trafficType = "dns";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "allow";
             from = { kind = "external"; };
@@ -267,7 +279,8 @@
               name = "dmz-nebula";
             };
             trafficType = "nebula";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "allow";
             from = {
@@ -278,7 +291,8 @@
             priority = 130;
             to = { kind = "external"; };
             trafficType = "nebula";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "allow";
             from = {
@@ -289,7 +303,8 @@
             priority = 131;
             to = { kind = "external"; };
             trafficType = "nebula-runtime";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
         ];
         services = [
           {
@@ -678,25 +693,33 @@
           {
             mustTraverse = [ "policy" ];
             name = "east-west";
+            # URS (Reachability, Routing, and Overlays): overlay transport models
+            # endpoint identity, so each peer's overlay participant address is
+            # modeled here. NFM attaches it as the next hop of the peer route
+            # set; without it the route is uninstallable and NFM fails closed.
+            peerNodes = {
+              "esp.edge" = { addr4 = "100.96.10.11/24"; addr6 = "fd42:dead:beef:ee::11/64"; };
+              "esp.lab" = { addr4 = "100.96.10.12/24"; addr6 = "fd42:dead:beef:ee::12/64"; };
+            };
             prefixes = {
               imported = {
                 ipv4 = [
-                "10.50.10.0/24"
-                "10.50.15.0/24"
-                "10.50.20.0/24"
-                "10.50.30.0/24"
-                "10.50.50.0/24"
-                "10.70.10.0/24"
-                "10.90.10.0/24"
+                  "10.50.10.0/24"
+                  "10.50.15.0/24"
+                  "10.50.20.0/24"
+                  "10.50.30.0/24"
+                  "10.50.50.0/24"
+                  "10.70.10.0/24"
+                  "10.90.10.0/24"
                 ];
                 ipv6 = [
-                "fd42:dead:feed:10::/64"
-                "fd42:dead:feed:15::/64"
-                "fd42:dead:feed:20::/64"
-                "fd42:dead:feed:30::/64"
-                "fd42:dead:feed:50::/64"
-                "fd42:dead:feed:70::/64"
-                "fd42:dead:cafe:10::/64"
+                  "fd42:dead:feed:10::/64"
+                  "fd42:dead:feed:15::/64"
+                  "fd42:dead:feed:20::/64"
+                  "fd42:dead:feed:30::/64"
+                  "fd42:dead:feed:50::/64"
+                  "fd42:dead:feed:70::/64"
+                  "fd42:dead:cafe:10::/64"
                 ];
               };
             };
@@ -737,7 +760,8 @@
             priority = 6;
             to = "any";
             trafficType = "icmp";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "allow";
             from = {
@@ -748,7 +772,8 @@
             priority = 7;
             to = "any";
             trafficType = "icmp";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "allow";
             from = {
@@ -762,7 +787,8 @@
               name = "edge-dns-dmz";
             };
             trafficType = "dns";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "deny";
             from = {
@@ -790,7 +816,8 @@
               scope = "edge-example-router-core";
             };
             trafficType = "any";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "allow";
             from = {
@@ -804,7 +831,8 @@
               scope = "edge-example-router-core";
             };
             trafficType = "any";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "allow";
             from = {
@@ -818,7 +846,8 @@
               name = "east-west";
             };
             trafficType = "dns";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "allow";
             from = {
@@ -832,7 +861,8 @@
               scope = "edge-example-router-core";
             };
             trafficType = "dns";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "allow";
             from = {
@@ -846,7 +876,8 @@
               scope = "edge-example-router-core";
             };
             trafficType = "any";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "allow";
             from = {
@@ -860,7 +891,8 @@
               name = "dmz-nebula";
             };
             trafficType = "nebula";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "allow";
             from = {
@@ -874,7 +906,8 @@
               name = "dmz-nebula";
             };
             trafficType = "nebula";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "allow";
             from = {
@@ -888,7 +921,8 @@
               name = "home-hostile-4444";
             };
             trafficType = "tcp-udp-4444";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "allow";
             from = {
@@ -902,7 +936,8 @@
               name = "lab-client-4445";
             };
             trafficType = "tcp-udp-4445";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "allow";
             from = {
@@ -916,7 +951,8 @@
               name = "edge-client-4446";
             };
             trafficType = "tcp-udp-4446";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "allow";
             from = {
@@ -930,7 +966,8 @@
               name = "hostile-public-dns";
             };
             trafficType = "dns";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
         ];
         services = [
           {
@@ -1207,19 +1244,23 @@
           {
             mustTraverse = [ "policy" ];
             name = "east-west";
+            peerNodes = {
+              "esp.home" = { addr4 = "100.96.10.10/24"; addr6 = "fd42:dead:beef:ee::10/64"; };
+              "esp.lab" = { addr4 = "100.96.10.12/24"; addr6 = "fd42:dead:beef:ee::12/64"; };
+            };
             prefixes = {
               imported = {
                 ipv4 = [
-                "10.20.70.0/24"
-                "10.50.20.0/24"
-                "10.50.70.0/24"
-                "10.70.10.0/24"
+                  "10.20.70.0/24"
+                  "10.50.20.0/24"
+                  "10.50.70.0/24"
+                  "10.70.10.0/24"
                 ];
                 ipv6 = [
-                "fd42:dead:beef:70::/64"
-                "fd42:dead:feed:20::/64"
-                "fd42:dead:feed:70::/64"
-                "fd42:dead:feed:7000::/56"
+                  "fd42:dead:beef:70::/64"
+                  "fd42:dead:feed:20::/64"
+                  "fd42:dead:feed:70::/64"
+                  "fd42:dead:feed:7000::/56"
                 ];
               };
             };
@@ -1263,7 +1304,8 @@
             priority = 6;
             to = "any";
             trafficType = "icmp";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "allow";
             from = {
@@ -1274,7 +1316,8 @@
             priority = 7;
             to = "any";
             trafficType = "icmp";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "allow";
             from = {
@@ -1288,7 +1331,8 @@
               members = [ "mgmt" ];
             };
             trafficType = "any";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "deny";
             from = {
@@ -1359,7 +1403,8 @@
               name = "lab-site-dns";
             };
             trafficType = "dns";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "deny";
             from = {
@@ -1392,7 +1437,8 @@
               name = "cast-discovery";
             };
             trafficType = "cast-discovery";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "allow";
             from = {
@@ -1406,7 +1452,8 @@
               name = "cast-control";
             };
             trafficType = "cast-control";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "allow";
             from = {
@@ -1425,7 +1472,8 @@
               scope = "lab-example-router-core-simulated-isp";
             };
             trafficType = "any";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "deny";
             from = {
@@ -1453,7 +1501,8 @@
               name = "east-west";
             };
             trafficType = "dns";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "allow";
             from = {
@@ -1467,7 +1516,8 @@
               name = "east-west";
             };
             trafficType = "any";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "allow";
             from = {
@@ -1481,7 +1531,8 @@
               name = "lab-client-4445";
             };
             trafficType = "tcp-udp-4445";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
           {
             action = "allow";
             from = {
@@ -1495,7 +1546,8 @@
               scope = "lab-example-router-core-simulated-isp";
             };
             trafficType = "nebula";
-          returnBehavior = "symmetric"; }
+            returnBehavior = "symmetric";
+          }
         ];
         services = [
           {
@@ -1851,23 +1903,27 @@
           {
             mustTraverse = [ "policy" ];
             name = "east-west";
+            peerNodes = {
+              "esp.home" = { addr4 = "100.96.10.10/24"; addr6 = "fd42:dead:beef:ee::10/64"; };
+              "esp.edge" = { addr4 = "100.96.10.11/24"; addr6 = "fd42:dead:beef:ee::11/64"; };
+            };
             prefixes = {
               imported = {
                 ipv4 = [
-                "10.20.10.0/24"
-                "10.20.15.0/24"
-                "10.20.20.0/24"
-                "10.20.30.0/24"
-                "10.20.50.0/24"
-                "10.90.10.0/24"
+                  "10.20.10.0/24"
+                  "10.20.15.0/24"
+                  "10.20.20.0/24"
+                  "10.20.30.0/24"
+                  "10.20.50.0/24"
+                  "10.90.10.0/24"
                 ];
                 ipv6 = [
-                "fd42:dead:beef:10::/64"
-                "fd42:dead:beef:15::/64"
-                "fd42:dead:beef:20::/64"
-                "fd42:dead:beef:30::/64"
-                "fd42:dead:beef:50::/64"
-                "fd42:dead:cafe:10::/64"
+                  "fd42:dead:beef:10::/64"
+                  "fd42:dead:beef:15::/64"
+                  "fd42:dead:beef:20::/64"
+                  "fd42:dead:beef:30::/64"
+                  "fd42:dead:beef:50::/64"
+                  "fd42:dead:cafe:10::/64"
                 ];
               };
             };
