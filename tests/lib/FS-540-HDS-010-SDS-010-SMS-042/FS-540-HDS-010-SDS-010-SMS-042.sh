@@ -64,7 +64,10 @@ let
         id = "allow-clients-to-wan-https";
         priority = 100;
         from = { kind = "tenant"; name = "clients"; };
-        to = { kind = "external"; uplinks = [ "wan-vlan4" ]; };
+        # FS-322: a permission relation names only what is allowed and never
+        # an uplink; exit identity is the selecting scope (the DNS binding below
+        # keeps egressSurface, which is a platform binding, not a relation).
+        to = { kind = "external"; };
         trafficType = "https";
         action = "allow";
         returnBehavior = "symmetric";
@@ -73,7 +76,10 @@ let
         id = "allow-clients-to-wan-icmp";
         priority = 110;
         from = { kind = "tenant"; name = "clients"; };
-        to = { kind = "external"; uplinks = [ "wan-vlan4" ]; };
+        # FS-322: a permission relation names only what is allowed and never
+        # an uplink; exit identity is the selecting scope (the DNS binding below
+        # keeps egressSurface, which is a platform binding, not a relation).
+        to = { kind = "external"; };
         trafficType = "icmp";
         action = "allow";
         returnBehavior = "symmetric";
