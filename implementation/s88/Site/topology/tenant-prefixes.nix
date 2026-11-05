@@ -2,6 +2,7 @@
 
 let
   tenants = import ./tenants.nix { inherit lib self; };
+  prefix = import (self.outPath + "/implementation/lib/model/prefix-utils.nix") { inherit lib self; };
 in
 {
   prefixesOfSite =
@@ -63,6 +64,45 @@ in
             })
             (t.ra6Prefixes or [ ]))
         ]
+      )
+      normalizedTenants;
+
+  # Runtime (source-file driven) tenant prefix entries of a site. The authority
+  # class comes from the model's prefix-utils classification, never from a local
+  # re-derivation: FS-171 makes this the owning layer for tenant prefix facts and
+  # FS-350-SMS-030 distinguishes a host-only provider address (an overlay
+  # participant address, not tenant-prefix authority) from a routed client
+  # prefix that legitimately carries overlay reachability.
+  runtimePrefixEntriesOfSite =
+    site:
+    let
+      normalizedTenants = tenants.normalizeTenants site;
+    in
+    lib.concatMap
+      (
+        t:
+        lib.concatMap
+          (
+            p:
+            let
+              family = prefix.routedPrefixFamily p;
+              defaultLength = prefix.defaultRoutedPrefixLengthFor family;
+            in
+            lib.optional
+              (builtins.isAttrs p && builtins.isString (p.sourceFile or null) && (p.sourceFile or "") != "")
+              {
+                inherit family;
+                inherit (p) sourceFile;
+                tenantName = toString t.name;
+                authorityClass = prefix.runtimeAuthorityClass p;
+                prefixName = p.name or null;
+                delegatedPrefixLength = p.delegatedPrefixLength or defaultLength;
+                perTenantPrefixLength = p.perTenantPrefixLength or defaultLength;
+                slot = p.slot or 0;
+                prefixPostfix = p.prefixPostfix or null;
+              }
+          )
+          (lib.filter builtins.isAttrs (t.routedPrefixes or [ ]))
       )
       normalizedTenants;
 }
