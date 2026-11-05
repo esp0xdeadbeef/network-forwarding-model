@@ -16,6 +16,24 @@ let
     { extraExcluded ? [ "containers" "uplinks" ], }:
     network.networksOfNode { inherit extraExcluded; };
 
+  routedPrefixFamily = p: if (toString (p.family or "ipv6")) == "4" || (toString (p.family or "ipv6")) == "ipv4" then 4 else 6;
+
+  hostOnlyPrefixLengthFor = family: if family == 4 then 32 else 128;
+  defaultRoutedPrefixLengthFor = family: if family == 4 then 32 else 64;
+
+  runtimeAuthorityClass =
+    p:
+    let
+      family = routedPrefixFamily p;
+      hostOnlyLength = hostOnlyPrefixLengthFor family;
+    in
+    if (p.authorityClass or null) != null then
+      toString p.authorityClass
+    else if (p.perTenantPrefixLength or null) == hostOnlyLength then
+      "host-only-provider-prefix"
+    else
+      "routed-client-prefix";
+
   prefixEntriesFromIfaces =
     node:
     let
@@ -56,27 +74,6 @@ let
     let
       nets = (networksOf { }) node;
       netNames = builtins.attrNames nets;
-  routedPrefixFamily =
-    p:
-    let
-      family = toString (p.family or "ipv6");
-    in
-    if family == "4" || family == "ipv4" then 4 else 6;
-
-  hostOnlyPrefixLengthFor = family: if family == 4 then 32 else 128; defaultRoutedPrefixLengthFor = family: if family == 4 then 32 else 64;
-
-  runtimeAuthorityClass =
-        p:
-        let
-          family = routedPrefixFamily p;
-          hostOnlyLength = hostOnlyPrefixLengthFor family;
-        in
-        if (p.authorityClass or null) != null then
-          toString p.authorityClass
-        else if (p.perTenantPrefixLength or null) == hostOnlyLength then
-          "host-only-provider-prefix"
-        else
-          "routed-client-prefix";
     in
     lib.concatMap
       (
@@ -195,5 +192,7 @@ let
 
 in
 {
-  inherit canonicalCidr mkConnectedRoute networksOf prefixEntriesFromIfaces prefixEntriesFromNetworks ownConnectedPrefixes prefixSetFromP2pIfaces prefixSetFromNetworks;
+  inherit canonicalCidr defaultRoutedPrefixLengthFor mkConnectedRoute networksOf ownConnectedPrefixes
+    prefixEntriesFromIfaces prefixEntriesFromNetworks prefixSetFromNetworks prefixSetFromP2pIfaces
+    routedPrefixFamily runtimeAuthorityClass;
 }

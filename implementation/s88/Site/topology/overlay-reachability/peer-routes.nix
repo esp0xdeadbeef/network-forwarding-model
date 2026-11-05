@@ -16,10 +16,10 @@ let
       peerLabel = if peerSiteRef == null then "<none>" else toString peerSiteRef;
     in
     # Every overlay reachability route must carry the peer-site overlay next hop
-    # (FS-460 / SDS-HDS-SMS-030): a `proto = overlay` route is only installable
-    # with a via, and an inner-communication overlay always has a peer endpoint.
-    # Fail closed at this owning layer (the forwarding model is the authoritative
-    # writer of the overlay peer route set) instead of emitting a via-less route.
+      # (FS-460 / SDS-HDS-SMS-030): a `proto = overlay` route is only installable
+      # with a via, and an inner-communication overlay always has a peer endpoint.
+      # Fail closed at this owning layer (the forwarding model is the authoritative
+      # writer of the overlay peer route set) instead of emitting a via-less route.
     if via == null && prefixes != [ ] then
       throw "overlay-peer-next-hop-unbound: overlay '${overlayName}' peer '${peerLabel}' has reachable prefixes but no peer overlay node address for family ${toString family} to use as its next hop; model the peer's overlay node address (URS: overlay transport models endpoint identity)"
     else
@@ -53,6 +53,7 @@ let
     if builtins.isAttrs underlayAccess then underlayAccess else null;
 
   peerNextHop = import ./peer-next-hop.nix { inherit lib; };
+  runtimePeerRoutes = import ./runtime-peer-routes.nix { inherit lib; };
   inherit (peerNextHop) overlayNodePrefixesOf;
   inherit (peerNextHop) nextHopOf;
 
@@ -79,9 +80,9 @@ in
 {
   # Resolve one peer-entry of an overlay into the aggregated reachability record.
   forPeer =
-    {
-      domains,
-      allSites,
+    { domains
+    , allSites
+    ,
     }:
     overlay: peerSiteRef:
     let
@@ -123,6 +124,12 @@ in
         else
           throw "overlay-source-prefix-unbound: overlay '${overlayName}' peer '${peerLabel}' declares explicit prefixes ${builtins.toJSON explicitPrefixValues}; model those prefixes as peer tenant ownership or overlay node addresses before exporting overlay reachability";
       underlayAccess = overlayUnderlayAccessOf overlay;
+      # Runtime (source-file driven) peer tenant prefixes. The peer's normalized
+      # tenant prefix entries carry the model's authority classification, so the
+      # overlay participant ledger can exclude host-only provider addresses
+      # (FS-350-SMS-030) without re-deriving that classification here.
+      runtimeEntries =
+        if peerSite == null then [ ] else tenantPrefixes.runtimePrefixEntriesOfSite peerSite;
       overlayNodePrefixes =
         if peerSite == null then
           {
@@ -147,16 +154,28 @@ in
         peerSite = peerSiteRef;
         terminateOn = terminateOn;
         inherit underlayAccess;
-        routes4 = normalizedPrefixRoutes {
+        routes4 = normalizedPrefixRoutes
+          {
+            inherit overlayName peerSiteRef;
+            family = 4;
+            prefixes = routePrefixesFor "ipv4" peerPrefixes.ipv4 importedIpv4;
+            via = nextHopOf overlay peerSite peerSiteRef overlayName 4;
+          } ++ runtimePeerRoutes.routesFor {
+          entries = runtimeEntries;
           inherit overlayName peerSiteRef;
           family = 4;
-          prefixes = routePrefixesFor "ipv4" peerPrefixes.ipv4 importedIpv4;
           via = nextHopOf overlay peerSite peerSiteRef overlayName 4;
         };
-        routes6 = normalizedPrefixRoutes {
+        routes6 = normalizedPrefixRoutes
+          {
+            inherit overlayName peerSiteRef;
+            family = 6;
+            prefixes = routePrefixesFor "ipv6" peerPrefixes.ipv6 importedIpv6;
+            via = nextHopOf overlay peerSite peerSiteRef overlayName 6;
+          } ++ runtimePeerRoutes.routesFor {
+          entries = runtimeEntries;
           inherit overlayName peerSiteRef;
           family = 6;
-          prefixes = routePrefixesFor "ipv6" peerPrefixes.ipv6 importedIpv6;
           via = nextHopOf overlay peerSite peerSiteRef overlayName 6;
         };
       });
