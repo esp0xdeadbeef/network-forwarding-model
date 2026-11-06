@@ -5,7 +5,7 @@ set -euo pipefail
 # GAMP-SCOPE: software-module-test
 
 ROOT="${NETWORK_FORWARDING_MODEL_ROOT:-${SMS_TEST_REPO_ROOT:-$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)}}"
-LABS="${NETWORK_LABS_PATH:-/home/deadbeef/github/network-labs}"
+LABS="${NETWORK_LABS_PATH:-$(nix flake archive --json "path:${ROOT}" | jq -er '.inputs["network-labs"].path')}"
 
 result="$(nix eval --impure --json --expr "
   let

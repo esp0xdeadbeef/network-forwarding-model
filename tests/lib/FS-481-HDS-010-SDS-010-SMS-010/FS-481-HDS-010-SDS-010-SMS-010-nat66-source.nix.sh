@@ -13,7 +13,7 @@ set -euo pipefail
 # there.
 
 ROOT="${NETWORK_FORWARDING_MODEL_ROOT:-${SMS_TEST_REPO_ROOT:-$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)}}"
-LABS="${NETWORK_LABS_PATH:-/home/deadbeef/github/network-labs}"
+LABS="${NETWORK_LABS_PATH:-$(nix flake archive --json "path:${ROOT}" | jq -er '.inputs["network-labs"].path')}"
 TRACE="FS-481-HDS-010-SDS-010-SMS-010"
 
 result="$(nix eval --impure --json --expr "
