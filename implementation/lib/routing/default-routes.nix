@@ -80,8 +80,6 @@ in
         shortestPathAvoiding
         ;
 
-      overlayUplinkNameSet = routeFacts.overlayUplinkNameSet or { };
-      nonOverlayUplinkNames = routeFacts.nonOverlayUplinkNames or [ ];
       defaultReachabilityUplinkNames =
         routeFacts.defaultReachabilityUplinkNames or (topo.uplinkNames or [ ]);
 
@@ -116,9 +114,34 @@ in
             selectedLink =
               if nextHop.linkName == null then null else (topo.links or { }).${nextHop.linkName} or { };
             selectedUplinkName = routeContext.laneUplinkNameFromLink selectedLink;
-            selectedIsOverlayUplink =
-              selectedUplinkName != null && builtins.hasAttr selectedUplinkName overlayUplinkNameSet;
-            skipOverlayGenericDefault = nonOverlayUplinkNames != [ ] && selectedIsOverlayUplink;
+
+            # A generic default is only installable on a lane whose modeled uplink
+            # actually offers a default in that address family.
+            #
+            # The previous guard here was `nonOverlayUplinkNames != [ ] &&
+            # selectedIsOverlayUplink`, i.e. "skip the overlay lane when the site
+            # also has a non-overlay uplink". That inverted the question and failed
+            # open: it depended on `topo.uplinkNames` still being populated at this
+            # stage, and it treated "is an overlay lane" as the reason to withhold a
+            # default. Both are wrong. The question is not what kind of link the
+            # lane is, it is whether the lane's modeled uplink offers a default at
+            # all (FS-315: the set of next hops a scope can forward its generic
+            # reachability to must equal the set the model admits; an overlay that
+            # carries peer prefixes offers no default).
+            #
+            # Measured failure this caused: `core-vpn-garnet-cobalt` is an
+            # overlay-terminating core and not an uplink anchor, so its lane names
+            # the `garnet` uplink and `garnet` offers no default in either family.
+            # The guard evaluated false, a 0.0.0.0/0 was installed toward the
+            # upstream selector, and the selector offers no default back on that
+            # adjacency -- the router's own egress still worked while every client
+            # behind it was blackholed.
+            laneOffersDefault =
+              family: uplinkName:
+              uplinkName == null
+              || builtins.hasAttr uplinkName (
+                if family == 4 then routeFacts.uplinkHasDefault4Set or { } else routeFacts.uplinkHasDefault6Set or { }
+              );
             accessLane =
               if (node.role or null) == "access" then
                 let
@@ -132,15 +155,32 @@ in
               else
                 null;
           in
-          if selectedPath == null || nextHop.linkName == null || skipOverlayGenericDefault then
+          if selectedPath == null || nextHop.linkName == null then
             { }
           else
-            {
-              "${nextHop.linkName}" = {
-                routes4 = nearestDefaultRoute 4 nextHop.via4 accessLane;
-                routes6 = nearestDefaultRoute 6 nextHop.via6 accessLane;
+            let
+              routes4 =
+                if laneOffersDefault 4 selectedUplinkName then
+                  nearestDefaultRoute 4 nextHop.via4 accessLane
+                else
+                  [ ];
+              routes6 =
+                if laneOffersDefault 6 selectedUplinkName then
+                  nearestDefaultRoute 6 nextHop.via6 accessLane
+                else
+                  [ ];
+            in
+            # Withhold the plan entirely when neither family is installable, so a
+            # node whose only adjacency offers no default ends up with no generic
+            # default rather than an empty-route plan that still marks the lane.
+            if routes4 == [ ] && routes6 == [ ] then
+              { }
+            else
+              {
+                "${nextHop.linkName}" = {
+                  inherit routes4 routes6;
+                };
               };
-            };
 
       addDefaultTowardNearestUplinkCore = helpers.addRoutePlan node nearestUplinkCoreDefaultPlan;
     in
