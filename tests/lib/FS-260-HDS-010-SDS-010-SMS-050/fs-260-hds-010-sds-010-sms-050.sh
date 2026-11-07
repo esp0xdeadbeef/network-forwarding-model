@@ -122,7 +122,7 @@ cat > "${fake_file}" << 'FAKE'
     chain = "postrouting";
   };
   # SEEDED-NEGATIVE: Injected WireGuard endpoint for provider-name detection
-  wireguardEndpoint = "1.2.3.4:51820";
+  wireguardEndpoint = "203.0.113.10:51820";
 }
 FAKE
 
