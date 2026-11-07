@@ -62,8 +62,16 @@
           heads = map (
             nodePath: if builtins.isList nodePath && nodePath != [ ] then toString (builtins.head nodePath) else null
           ) ((path.nodePathAlternatives or [ ]) ++ [ (path.nodePath or [ ]) ]);
+          # FS-322/FS-315: a path whose source is a tenant-set names every member
+          # of that set. Attributing it only to the first member's access unit
+          # (the head above) drops the default-exit binding for the other
+          # members. Membership in the modeled source scope is authoritative;
+          # the wildcard-destination concern applies to the path's nodes, not to
+          # the source set.
+          sourceUnits = relationAccessUnits topo' source;
         in
         (sourceAccess != null && sourceAccess == toString accessName)
+        || builtins.elem (toString accessName) (map toString sourceUnits)
         || builtins.elem (toString accessName) heads;
 
       # FS-322: reachability is a scope property; a permission relation names only
