@@ -6,7 +6,7 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 source "${repo_root}/tests/lib/timing.sh"
 system="${NFM_PROFILE_SYSTEM:-$(nix eval --impure --raw --expr builtins.currentSystem)}"
-profile_dir="${NFM_PROFILE_DIR:-/tmp/network-forwarding-model-profiler}"
+profile_dir="${NFM_PROFILE_DIR:-${TMPDIR:-/var/tmp}/network-forwarding-model-profiler}"
 mkdir -p "${profile_dir}"
 
 fail() {
