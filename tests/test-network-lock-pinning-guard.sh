@@ -53,7 +53,7 @@ cat >"${tmpdir}/bad.lock" <<'JSON'
   "nodes": {
     "network-forwarding-model": {
       "locked": {
-        "path": "/home/deadbeef/github/network-forwarding-model",
+        "path": "/srv/local-checkouts/network-forwarding-model",
         "type": "path"
       }
     }
