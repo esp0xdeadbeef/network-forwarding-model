@@ -18,15 +18,12 @@ if ! [[ "${MAX_JOBS}" =~ ^[0-9]+$ ]] || [[ "${MAX_JOBS}" -lt 1 ]]; then
 fi
 
 # ── Auto-discover all test files ──
-# SMS-090: trace-chain named tests use fs-*.sh prefix (any case; the
-# trace-chain tests in this repo are named FS-<trace>.sh)
-# Guard/infrastructure tests use test-*.sh prefix
-TESTS=()
-for f in "${TEST_DIR}"/fs-*.sh "${TEST_DIR}"/FS-*.sh "${TEST_DIR}"/test-*.sh; do
-  if [[ -f "$f" && -x "$f" ]]; then
-    TESTS+=("$(basename "$f")")
-  fi
-done
+# The entrypoint contract lives in scripts/lib/discover-tests.sh and is shared
+# byte-for-byte with the other network-* repositories, so this repository never
+# needs a test list edit when a test is added.
+# shellcheck source=scripts/lib/discover-tests.sh
+source "${REPO_ROOT}/scripts/lib/discover-tests.sh"
+mapfile -t TESTS < <(discover_tests "${REPO_ROOT}")
 
 if [[ ${#TESTS[@]} -eq 0 ]]; then
   echo "No executable test files found in ${TEST_DIR}" >&2
@@ -66,7 +63,7 @@ for test_name in "${TESTS[@]}"; do
     CHILD_START_MS="$(date +%s%3N)"
     cd "${REPO_ROOT}"
     STATUS=0
-    "tests/${test_name}" || STATUS=$?
+    "$(discover_test_runner "${REPO_ROOT}/tests/${test_name}")" "tests/${test_name}" || STATUS=$?
     CHILD_END_MS="$(date +%s%3N)"
     printf '%s\n' "$((CHILD_END_MS - CHILD_START_MS))" > "${ELAPSED}"
     exit "${STATUS}"
