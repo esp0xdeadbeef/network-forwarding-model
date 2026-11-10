@@ -57,7 +57,8 @@ jobs:
 
       - uses: DeterminateSystems/determinate-nix-action@v3
 
-      # The suites shell out to rg/sops/yq, which the runner image does not ship.
+      # The suites shell out to rg/jq/python3/sops/yq, which the runner image
+      # does not ship.
       - name: "Install test dependencies"
         shell: bash
         run: |
@@ -65,6 +66,7 @@ jobs:
           nix profile install --accept-flake-config \
             nixpkgs#ripgrep \
             nixpkgs#jq \
+            nixpkgs#python3 \
             nixpkgs#sops \
             nixpkgs#yq
           printf '%s\n' "$HOME/.nix-profile/bin" >> "$GITHUB_PATH"
