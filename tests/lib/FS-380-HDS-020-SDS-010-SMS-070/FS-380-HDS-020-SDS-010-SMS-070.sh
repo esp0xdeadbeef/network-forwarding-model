@@ -29,14 +29,21 @@ pick() {
       f = builtins.getFlake ("path:'"${repo_root}"'");
       pkgs = import f.inputs.nixpkgs { };
       lib = pkgs.lib;
+      # These mirror route-context.nix, where both take a LINK (an attrset) and
+      # read `link.laneMeta.{access,uplink}` -- not a link name:
+      #   laneUplinkNameFromLink = link: (laneMetaForLink link).uplink or null;
+      #   laneAccessNodeNameFromLink = link: (laneMetaForLink link).access or null;
+      # The fixture compared plain strings instead, so every lookup returned the
+      # null branch and a declared "wan" preference selected [] -- which read as
+      # a selector defect.
       routeContext = {
-        laneAccessNodeNameFromLink = l: if l == "l-wan" then "access1" else "access1";
-        laneUplinkNameFromLink = l: if l == "l-wan" then "wan" else (if l == "l-vpn" then "vpn" else null);
+        laneAccessNodeNameFromLink = link: link.laneMeta.access or null;
+        laneUplinkNameFromLink = link: link.laneMeta.uplink or null;
       };
       topo = {
         links = {
-          l-wan = { };
-          l-vpn = { };
+          l-wan.laneMeta = { access = "access1"; uplink = "wan"; };
+          l-vpn.laneMeta = { access = "access1"; uplink = "vpn"; };
         };
       };
       call = preferredUplinks:
