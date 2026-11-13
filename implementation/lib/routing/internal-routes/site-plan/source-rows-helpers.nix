@@ -8,6 +8,8 @@
 let
   str = value: if value == null then "" else toString value;
 
+  inherit (remotePrefixFacts) laneMemberOf;
+
   aggregationClass =
     entry:
     if entry ? sourceFile then
@@ -146,7 +148,11 @@ let
       else if entry.kind == "overlay" then
         overlayAllowedOnNode nodeName entry
       else
-        true
+        # FS-260-HDS-010-SDS-010-SMS-050: a p2p lane is reachable only from the
+        # two nodes its wire joins. Routing it through a node that is not on
+        # that wire installs this node's own peer as the next hop, so the packet
+        # leaves and comes straight back.
+        laneMemberOf entry nodeName
     );
 
   normalizeTenantEntry =

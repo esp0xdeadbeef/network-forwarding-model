@@ -7,6 +7,7 @@ let
   linkFactsBuilder = import ./remote-prefixes/link-facts.nix { inherit lib self; };
   routeEntriesBuilder = import ./remote-prefixes/route-entries.nix { inherit lib self; };
   serviceRouteScopes = import ./remote-prefixes/service-route-scopes.nix { inherit lib; };
+  laneOwnership = import ./remote-prefixes/lane-ownership.nix { inherit lib; };
 
 in
 rec {
@@ -34,6 +35,7 @@ rec {
 
       remoteByNode =
         nodeFacts.build {
+          inherit (laneOwnership) laneMemberOf;
           inherit
             linkFacts
             nodeNames
@@ -55,6 +57,7 @@ rec {
         serviceRouteScopesByOwner
         ;
       inherit (linkFacts) uplinksByNode uplinksByAccess;
+      inherit (laneOwnership) laneMemberOf;
       inherit (routeEntries)
         ownConnectedPrefixSetByNode
         p2pByOwner
