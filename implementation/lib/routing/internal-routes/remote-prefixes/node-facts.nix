@@ -2,7 +2,8 @@
 
 {
   build =
-    { linkFacts
+    { laneMemberOf
+    , linkFacts
     , nodeNames
     , nodes
     , overlayAllowedNodes
@@ -85,7 +86,9 @@
         {
           inherit tenant;
           overlay = lib.filter (entry: entry.owner != nodeName && overlayAllowedOnNode entry) overlayRouteEntries;
-          p2p = lib.filter (entry: entry.owner != nodeName) p2pEntries;
+          p2p = lib.filter (
+            entry: entry.owner != nodeName && laneMemberOf entry nodeName
+          ) p2pEntries;
         };
     in
     builtins.listToAttrs (
