@@ -101,6 +101,7 @@ let
             dst = route.dst or null;
             sameInterfaceGateway = (route.via4 or null) != null && (route.via4 or null) == ((nodeInterfaces siteName nodeName).${ifName}.addr4 or null);
             via4 = route.via4 or null;
+            via6 = route.via6 or null;
             intentKind = (route.intent or { }).kind or null;
             intentAccessNode = (route.intent or { }).accessNode or null;
           })
@@ -124,7 +125,7 @@ let
         if laneEndpoints == [ ] then
           # A lane nobody advertises: the topology is inconsistent.
           [ (route // { inherit siteName nodeName thisNode; kindOf = "unknown-lane"; realEndpoints = [ ]; }) ]
-        else if onLane && route.via4 != null then
+        else if onLane && (route.via4 != null || route.via6 != null) then
           [ (route // { inherit siteName nodeName thisNode; kindOf = "endpoint-with-gateway"; realEndpoints = laneEndpoints; }) ]
         else if onLane then
           [ ]
