@@ -1,9 +1,8 @@
-{
-  lib,
-  self ? {
+{ lib
+, self ? {
     outPath = ./.;
-  },
-  ...
+  }
+, ...
 }:
 
 let
@@ -15,25 +14,27 @@ let
     xs:
     builtins.attrNames (
       builtins.listToAttrs (
-        map (x: {
-          name = x;
-          value = true;
-        }) xs
+        map
+          (x: {
+            name = x;
+            value = true;
+          })
+          xs
       )
     );
 
 in
 {
   build =
-    {
-      topo,
-      mode,
-      entries,
-      mkRoute4,
-      mkRoute6,
-      linkName ? null,
-      via4 ? null,
-      via6 ? null,
+    { topo
+    , mode
+    , entries
+    , mkRoute4
+    , mkRoute6
+    , linkName ? null
+    , via4 ? null
+    , via6 ? null
+    ,
     }:
     let
       sample = builtins.head entries;
@@ -90,9 +91,10 @@ in
       // lib.optionalAttrs ((sample.source or null) != null) { source = sample.source; }
       // downstreamExport;
       overlayFields =
-        lib.optionalAttrs ((sample.overlay or null) != null) {
-          overlay = sample.overlay;
-        }
+        lib.optionalAttrs ((sample.overlay or null) != null)
+          {
+            overlay = sample.overlay;
+          }
         // lib.optionalAttrs ((sample.peerSite or null) != null) {
           peerSite = sample.peerSite;
         };
@@ -119,7 +121,9 @@ in
               uplink = if (linkMeta.uplink or null) != null then linkMeta.uplink else (sample.overlay or null);
             };
           };
-      rawRoutes = routeEmission.build {
+      scopedMetric =
+        lib.optionalAttrs (routeScope != null && (routeScope.access or null) != null) { metric = 40; };
+      rawRoutes = map (route: route // scopedMetric) (routeEmission.build {
         inherit
           entries
           intentKind
@@ -135,28 +139,28 @@ in
           via4
           via6
           ;
-      };
+      });
 
       aggRoute =
         if aggDst == null then
           [ ]
         else if sample.family == 4 then
           [
-            (mkRoute4 {
+            ((mkRoute4 {
               dst = aggDst;
               via4 = if via4 != null then via4 else sample.via4;
               proto = "internal";
               inherit intentKind;
-            })
+            }) // scopedMetric)
           ]
         else
           [
-            (mkRoute6 {
+            ((mkRoute6 {
               dst = aggDst;
               via6 = if via6 != null then via6 else sample.via6;
               proto = "internal";
               inherit intentKind;
-            })
+            }) // scopedMetric)
           ];
     in
     {
