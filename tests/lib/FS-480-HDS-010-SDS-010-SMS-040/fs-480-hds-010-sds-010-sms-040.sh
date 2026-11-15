@@ -46,8 +46,8 @@ cat >"${input_nix}" <<'NIX'
         allowedPrefixes = [ "203.0.113.40/32" ];
         sourcePeerOrProvider = "bgp-provider-a";
         allowedSources = [ "bgp-provider-a" ];
-        routePurpose = "provider-prefix";
-        allowedPurposes = [ "provider-prefix" ];
+        routePurpose = "exit-prefix";
+        allowedPurposes = [ "exit-prefix" ];
         destinationOwner = "provider-a";
         allowedDestinationOwners = [ "provider-a" ];
         maximumScope = "provider";
@@ -126,7 +126,7 @@ jq -e '
     and ($missing.reachabilityClassification == "ambiguous")
     and ($missing.diagnostic.routePrefix == "203.0.113.40/32")
     and ($missing.diagnostic.sourcePeerOrProvider == "bgp-provider-a")
-    and ($missing.diagnostic.routePurpose == "provider-prefix")
+    and ($missing.diagnostic.routePurpose == "exit-prefix")
     and ($missing.diagnostic.destinationOwner == "provider-a")
     and ($pa.routeImportConstraints["reject-authority-free-allowed-downgrade"].allowed == false)
     and ($downgrade.allowed == false)

@@ -24,7 +24,7 @@ in
             source = "explicit-uplink";
             routeSource = "explicit-uplink";
             sourcePeerOrProvider = uplinkName;
-            routePurpose = if dst == helpers.default4 || dst == helpers.default6 then "wan-internet" else "provider-prefix";
+            routePurpose = if dst == helpers.default4 || dst == helpers.default6 then "internet" else "exit-prefix";
             maximumScope = "provider";
             rejectionBehavior = "reject";
             routeAvailabilityOnly = true;

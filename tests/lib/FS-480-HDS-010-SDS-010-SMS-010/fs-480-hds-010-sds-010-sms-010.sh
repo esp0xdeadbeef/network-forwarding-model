@@ -82,8 +82,8 @@ cat >"${input_nix}" <<'NIX'
         allowedPrefixes = [ "0.0.0.0/0" ];
         sourcePeerOrProvider = "bgp-provider-a";
         allowedSources = [ "bgp-provider-a" ];
-        routePurpose = "wan-internet";
-        allowedPurposes = [ "wan-internet" ];
+        routePurpose = "internet";
+        allowedPurposes = [ "internet" ];
         destinationOwner = "provider-a";
         allowedDestinationOwners = [ "provider-a" ];
         maximumScope = "provider";
@@ -162,7 +162,7 @@ jq -e '
     and ($missingDefault.diagnosticCode == "MISSING_ROUTE_IMPORT_AUTHORITY")
     and ($missingDefault.reachabilityClassification == "ambiguous")
     and ($missingDefault.diagnostic.routePrefix == "0.0.0.0/0")
-    and ($missingDefault.diagnostic.routePurpose == "wan-internet")
+    and ($missingDefault.diagnostic.routePurpose == "internet")
 ' "${output_json}" >/dev/null || {
   echo "FAIL fs480-runtime-route-import-authority: learned routes were accepted without explicit import authority" >&2
   jq '.enterprise.acme.site.ams.prefixAuthority' "${output_json}" >&2
