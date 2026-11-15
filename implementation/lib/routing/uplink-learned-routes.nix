@@ -5,6 +5,16 @@ let
   helpers = import ./static-helpers.nix { inherit lib self; };
   overlayCoreSelection = import ./overlay-core-selection.nix { inherit lib self; };
 
+  # FS-520: the purpose vocabulary is internet / owned-public-service-prefix /
+  # remote-site / exit-prefix / rejected / unknown. A learned default is
+  # internet egress; any other learned provider prefix is an exit prefix.
+  purposeFor =
+    entry:
+    if entry.dst == (if entry.family == 4 then "0.0.0.0/0" else "::/0") then
+      "internet"
+    else
+      "exit-prefix";
+
   uplinkRouteEntriesFromNode =
     node:
     let
@@ -121,7 +131,7 @@ in
                         routeSource = "explicit-uplink";
                         sourcePeerOrProvider = e.sourcePeerOrProvider or "uplink";
                         routeSourceNode = e.routeSourceNode or null;
-                        routePurpose = "provider-prefix";
+                        routePurpose = purposeFor e;
                         maximumScope = "provider";
                         rejectionBehavior = "reject";
                         routeAvailabilityOnly = true;
@@ -146,7 +156,7 @@ in
                         routeSource = "explicit-uplink";
                         sourcePeerOrProvider = e.sourcePeerOrProvider or "uplink";
                         routeSourceNode = e.routeSourceNode or null;
-                        routePurpose = "provider-prefix";
+                        routePurpose = purposeFor e;
                         maximumScope = "provider";
                         rejectionBehavior = "reject";
                         routeAvailabilityOnly = true;
