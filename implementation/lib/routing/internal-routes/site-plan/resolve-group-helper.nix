@@ -1,16 +1,16 @@
-{
-  lib,
-  self ? { outPath = ./.; },
-  helpers,
-  defaultRoutePolicy,
-  link,
-  remotePrefixFacts,
-  routeCandidates,
-  routeGraph,
-  realRouteGraph,
-  routeFacts,
-  routeContext,
-  topo,
+{ lib
+, self ? { outPath = ./.; }
+, helpers
+, defaultRoutePolicy
+, link
+, remotePrefixFacts
+, routeCandidates
+, routeGraph
+, realRouteGraph
+, routeFacts
+, routeContext
+, topo
+,
 }:
 
 let
@@ -45,11 +45,12 @@ let
   # not be routed via the core.
   path =
     if dstEntry.kind == "tenant" then
-      pathAvoidance.shortestPath selectedRouteGraph {
-        src = nodeName;
-        dst = dstEntry.owner;
-        forbidden = overlayTerminatingCores;
-      }
+      pathAvoidance.shortestPath selectedRouteGraph
+        {
+          src = nodeName;
+          dst = dstEntry.owner;
+          forbidden = overlayTerminatingCores;
+        }
     else
       selectedRouteGraph.shortestPath {
         src = nodeName;
@@ -60,20 +61,41 @@ if path == null || builtins.length path < 2 then
   [ ]
 else
   let
-    hop = builtins.elemAt path 1;
+    graphHop = builtins.elemAt path 1;
+    # FS-260-SMS-050: a scoped route follows the declared resolver path.
+    scopedHop = import ./scoped-route-hop.nix {
+      inherit
+        lib
+        topo
+        nodeName
+        routeScope
+        dstEntry
+        graphHop
+        ;
+    };
+    inherit (scopedHop)
+      scoped
+      laneHint
+      hop
+      ;
+
     uplinksForCore =
       coreName:
-      lib.filter (
-        uplinkName: builtins.elem coreName (routeFacts.uplinkCoreNamesByUplink.${uplinkName} or [ ])
-      ) (builtins.attrNames (routeFacts.uplinkCoreNamesByUplink or { }));
+      lib.filter
+        (
+          uplinkName: builtins.elem coreName (routeFacts.uplinkCoreNamesByUplink.${uplinkName} or [ ])
+        )
+        (builtins.attrNames (routeFacts.uplinkCoreNamesByUplink or { }));
     tenantDefaultUplinks =
       if dstEntry.kind == "tenant" && (dstEntry.owner or null) != null then
         defaultRoutePolicy.anyTrafficDefaultUplinksForAccess topo dstEntry.owner
       else
         [ ];
-    tenantNonOverlayDefaultUplinks = lib.filter (
-      uplinkName: builtins.elem uplinkName (routeFacts.nonOverlayUplinkNames or [ ])
-    ) tenantDefaultUplinks;
+    tenantNonOverlayDefaultUplinks = lib.filter
+      (
+        uplinkName: builtins.elem uplinkName (routeFacts.nonOverlayUplinkNames or [ ])
+      )
+      tenantDefaultUplinks;
     tenantPreferredDefaultUplinks =
       if tenantNonOverlayDefaultUplinks != [ ] then
         tenantNonOverlayDefaultUplinks
@@ -96,26 +118,26 @@ else
         [ ];
     overlayAllowedAccessNodes =
       if dstEntry.kind == "overlay" && (dstEntry.overlay or null) != null then
-        builtins.attrNames (
-          lib.filterAttrs (_: uplinks: builtins.elem dstEntry.overlay uplinks) (
-            remotePrefixFacts.uplinksByAccess or { }
+        builtins.attrNames
+          (
+            lib.filterAttrs (_: uplinks: builtins.elem dstEntry.overlay uplinks) (
+              remotePrefixFacts.uplinksByAccess or { }
+            )
           )
-        )
       else
         [ ];
     preferredAccessNodes = lib.unique (
-      if routeScope != null && (routeScope.access or null) != null then
-        [ routeScope.access ]
+      if laneHint != null then
+        [ laneHint ]
+      else if scoped then
+        [ ]
       else
-        lib.filter (x: x != null) [
-          (dstEntry.owner or null)
+        lib.filter (x: x != null)
           (
-            if dstEntry ? dst then
-              loopbackOwnerNodeForDstWithFacts routeFacts dstEntry.family dstEntry.dst
-            else
-              null
+            [ (dstEntry.owner or null) ]
+            ++ lib.optional (dstEntry ? dst)
+              (loopbackOwnerNodeForDstWithFacts routeFacts dstEntry.family dstEntry.dst)
           )
-        ]
         ++ overlayAllowedAccessNodes
     );
     baseNh = nextHopWithPreferredUplinks {
@@ -139,34 +161,39 @@ else
       isOverlay = dstEntry.kind == "overlay";
       isP2p = dstEntry.kind == "p2p";
       hopNode = hop;
-      preferScopedLane = routeScope != null;
+      preferScopedLane = scoped;
     };
   in
-  builtins.filter (entry: entry != null) (
-    map (
-      linkName:
-      let
-        linkObj = links.${linkName};
-        epTo = link.getEp linkName linkObj hop;
-        via4 = if epTo ? addr4 && epTo.addr4 != null then helpers.stripMask epTo.addr4 else null;
-        via6 = if epTo ? addr6 && epTo.addr6 != null then helpers.stripMask epTo.addr6 else null;
-      in
-      if linkName == null then
-        null
-      else if dstEntry.family == 4 && via4 == null then
-        null
-      else if dstEntry.family == 6 && via6 == null then
-        null
-      else
-        {
-          inherit
-            nodeName
-            linkName
-            via4
-            via6
-            ;
-          destinationOwner = dstEntry.owner or null;
-          hopNode = hop;
-        }
-    ) candidateLinks
-  )
+  if scoped && laneHint == null then
+    [ ]
+  else
+    builtins.filter (entry: entry != null) (
+      map
+        (
+          linkName:
+          let
+            linkObj = links.${linkName};
+            epTo = link.getEp linkName linkObj hop;
+            via4 = if epTo ? addr4 && epTo.addr4 != null then helpers.stripMask epTo.addr4 else null;
+            via6 = if epTo ? addr6 && epTo.addr6 != null then helpers.stripMask epTo.addr6 else null;
+          in
+          if linkName == null then
+            null
+          else if dstEntry.family == 4 && via4 == null then
+            null
+          else if dstEntry.family == 6 && via6 == null then
+            null
+          else
+            {
+              inherit
+                nodeName
+                linkName
+                via4
+                via6
+                ;
+              destinationOwner = dstEntry.owner or null;
+              hopNode = hop;
+            }
+        )
+        candidateLinks
+    )

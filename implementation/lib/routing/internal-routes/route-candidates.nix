@@ -93,7 +93,7 @@ let
     else
       preferredAccessCandidates;
 in
-if preferScopedLane then
+if preferScopedLane && scopedCandidates != [ ] then
   scopedCandidates
 else if routePreferredAccessCandidates != [ ] then
   routePreferredAccessCandidates

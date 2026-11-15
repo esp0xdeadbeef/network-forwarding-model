@@ -6,7 +6,7 @@ let
   nodeFacts = import ./remote-prefixes/node-facts.nix { inherit lib; };
   linkFactsBuilder = import ./remote-prefixes/link-facts.nix { inherit lib self; };
   routeEntriesBuilder = import ./remote-prefixes/route-entries.nix { inherit lib self; };
-  serviceRouteScopes = import ./remote-prefixes/service-route-scopes.nix { inherit lib; };
+  serviceRouteScopes = import ./remote-prefixes/service-route-scopes.nix { inherit lib self; };
   laneOwnership = import ./remote-prefixes/lane-ownership.nix { inherit lib; };
 
 in

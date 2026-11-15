@@ -35,7 +35,7 @@ let
     let
       node = attrsOrEmpty (nodes.${name} or null);
     in
-    node.role or null;
+      node.role or null;
 
   firstRoleNode =
     nodes: role:
@@ -55,8 +55,8 @@ let
     if from == null || to == null then
       [ ]
     else if from == 0 && to == 0 then
-      # access <-> access: out through downstream + policy, back through
-      # downstream to the target access.
+    # access <-> access: out through downstream + policy, back through
+    # downstream to the target access.
       [
         "access"
         "downstream-selector"
@@ -65,7 +65,7 @@ let
         "access"
       ]
     else if from < to then
-      # forward direction (towards core).
+    # forward direction (towards core).
       [
         "access"
         "downstream-selector"
@@ -74,7 +74,7 @@ let
         "core"
       ]
     else
-      # reverse direction (from core towards access).
+    # reverse direction (from core towards access).
       [
         "core"
         "upstream-selector"
@@ -85,56 +85,8 @@ let
 
   # Resolve a service name to its provider node using ownership.endpoints
   # (endpoint -> tenant) and the topology attachments (tenant -> node).
-  endpointTenantByName =
-    site:
-    builtins.foldl' (
-      acc: endpoint:
-      let
-        name = toString (endpoint.name or "");
-        tenant = toString (endpoint.tenant or "");
-      in
-      if name == "" || tenant == "" then acc else acc // { "${name}" = tenant; }
-    ) { } (listOrEmpty ((attrsOrEmpty (site.ownership or { })).endpoints or [ ]));
-
-  accessUnitByTenant =
-    site:
-    let
-      nodes = attrsOrEmpty (site.nodes or { });
-    in
-    builtins.foldl' (
-      acc: nodeName:
-      builtins.foldl' (
-        acc2: attachment:
-        let
-          kind = attachment.kind or null;
-          name = toString (attachment.name or "");
-        in
-        if kind == "tenant" && name != "" then acc2 // { "${name}" = nodeName; } else acc2
-      ) acc (listOrEmpty ((attrsOrEmpty (nodes.${nodeName} or null)).attachments or [ ]))
-    ) { } (builtins.attrNames nodes);
-
-  # The node that hosts a named service: its endpoint's tenant's access node.
-  # Falls back to a node whose attachment name matches the service name.
-  nodeForService =
-    site: serviceName:
-    let
-      tenants = endpointTenantByName site;
-      accessByTenant = accessUnitByTenant site;
-      tenant = tenants.${serviceName} or null;
-      nodes = attrsOrEmpty (site.nodes or { });
-      directMatch = builtins.filter (
-        nodeName:
-        builtins.any (a: (a.kind or null) == "tenant" && (a.name or null) == serviceName) (
-          listOrEmpty ((attrsOrEmpty (nodes.${nodeName} or null)).attachments or [ ])
-        )
-      ) (builtins.attrNames nodes);
-    in
-    if tenant != null && accessByTenant ? ${tenant} then
-      accessByTenant.${tenant}
-    else if directMatch != [ ] then
-      builtins.head directMatch
-    else
-      null;
+  serviceNode = import ./site-resolver-paths/service-node.nix { inherit lib; };
+  inherit (serviceNode) nodeForService;
 
   # Build one resolver path record from a DNS relationship.
   resolverPathFor =
@@ -156,6 +108,7 @@ let
       {
         requesterService = requesterService;
         authorityService = authorityService;
+        relationId = (attrsOrEmpty (relationship.relation or { })).id or null;
         requesterNode = requesterNode;
         authorityNode = authorityNode;
         inherit namespace;
