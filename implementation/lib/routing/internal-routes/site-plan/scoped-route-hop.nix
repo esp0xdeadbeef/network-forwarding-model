@@ -1,10 +1,10 @@
-{
-  lib,
-  topo,
-  nodeName,
-  routeScope,
-  dstEntry,
-  graphHop,
+{ lib
+, topo
+, nodeName
+, routeScope
+, dstEntry
+, graphHop
+,
 }:
 
 # Canonical staged next hop for a scoped route.
@@ -61,11 +61,18 @@ let
   policyIndex =
     if scopedPath == null || policyNode == null then null else firstIndexOf policyNode scopedPath;
 
+  # The hop into the policy uses the destination lane (the selector's
+  # forwarding rule for a resolver relation names the policy-side interface of
+  # the destination), while hops before it use the requester lane. At the policy
+  # point the downward leg also uses the destination lane.
+  nextIsPolicy = pathHops != [ ] && roleOf (builtins.head pathHops) == "policy";
   laneHint =
     if !scoped then
       null
     else if nodeIndex == null || policyIndex == null then
       routeScope.access or null
+    else if nextIsPolicy then
+      dstEntry.owner or null
     else if nodeIndex < policyIndex then
       routeScope.access or null
     else if nodeIndex == policyIndex then
