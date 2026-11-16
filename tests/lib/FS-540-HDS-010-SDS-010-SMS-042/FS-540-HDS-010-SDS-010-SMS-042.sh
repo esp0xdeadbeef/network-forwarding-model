@@ -22,10 +22,13 @@ let
   nodes = {
     access-vlan2 = {
       role = "access";
+      # FS-322: reachability is a scope the access node selects.
+      selects = [ "wan-vlan4" ];
       attachments = [ { kind = "tenant"; name = "clients"; } ];
     };
     access-vlan7 = {
       role = "access";
+      selects = [ "wan-vlan4" ];
       attachments = [ { kind = "tenant"; name = "clients"; } ];
     };
     downstream = { role = "downstream-selector"; };
@@ -33,6 +36,7 @@ let
     upstream = { role = "upstream-selector"; };
     core-primary = {
       role = "core";
+      external = "wan-vlan4";
       uplinks = {
         wan-vlan4 = {
           ipv4 = [ "0.0.0.0/0" ];
