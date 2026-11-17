@@ -74,8 +74,14 @@ cp "$base_intent" "$sn1_intent"
 # Replace underlayAccess client -> NONEXISTENT (only for site-a)
 sed -i 's/underlayAccess = { kind = "tenant"; name = "client"; };/underlayAccess = { kind = "tenant"; name = "NONEXISTENT"; };/' "$sn1_intent"
 
+# An underlayAccess tenant that resolves to nothing is rejected, and the
+# diagnostic names the core to attach rather than the overlay in the abstract:
+# `network-compiler` checks the carriage surface first (FS-255/FS-260), so the
+# code is `E_CORE_CARRIAGE_REQUIRED`. `E_OVERLAY_ACCESS_ATTACHMENT_REQUIRED` is
+# still raised, for the different shape where no access node exists at all.
+# Both fail closed; only which one arrives first changed.
 start_ms="$(test_now_ms)"
-compile_and_expect_error "$sn1_intent" "E_OVERLAY_ACCESS_ATTACHMENT_REQUIRED" \
+compile_and_expect_error "$sn1_intent" "E_CORE_CARRIAGE_REQUIRED" \
   "fs300-source-scope-sn1-nonexistent-tenant"
 pass_timed "fs300-source-scope-sn1-nonexistent-tenant" "$start_ms"
 

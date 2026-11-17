@@ -75,14 +75,14 @@ jq -e '
   and ($remote.tenantPrefixOwners["6|source:/run/secrets/access-node-ipv6-prefix-espbranch-site-b-b-router-access-hostile"].owner == "b-router-access-hostile")
   and has_route(
     "s-router-downstream-selector";
-    "p2p-s-router-downstream-selector-s-router-policy-only--access-s-router-access-client";
+    "p2p-s-router-access-client-s-router-downstream-selector";
     "ipv4";
     "10.60.10.0/24";
     "s-router-access-client";
     "east-west")
   and has_route(
     "s-router-downstream-selector";
-    "p2p-s-router-downstream-selector-s-router-policy-only--access-s-router-access-client";
+    "p2p-s-router-access-client-s-router-downstream-selector";
     "ipv6";
     "fd42:dead:feed:10::/64";
     "s-router-access-client";
