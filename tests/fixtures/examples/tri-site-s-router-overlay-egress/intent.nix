@@ -1229,6 +1229,18 @@
             role = "downstream-selector";
           };
           edge-example-router-nebula-core = {
+            # FS-255/FS-260: this core terminates an overlay whose
+            # underlayAccess names a tenant carriage, so it has to model that
+            # carriage as a host attachment. Without it the node is a router
+            # with one cable to its selector and no way to reach its own tunnel
+            # endpoint, which the compiler rejects with
+            # E_CORE_CARRIAGE_REQUIRED.
+            attachments = [
+              {
+                kind = "tenant";
+                name = "client";
+              }
+            ];
             role = "core";
           };
           edge-example-router-policy = {
