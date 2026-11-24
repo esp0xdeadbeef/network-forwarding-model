@@ -95,7 +95,7 @@ start_ms="$(test_now_ms)"
 outfile="$(compile_and_expect_success "$sn1_recovery" "fs300-source-scope-sn1-recovery")"
 pass_timed "fs300-source-scope-sn1-recovery:compile" "$start_ms"
 
-# Verify source-scoped overlay routes carry lane metadata (like SMS-020 does)
+# Verify source-scoped overlay routes carry lane metadata (like FS-300-HDS-010-SDS-010-SMS-020 does)
 jq -e '
   .enterprise.esp0xdeadbeef.site["site-a"] as $site
   | def source_scoped_overlay_routes($node):

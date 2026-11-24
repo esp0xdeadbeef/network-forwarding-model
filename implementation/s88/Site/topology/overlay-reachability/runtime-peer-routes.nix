@@ -13,7 +13,7 @@
 # return-route expectation; FS-171 makes this layer the single writer of the
 # overlay peer route set.
 #
-# FS-350-SMS-030: a host-only provider prefix (`perTenantPrefixLength` equal to
+# FS-350-HDS-010-SDS-010-SMS-030: a host-only provider prefix (`perTenantPrefixLength` equal to
 # the host length, authority class `host-only-provider-prefix`) is an overlay
 # participant address, not delegated tenant-prefix authority, so it must not be
 # carried in the overlay participant ledger (nor in the overlay reachability

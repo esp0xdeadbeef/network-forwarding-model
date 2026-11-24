@@ -51,7 +51,8 @@
 
 - state=solved
 - owner: network-forwarding-model
-- scope: FS-525-HDS-010-SDS-010-SMS-010 and FS-540-HDS-010-SDS-010-SMS-010 through SMS-045
+- scope: FS-525-HDS-010-SDS-010-SMS-010 and FS-540-HDS-010-SDS-010-SMS-010 through
+  FS-540-HDS-010-SDS-010-SMS-045
 - first-bad-artifact: The 2026-07-18 pipeline audit found that NFM reconstructs `communicationContract` from `meta.provenance.originalInputs` instead of consuming the compiler-normalized relation and service surface. A named core DNS provider can therefore survive only as an incidental site field while its provider-node ownership and explicit requester/resolver path have no forwarding-model authority. In multi-core or multi-egress sites this leaves CPM without one reproducible modeled provider path.
 - required-fix: Consume the compiler-emitted DNS contract and preserve the named provider-node, resolver path, address-family requirements, recursion/local-authority boundary, and egress selector as forwarding authority. Derive only topology consequences; do not select concrete DNS addresses or invent fallback resolvers.
 - implemented-fix: `compiler-input/sites/shape.nix` now treats compiler-emitted relations and services as the authoritative communication contract, adds only the compatibility `id` and `priority` view required by NFM, and retains the compiler-owned `dns` contract unchanged. Original intent remains provenance; it is no longer a substitute for compiler normalization.

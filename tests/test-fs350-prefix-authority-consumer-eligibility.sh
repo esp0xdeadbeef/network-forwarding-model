@@ -58,7 +58,7 @@ cat >"${input_nix}" <<'NIX'
           scopeKind = "site";
           scopeName = "ams";
         }
-        # SMS-040 N1a: public prefix with protected authority class
+        # FS-350-HDS-010-SDS-010-SMS-040 N1a: public prefix with protected authority class
         {
           id = "mixing-public-as-protected";
           family = 4;
@@ -68,7 +68,7 @@ cat >"${input_nix}" <<'NIX'
           scopeKind = "site";
           scopeName = "ams";
         }
-        # SMS-040 N1b: private prefix with public authority class
+        # FS-350-HDS-010-SDS-010-SMS-040 N1b: private prefix with public authority class
         {
           id = "mixing-private-as-public";
           family = 4;
@@ -177,18 +177,19 @@ jq -e '
     and ($reservedDenied.reason == "reserved-prefix-authority")
     and ($unassignedDenied.allowed == false)
     and ($unassignedDenied.reason == "unassigned-prefix-authority")
-    # SMS-040 N1a: public prefix (203.0.113.0/24) under protected class (access-subnet-pool) → mixing detected
+    # FS-350-HDS-010-SDS-010-SMS-040 N1a: public prefix (203.0.113.0/24) under
+    # protected class (access-subnet-pool) → mixing detected
     and ($mixingN1a.diagnostics[0].code == "authority-class-mixing")
     and ($mixingN1a.diagnostics[0].affectedAuthorityClass == "access-subnet-pool")
     and ($mixingN1a.diagnostics[0].prefix == "203.0.113.0/24")
     and ($mixingN1a.diagnostics[0].conflictingClasses == ["public","protected"])
-    # SMS-040 N1b: private prefix (10.99.0.0/24) under public class (routed-public-ipv4) → mixing detected
+    # FS-350-HDS-010-SDS-010-SMS-040 N1b: private prefix (10.99.0.0/24) under public class (routed-public-ipv4) → mixing detected
     and ($mixingN1b.diagnostics[0].code == "authority-class-mixing")
     and ($mixingN1b.diagnostics[0].affectedAuthorityClass == "routed-public-ipv4")
     and ($mixingN1b.diagnostics[0].prefix == "10.99.0.0/24")
     and ($mixingN1b.diagnostics[0].conflictingClasses == ["protected","public"])
 ' "${output_json}" >/dev/null || {
-  echo "FAIL fs350-prefix-authority-consumer-eligibility: prefix authority records did not satisfy FS-350 SMS-010/020/040" >&2
+  echo "FAIL fs350-prefix-authority-consumer-eligibility: prefix authority records did not satisfy FS-350-HDS-010-SDS-010-SMS-010/020/040" >&2
   jq '.enterprise.acme.site.ams.prefixAuthority' "${output_json}" >&2
   exit 1
 }

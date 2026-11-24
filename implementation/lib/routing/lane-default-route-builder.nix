@@ -74,7 +74,7 @@ rec {
           ];
     };
 
-  # `epsTo4`/`epsTo6` carry the per-family member sets (FS-315, SMS-010). A
+  # `epsTo4`/`epsTo6` carry the per-family member sets (FS-315-HDS-010-SDS-010-SMS-010). A
   # route selection key carries one address family, so the IPv4 and IPv6 member
   # sets may differ: an egress that defaults only in one family belongs only to
   # that family's group. `epsTo` remains the single-set form for callers whose

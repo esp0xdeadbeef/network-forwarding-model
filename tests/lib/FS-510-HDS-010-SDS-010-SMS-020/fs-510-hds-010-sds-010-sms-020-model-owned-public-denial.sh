@@ -3,7 +3,7 @@ set -euo pipefail
 # GAMP-ID: FS-510-HDS-010-SDS-010-SMS-020
 # GAMP-SCOPE: software-module-test
 # Focused construction test: model-owned public destination denial.
-# SMS-020 verifies that generic WAN egress to model-owned public destinations
+# FS-510-HDS-010-SDS-010-SMS-020 verifies that generic WAN egress to model-owned public destinations
 # is denied (fail-closed) without explicit service or ingress policy, and that
 # diagnostics are emitted with destination/service/source context.
 # Seeded negatives are active.
@@ -154,7 +154,7 @@ start_ms="$(test_now_ms)"
 nix run "${repo_root}#compile-and-build-forwarding-model" -- "${input_nix}" >"${output_json}"
 pass_timed "fs-510-hds-010-sds-010-sms-020:compile" "${start_ms}"
 
-# SMS-020: Model-Owned Public Destination Denial Module
+# FS-510-HDS-010-SDS-010-SMS-020: Model-Owned Public Destination Denial Module
 #
 # Predicate matrix:
 #   MR1: Return closed decision when source with generic WAN egress asks for

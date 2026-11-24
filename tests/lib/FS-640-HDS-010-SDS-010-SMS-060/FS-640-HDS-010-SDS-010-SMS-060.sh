@@ -2,14 +2,14 @@
 set -euo pipefail
 # GAMP-ID: FS-640-HDS-010-SDS-010-SMS-060
 # Construction test: NFM returnBehavior normalization scoping
-# Trace chain: URS → FS-640 → FS-640-HDS-010 → FS-640-HDS-010-SDS-010 → SMS-060
+# Trace chain: URS → FS-640 → FS-640-HDS-010 → FS-640-HDS-010-SDS-010 → FS-640-HDS-010-SDS-010-SMS-060
 #
 # Verifies normalizeCommunicationContract in compiler-input/sites/shape.nix
 # preserves explicit return authority, rejects incomplete allow relations,
 # and removes blanket symmetric injection based on endpoint kinds, traffic
 # type, or bidirectional flag per FS-180/FS-620/FS-640.
 #
-# Seeded negatives per SMS-060:
+# Seeded negatives per FS-640-HDS-010-SDS-010-SMS-060:
 #   N1: missing tenant-to-WAN return behavior → REJECT (not inject symmetric)
 #   N2: explicit returnBehavior preserved verbatim (one-way and symmetric)
 #   N3: nested stateful-return preserved, not overwritten by injection
@@ -22,7 +22,7 @@ start_ms="$(test_now_ms)"
 export NFM_REPO_ROOT="${repo_root}"
 
 fail_test() {
-  printf 'FAIL FS-640-SMS-060 returnBehavior scoping: %s\n' "$*" >&2
+  printf 'FAIL FS-640-HDS-010-SDS-010-SMS-060 returnBehavior scoping: %s\n' "$*" >&2
   exit 1
 }
 
@@ -124,7 +124,7 @@ assert_returnBehavior_equals "P2: nested stateful-return promoted" "$pos2_out" "
 
 # ═══════════════════════════════════════════════════════════════
 # Seeded negative 1: missing tenant-to-WAN return behavior → REJECT
-# (SMS-060: do not inject symmetric; reject incomplete tuple)
+# (FS-640-HDS-010-SDS-010-SMS-060: do not inject symmetric; reject incomplete tuple)
 # ═══════════════════════════════════════════════════════════════
 echo "=== Seeded negative 1: missing tenant-to-WAN return behavior → REJECT ==="
 neg1_json='{"communicationContract":{"allowedRelations":[{"id":"tenant-to-wan-missing","action":"allow","from":{"kind":"tenant-set","name":"cameras"},"to":{"kind":"external","uplinks":["wan"]},"trafficType":"any"}]}}'
@@ -139,7 +139,7 @@ assert_returnBehavior_equals "N1 recovery: explicit one-way accepted" "$neg1r_ou
 
 # ═══════════════════════════════════════════════════════════════
 # Seeded negative 2: explicit returnBehavior preserved verbatim
-# (SMS-060: explicit values must not be overwritten)
+# (FS-640-HDS-010-SDS-010-SMS-060: explicit values must not be overwritten)
 # ═══════════════════════════════════════════════════════════════
 echo "=== Seeded negative 2a: explicit returnBehavior=\"one-way\" preserved ==="
 neg2a_json='{"communicationContract":{"allowedRelations":[{"id":"explicit-one-way","action":"allow","from":{"kind":"service","name":"media"},"to":{"kind":"external","uplinks":["wan"]},"trafficType":"any","returnBehavior":"one-way"}]}}'
@@ -154,7 +154,7 @@ assert_returnBehavior_equals "N2b: explicit symmetric preserved" "$neg2b_out" "s
 # ═══════════════════════════════════════════════════════════════
 # Seeded negative 3: nested stateful-return preserved,
 # not overwritten by injected symmetric
-# (SMS-060: preserve applicable nested authority, don't inject)
+# (FS-640-HDS-010-SDS-010-SMS-060: preserve applicable nested authority, don't inject)
 # ═══════════════════════════════════════════════════════════════
 echo "=== Seeded negative 3: nested stateful-return authority preserved ==="
 neg3_json='{"communicationContract":{"allowedRelations":[{"id":"nested-only-stateful","action":"allow","from":{"kind":"external","uplinks":["wan"]},"to":{"kind":"service","name":"media"},"trafficType":"any","publicIngressTupleAuthority":{"returnBehavior":"stateful-return"}}]}}'
@@ -164,7 +164,7 @@ assert_returnBehavior_equals "N3: nested stateful-return preserved" "$neg3_out" 
 # ═══════════════════════════════════════════════════════════════
 # Seeded negative 4: bidirectional=true does NOT substitute for
 # explicit return authority → REJECT
-# (SMS-060: bidirectional flag does not create return policy)
+# (FS-640-HDS-010-SDS-010-SMS-060: bidirectional flag does not create return policy)
 # ═══════════════════════════════════════════════════════════════
 echo "=== Seeded negative 4: bidirectional=true without returnBehavior → REJECT ==="
 neg4_json='{"communicationContract":{"allowedRelations":[{"id":"bidir-no-return","action":"allow","from":{"kind":"service","name":"media"},"to":{"kind":"service","name":"storage"},"trafficType":"streaming","bidirectional":true}]}}'

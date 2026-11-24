@@ -4,7 +4,7 @@ set -euo pipefail
 # GAMP-SCOPE: software-module-test
 #
 # Focused construction test: core return-path routing.
-# SMS-090 requires the core node to have return routes for tenant subnets
+# FS-370-HDS-010-SDS-010-SMS-090 requires the core node to have return routes for tenant subnets
 # pointing toward the upstream-selector (return path after NAT).
 #
 # Seeded negatives:

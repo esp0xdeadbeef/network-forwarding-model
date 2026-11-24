@@ -4,7 +4,7 @@ set -euo pipefail
 # GAMP-SCOPE: software-module-test
 #
 # Focused construction test: upstream-selector default route behavior.
-# SMS-080 requires the upstream-selector to have a single deterministic
+# FS-370-HDS-010-SDS-010-SMS-080 requires the upstream-selector to have a single deterministic
 # default route toward the core node with proto=default, single nexthop.
 #
 # Seeded negatives:

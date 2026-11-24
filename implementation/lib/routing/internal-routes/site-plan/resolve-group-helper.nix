@@ -62,7 +62,7 @@ if path == null || builtins.length path < 2 then
 else
   let
     graphHop = builtins.elemAt path 1;
-    # FS-260-SMS-050: a scoped route follows the declared resolver path.
+    # FS-260-HDS-010-SDS-010-SMS-050: a scoped route follows the declared resolver path.
     scopedHop = import ./scoped-route-hop.nix {
       inherit
         lib

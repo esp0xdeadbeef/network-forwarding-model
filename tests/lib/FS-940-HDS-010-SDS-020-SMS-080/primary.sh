@@ -2,7 +2,7 @@
 set -euo pipefail
 # GAMP-ID: FS-940-HDS-010-SDS-020-SMS-080
 # Construction test: Route Cardinality Equivalence Diagnostics
-# Proves SMS-080 predicates including active seeded negative rejection
+# Proves FS-940-HDS-010-SDS-020-SMS-080 predicates including active seeded negative rejection
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 SMS_ID="FS-940-HDS-010-SDS-020-SMS-080"

@@ -167,7 +167,7 @@ jq -e '
     and ($exportDenied.exportRequested == true)
     and ($exportDenied.exportEligible == false)
 ' "${output_json}" >/dev/null || {
-  echo "FAIL fs480-route-import-constraint-validation: route-import constraints did not satisfy FS-480 SMS-020" >&2
+  echo "FAIL fs480-route-import-constraint-validation: route-import constraints did not satisfy FS-480-HDS-010-SDS-010-SMS-020" >&2
   jq '.enterprise.acme.site.ams.prefixAuthority' "${output_json}" >&2
   exit 1
 }

@@ -3,7 +3,7 @@
 # GAMP-SCOPE: software-module-test
 # Focused construction test: NFM boundary scan.
 #
-# SMS-050: NFM must not emit platform-specific or renderer-specific concepts.
+# FS-260-HDS-010-SDS-010-SMS-050: NFM must not emit platform-specific or renderer-specific concepts.
 # Scans NFM implementation for forbidden platform tokens (nftables, systemd,
 # NixOS, containerlab, Docker, Cisco, Junos) and provider names used as
 # forwarding classification (nebula, wireguard, openvpn).
@@ -116,7 +116,7 @@ echo "--- Seeded Negative: Would detect injected platform token ---"
 fake_file="${tmp_dir}/fake-nfm-output.nix"
 cat > "${fake_file}" << 'FAKE'
 {
-  # SEEDED-NEGATIVE: Injected nftables rule for SMS-050 testing
+  # SEEDED-NEGATIVE: Injected nftables rule for FS-260-HDS-010-SDS-010-SMS-050 testing
   nftables = {
     table = "edge_nat";
     chain = "postrouting";

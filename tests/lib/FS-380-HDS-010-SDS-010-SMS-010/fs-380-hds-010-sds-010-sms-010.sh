@@ -3,7 +3,7 @@ set -euo pipefail
 # GAMP-ID: FS-380-HDS-010-SDS-010-SMS-010
 # GAMP-SCOPE: software-module-test
 # Focused construction test: NFM route authority handoff for public IPv4.
-# SMS-010 verifies that public IPv4 prefix authority records survive through
+# FS-380-HDS-010-SDS-010-SMS-010 verifies that public IPv4 prefix authority records survive through
 # NFM forwarding model with correct consumer eligibility and route metadata.
 
 repo_root="$(git rev-parse --show-toplevel)"

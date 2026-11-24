@@ -3,7 +3,7 @@ set -euo pipefail
 # GAMP-ID: FS-390-HDS-010-SDS-010-SMS-020
 # GAMP-SCOPE: software-module-test
 # Focused construction test: public IPv4 shortcut policy authorization.
-# SMS-020 verifies that shortcuts to model-owned public IPv4 destinations
+# FS-390-HDS-010-SDS-010-SMS-020 verifies that shortcuts to model-owned public IPv4 destinations
 # require explicit public-service reachability, public ingress, or equivalent
 # service allow, and rejects shortcuts when policy predicates are missing.
 
@@ -169,7 +169,7 @@ start_ms="$(test_now_ms)"
 nix run "${repo_root}#compile-and-build-forwarding-model" -- "${input_nix}" >"${output_json}"
 pass_timed "fs-390-hds-010-sds-010-sms-020:compile" "${start_ms}"
 
-# SMS-020: Shortcut Policy Authorization
+# FS-390-HDS-010-SDS-010-SMS-020: Shortcut Policy Authorization
 # Positive: explicit-service-shortcut with shortcutPolicy=explicit + publicServicePolicy=true
 # → must be in shortcutAuthorizations with reason "explicit-public-service-or-ingress-policy"
 # Seeded negative 1: no-policy paths to model-owned destinations

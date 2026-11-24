@@ -3,7 +3,7 @@ set -euo pipefail
 # GAMP-ID: FS-390-HDS-010-SDS-010-SMS-030
 # GAMP-SCOPE: software-module-test
 # Focused construction test: broad WAN public IPv4 denial.
-# SMS-030 verifies that broad WAN / public-internet policy does not grant
+# FS-390-HDS-010-SDS-010-SMS-030 verifies that broad WAN / public-internet policy does not grant
 # shortcut reachability to model-owned public IPv4 destinations by implication.
 
 repo_root="$(git rev-parse --show-toplevel)"
@@ -185,7 +185,7 @@ jq -e '
       "broad-wan-to-public-ingress-owned-public"
     ] as $deniedRelations
 
-  # SMS-030 positive: every model-owned public IPv4 destination reached only
+  # FS-390-HDS-010-SDS-010-SMS-030 positive: every model-owned public IPv4 destination reached only
   # through broad WAN is denied with the broad-WAN reason.
   | ([ $policy.broadWanDenials[]
         | select(.allowed == false
@@ -199,7 +199,7 @@ jq -e '
         | .relationId
       ] | sort) == ($deniedRelations | sort)
 
-  # SMS-030 controls: explicit service shortcut is authorized, not denied.
+  # FS-390-HDS-010-SDS-010-SMS-030 controls: explicit service shortcut is authorized, not denied.
   and ([ $policy.shortcutAuthorizations[]
         | select(.relationId == "explicit-service-shortcut"
                  and .allowed == true

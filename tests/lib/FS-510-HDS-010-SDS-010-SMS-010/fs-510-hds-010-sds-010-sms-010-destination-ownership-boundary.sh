@@ -3,7 +3,7 @@ set -euo pipefail
 # GAMP-ID: FS-510-HDS-010-SDS-010-SMS-010
 # GAMP-SCOPE: software-module-test
 # Focused construction test: destination ownership boundary.
-# SMS-010 verifies that model-owned public IPv4 destinations are NOT
+# FS-510-HDS-010-SDS-010-SMS-010 verifies that model-owned public IPv4 destinations are NOT
 # classified as generic WAN, and that destination classification is never
 # skipped before path selection.  Seeded negatives are active.
 
@@ -156,7 +156,7 @@ start_ms="$(test_now_ms)"
 nix run "${repo_root}#compile-and-build-forwarding-model" -- "${input_nix}" >"${output_json}"
 pass_timed "fs-510-hds-010-sds-010-sms-010:compile" "${start_ms}"
 
-# SMS-010: Destination Ownership Boundary
+# FS-510-HDS-010-SDS-010-SMS-010: Destination Ownership Boundary
 #
 # SEEDED NEGATIVE 1: Model-owned public addresses are NOT classified as
 # generic-wan-internet.  They keep their model-owned class and must NOT

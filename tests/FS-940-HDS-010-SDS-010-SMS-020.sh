@@ -6,7 +6,7 @@ set -euo pipefail
 # FS-940 stage-timing diagnostic benchmark contract, scoped to this repository.
 #
 # NFM owns the "compiled semantic site model to forwarding model" benchmark
-# entrypoint. SMS-020 requires that entrypoint to emit a benchmark record with
+# entrypoint. FS-940-HDS-010-SDS-010-SMS-020 requires that entrypoint to emit a benchmark record with
 # the example name, elapsed time, diagnostic gate classification, locked
 # repository revision, upstream/downstream cardinality, and command pass/fail
 # status, and it must not fail solely because a phase-local timing threshold is
@@ -29,7 +29,7 @@ fail() {
 
 [[ -f "${bench}" ]] || fail "missing stage benchmark entrypoint ${bench}"
 
-# Required emitted record fields (SMS-020 Emitted Interfaces + Module
+# Required emitted record fields (FS-940-HDS-010-SDS-010-SMS-020 Emitted Interfaces + Module
 # Failure Conditions). Missing any one is a benchmark metadata failure.
 required_fields=(
   "stage=network-forwarding-model"
@@ -63,7 +63,7 @@ check_fields "${bench}" \
   || fail "overlay-semantic-eval.sh is missing required benchmark record fields"
 
 # ---- Threshold behaviour: over-threshold is diagnostic, not a hard fail ----
-# SMS-020: the module "shall not fail solely because stage-local elapsed time
+# FS-940-HDS-010-SDS-010-SMS-020: the module "shall not fail solely because stage-local elapsed time
 # exceeds a phase-local timing threshold". It records OVER_THRESHOLD instead.
 rg -q --fixed-strings "threshold_status=OVER_THRESHOLD" "${bench}" \
   || fail "over-threshold timing does not record threshold_status=OVER_THRESHOLD"

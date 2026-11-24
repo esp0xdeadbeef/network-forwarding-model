@@ -93,7 +93,7 @@ assert_rejects() {
     || fail "${name} did not emit expected diagnostic: ${diagnostic_pattern}"
 }
 
-# SN1: SMS-030 attempts to run without the required SMS-020 route atom output.
+# SN1: FS-940-HDS-010-SDS-020-SMS-030 attempts to run without the required FS-940-HDS-010-SDS-020-SMS-020 route atom output.
 assert_rejects \
   "missing-sms020" \
   '[
@@ -108,7 +108,7 @@ assert_rejects \
   'missing required submodule output FS-940-HDS-010-SDS-020-SMS-020'
 
 # Recovery for SN1 is the canonical happy path above. This additional seeded
-# order negative proves a present SMS-020 cannot appear after SMS-030.
+# order negative proves a present FS-940-HDS-010-SDS-020-SMS-020 cannot appear after FS-940-HDS-010-SDS-020-SMS-030.
 assert_rejects \
   "out-of-order-sms020" \
   '[

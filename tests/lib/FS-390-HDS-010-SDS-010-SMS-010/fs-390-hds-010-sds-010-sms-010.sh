@@ -3,7 +3,7 @@ set -euo pipefail
 # GAMP-ID: FS-390-HDS-010-SDS-010-SMS-010
 # GAMP-SCOPE: software-module-test
 # Focused construction test: public IPv4 destination classification.
-# SMS-010 verifies that each public IPv4 destination is assigned the correct
+# FS-390-HDS-010-SDS-010-SMS-010 verifies that each public IPv4 destination is assigned the correct
 # destinationClass based on its source (enterprise-client, tenant-service,
 # locally-owned-routed, provider-owned, public-ingress, generic-wan-internet).
 

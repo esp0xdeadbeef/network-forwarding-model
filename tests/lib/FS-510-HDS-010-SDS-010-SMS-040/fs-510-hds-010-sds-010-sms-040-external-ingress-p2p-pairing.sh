@@ -3,7 +3,7 @@ set -euo pipefail
 # GAMP-ID: FS-510-HDS-010-SDS-010-SMS-040
 # GAMP-SCOPE: software-module-test
 # Focused construction test: external-ingress point-to-point pairing integrity.
-# SMS-040 verifies that external-ingress default reachability is emitted on the
+# FS-510-HDS-010-SDS-010-SMS-040 verifies that external-ingress default reachability is emitted on the
 # correct target egress link and paired with that link's own peer next-hop.
 # Rejects cross-wired link/next-hop pairings and missing egress links.
 # Seeded negatives are active.
@@ -96,7 +96,7 @@ nix run "${repo_root}#compile-and-build-forwarding-model" -- "${input_nix}" >"${
 pass_timed "fs-510-hds-010-sds-010-sms-040:compile" "${start_ms}"
 
 ################################################################################
-# SMS-040 Predicate Coverage Matrix
+# FS-510-HDS-010-SDS-010-SMS-040 Predicate Coverage Matrix
 #
 # Module Responsibilities:
 #   MR1: Emit external-ingress default reachability on the selected target

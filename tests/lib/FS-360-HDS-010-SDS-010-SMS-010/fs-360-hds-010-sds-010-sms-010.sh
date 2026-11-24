@@ -253,7 +253,7 @@ jq -e '
     and ($pa.deniedSpace["assign-uplink-host"].reason == "invalid-consumer-for-authority-class")
     and ($pa.deniedSpace["assign-non-delegating-upstream"].reason == "invalid-consumer-for-authority-class")
 ' "${output_json}" >/dev/null || {
-  echo "FAIL fs360-downstream-client-public-prefix-authority: prefix authority classes did not satisfy FS-360 SMS-010" >&2
+  echo "FAIL fs360-downstream-client-public-prefix-authority: prefix authority classes did not satisfy FS-360-HDS-010-SDS-010-SMS-010" >&2
   jq '.enterprise.acme.site.ams.prefixAuthority' "${output_json}" >&2
   exit 1
 }

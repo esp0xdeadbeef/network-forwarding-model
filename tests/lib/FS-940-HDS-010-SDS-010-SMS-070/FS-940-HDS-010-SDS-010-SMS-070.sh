@@ -2,7 +2,7 @@
 set -euo pipefail
 # GAMP-ID: FS-940-HDS-010-SDS-010-SMS-070
 # Construction test: NFM semantic library performance boundary
-# Trace chain: URS → FS-940 → FS-940-HDS-010 → FS-940-HDS-010-SDS-010 → SMS-070
+# Trace chain: URS → FS-940 → FS-940-HDS-010 → FS-940-HDS-010-SDS-010 → FS-940-HDS-010-SDS-010-SMS-070
 
 repo_root="${SMS_TEST_REPO_ROOT:-$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)}"
 

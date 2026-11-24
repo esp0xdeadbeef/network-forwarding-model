@@ -4,7 +4,7 @@ set -euo pipefail
 # GAMP-SCOPE: software-module-test
 #
 # Focused construction test: core forwarding chain.
-# SMS-070 requires the core node to carry tenant transit routes through
+# FS-370-HDS-010-SDS-010-SMS-070 requires the core node to carry tenant transit routes through
 # the fabric chain toward WAN with correct intent classes.
 #
 # Seeded negatives:

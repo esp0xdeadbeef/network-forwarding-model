@@ -3,7 +3,7 @@ set -euo pipefail
 # GAMP-ID: FS-500-HDS-010-SDS-010-SMS-030
 # GAMP-SCOPE: software-module-test
 # Focused construction test: reachability decision reason diagnostic.
-# SMS-030 verifies that each reachability decision's reason (modeled policy,
+# FS-500-HDS-010-SDS-010-SMS-030 verifies that each reachability decision's reason (modeled policy,
 # selected path, missing predicate) is named in diagnostics, and that
 # allowed decisions without a model reason are rejected.
 # Seeded negatives are active.
@@ -147,7 +147,7 @@ start_ms="$(test_now_ms)"
 nix run "${repo_root}#compile-and-build-forwarding-model" -- "${input_nix}" >"${output_json}"
 pass_timed "fs-500-hds-010-sds-010-sms-030:compile" "${start_ms}"
 
-# SMS-030: Reachability Decision Reason Diagnostic
+# FS-500-HDS-010-SDS-010-SMS-030: Reachability Decision Reason Diagnostic
 #
 # P1/MR1: Each decision's reason (modeled policy, missing predicate) is named
 #         in diagnostics. Verified: diagnostics include relatedPath (relationId)

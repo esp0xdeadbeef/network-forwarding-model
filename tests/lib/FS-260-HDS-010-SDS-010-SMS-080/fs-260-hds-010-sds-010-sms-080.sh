@@ -3,7 +3,7 @@
 # GAMP-SCOPE: software-module-test
 # Focused construction test: NFM forwarding derivation scan.
 #
-# SMS-080: Every emitted route, link, adjacency, and forwarding relationship
+# FS-260-HDS-010-SDS-010-SMS-080: Every emitted route, link, adjacency, and forwarding relationship
 # must trace to explicit upstream intent; NFM must not invent forwarding
 # behavior from defaults, naming patterns, or heuristics.
 set -euo pipefail
@@ -73,13 +73,13 @@ echo "--- Seeded Negative: Would detect injected name-based route ---"
 
 fake_file="${tmp_dir}/fake-nfm-name-route.nix"
 cat > "${fake_file}" << 'FAKE'
-# SEEDED-NEGATIVE: Injected name-based default route for SMS-080 testing
+# SEEDED-NEGATIVE: Injected name-based default route for FS-260-HDS-010-SDS-010-SMS-080 testing
 defaultRoute = if builtins.match ".*wan.*" interfaceName != null then
   { dst = "0.0.0.0/0"; via = "10.0.0.1"; }
 else
   null;
 
-# SEEDED-NEGATIVE: Injected service-existence route for SMS-080 testing
+# SEEDED-NEGATIVE: Injected service-existence route for FS-260-HDS-010-SDS-010-SMS-080 testing
 serviceRoutes = builtins.map (svc: {
   dst = svc.address;
   via = svc.gateway;

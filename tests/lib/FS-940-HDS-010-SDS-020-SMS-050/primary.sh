@@ -2,7 +2,7 @@
 set -euo pipefail
 # GAMP-ID: FS-940-HDS-010-SDS-020-SMS-050
 # Construction test: Forwarding Equivalence Group Planner
-# Tests SMS-050 module: route-groups.nix
+# Tests FS-940-HDS-010-SDS-020-SMS-050 module: route-groups.nix
 #
 # SMS Predicate Coverage Matrix:
 #   MR1: Identify duplicate route intents before route materialization
@@ -277,7 +277,7 @@ link2="$(jq -r '.link2' <<<"${sn1_json}")"
 # ---------------------------------------------------------------------------
 # SN2: Empty entries rejected — builtins.head on empty list fails.
 # The coordinator layer (resolve-groups.nix) never passes empty groups,
-# and route-groups defensively rejects them. This satisfies the SMS-050
+# and route-groups defensively rejects them. This satisfies the FS-940-HDS-010-SDS-020-SMS-050
 # seeded negative: a required group that is omitted entirely is detected
 # by upstream layers; the FEG planner itself rejects empty input.
 # ---------------------------------------------------------------------------

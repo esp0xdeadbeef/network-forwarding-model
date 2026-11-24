@@ -127,7 +127,7 @@ in
       # Runtime (source-file driven) peer tenant prefixes. The peer's normalized
       # tenant prefix entries carry the model's authority classification, so the
       # overlay participant ledger can exclude host-only provider addresses
-      # (FS-350-SMS-030) without re-deriving that classification here.
+      # (FS-350-HDS-010-SDS-010-SMS-030) without re-deriving that classification here.
       runtimeEntries =
         if peerSite == null then [ ] else tenantPrefixes.runtimePrefixEntriesOfSite peerSite;
       overlayNodePrefixes =

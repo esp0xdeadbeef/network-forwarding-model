@@ -152,7 +152,7 @@ jq -e '
     and ($pa.deniedRouteExportPreconditions["assign-delegated-gua-missing-return"].reason == "missing-modeled-return-route")
     and ($pa.deniedRouteExportPreconditions["assign-uplink-host-with-return"].reason == "invalid-consumer-for-authority-class")
 ' "${output_json}" >/dev/null || {
-  echo "FAIL fs360-public-prefix-return-route-precondition: SMS-020 return-route preconditions missing or incorrect" >&2
+  echo "FAIL fs360-public-prefix-return-route-precondition: FS-360-HDS-010-SDS-010-SMS-020 return-route preconditions missing or incorrect" >&2
   jq '.enterprise.acme.site.ams.prefixAuthority' "${output_json}" >&2
   exit 1
 }

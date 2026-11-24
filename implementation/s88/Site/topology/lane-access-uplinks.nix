@@ -58,7 +58,7 @@ in
           relations = site.communicationContract.allowedRelations or [ ];
           hasAnyAllowRelation = lib.any (rel: (rel.action or null) == "allow") relations;
           compilerUplinks = trafficPathUplinksByAccessUnit.${unit} or [ ];
-          # FS-210/FS-230 / FS-310-SMS-075: the target access's ingress/return
+          # FS-210/FS-230 / FS-310-HDS-020-SDS-010-SMS-075: the target access's ingress/return
           # lane is keyed by the tuple's ingress surface. The surface is the
           # tuple authority's `publicSurface` when modeled, otherwise the
           # relation `from`'s external uplinks. This lane is ingress/return

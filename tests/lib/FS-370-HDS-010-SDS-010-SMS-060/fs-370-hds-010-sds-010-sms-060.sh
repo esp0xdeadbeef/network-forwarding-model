@@ -4,7 +4,7 @@ set -euo pipefail
 # GAMP-SCOPE: software-module-test
 #
 # Focused construction test: access-node tenant internet forwarding.
-# SMS-060 requires the access node to forward tenant transit traffic toward
+# FS-370-HDS-010-SDS-010-SMS-060 requires the access node to forward tenant transit traffic toward
 # the downstream-selector with correct route intent and fabric-chain metadata
 # (no "no-uplink" classification for tenants with internet egress).
 #

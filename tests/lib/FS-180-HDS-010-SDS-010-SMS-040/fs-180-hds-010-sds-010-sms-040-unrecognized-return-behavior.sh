@@ -64,7 +64,7 @@ assert_rejects() {
   echo "PASS [${label}]: rejected with expected diagnostic"
 }
 
-# Recognized vocabulary stays accepted (no regression of SMS-010/SMS-060 behavior).
+# Recognized vocabulary stays accepted (no regression of FS-180-HDS-010-SDS-010-SMS-010/FS-180-HDS-010-SDS-010-SMS-060 behavior).
 assert_accepts "recognized symmetric preserved" \
   '[{"id":"rel-symmetric","action":"allow","returnBehavior":"symmetric"}]' \
   '.[0].returnBehavior == "symmetric"'
@@ -93,8 +93,8 @@ assert_rejects "nested asymmetric rejected" \
   '[{"id":"rel-bad-nested","action":"allow","publicIngressTupleAuthority":{"returnBehavior":"asymmetric"}}]' \
   "FS-180-HDS-010-SDS-010-SMS-040: allow relation 'rel-bad-nested' has an unrecognized publicIngressTupleAuthority returnBehavior 'asymmetric'"
 
-# SMS-010 fail-closed diagnostics for invalid/empty values stay intact.
-assert_rejects "empty top-level still invalid (SMS-010)" \
+# FS-180-HDS-010-SDS-010-SMS-010 fail-closed diagnostics for invalid/empty values stay intact.
+assert_rejects "empty top-level still invalid (FS-180-HDS-010-SDS-010-SMS-010)" \
   '[{"id":"rel-empty","action":"allow","returnBehavior":""}]' \
   "allow relation 'rel-empty' has an invalid top-level returnBehavior"
 

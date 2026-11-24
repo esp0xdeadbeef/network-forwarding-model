@@ -11,13 +11,13 @@ set -euo pipefail
 #
 # FS-180 requires each modeled allow tuple to name return behavior.
 # FS-181 requires every authority record to carry return behavior.
-# SMS-010 (allow tuple validation): return behavior must be determinable
+# FS-180-HDS-010-SDS-010-SMS-010 (allow tuple validation): return behavior must be determinable
 #   from modeled input; undetermined return behavior is a failure condition.
-# SMS-020 (adjacent denial): traffic outside the tuple is denied by
+# FS-180-HDS-010-SDS-010-SMS-020 (adjacent denial): traffic outside the tuple is denied by
 #   return behavior difference.
-# SMS-030 (wildcard expansion): wildcard expansion is bounded by
+# FS-180-HDS-010-SDS-010-SMS-030 (wildcard expansion): wildcard expansion is bounded by
 #   return behavior.
-# SMS-040 (selector handoff): selector forwarding preserves relation
+# FS-180-HDS-010-SDS-010-SMS-040 (selector handoff): selector forwarding preserves relation
 #   identity including return behavior.
 #
 # Seeded negatives:

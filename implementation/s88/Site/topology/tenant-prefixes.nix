@@ -70,7 +70,7 @@ in
   # Runtime (source-file driven) tenant prefix entries of a site. The authority
   # class comes from the model's prefix-utils classification, never from a local
   # re-derivation: FS-171 makes this the owning layer for tenant prefix facts and
-  # FS-350-SMS-030 distinguishes a host-only provider address (an overlay
+  # FS-350-HDS-010-SDS-010-SMS-030 distinguishes a host-only provider address (an overlay
   # participant address, not tenant-prefix authority) from a routed client
   # prefix that legitimately carries overlay reachability.
   runtimePrefixEntriesOfSite =

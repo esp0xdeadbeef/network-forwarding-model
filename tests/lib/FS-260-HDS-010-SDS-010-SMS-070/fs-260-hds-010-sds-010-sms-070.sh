@@ -3,7 +3,7 @@
 # GAMP-SCOPE: software-module-test
 # Focused construction test: NFM authority boundary scan.
 #
-# SMS-070: NFM describes forwarding structure; must not create policy, firewall,
+# FS-260-HDS-010-SDS-010-SMS-070: NFM describes forwarding structure; must not create policy, firewall,
 # NAT, DNS, or service-exposure behavior (those belong to CPM).
 # Scans NFM implementation for forbidden policy-creation patterns.
 set -euo pipefail
@@ -84,7 +84,7 @@ echo "--- Seeded Negative: Would detect injected firewall rule ---"
 
 fake_file="${tmp_dir}/fake-nfm-firewall.nix"
 cat > "${fake_file}" << 'FAKE'
-# SEEDED-NEGATIVE: Injected firewall rule for SMS-070 testing
+# SEEDED-NEGATIVE: Injected firewall rule for FS-260-HDS-010-SDS-010-SMS-070 testing
 firewallRules = [
   {
     from = "client";
@@ -96,7 +96,7 @@ firewallRules = [
   }
 ];
 
-# SEEDED-NEGATIVE: Injected DNS server policy for SMS-070 testing
+# SEEDED-NEGATIVE: Injected DNS server policy for FS-260-HDS-010-SDS-010-SMS-070 testing
 dnsPolicy = {
   forwarders = [ "8.8.8.8" "1.1.1.1" ];
   mode = "recursive";

@@ -4,7 +4,7 @@ set -euo pipefail
 # GAMP-SCOPE: software-module-test
 #
 # Focused construction test: upstream-selector shared-interface IP rule priority.
-# SMS-100 requires per-lane route grouping with correct metadata (access, uplink,
+# FS-370-HDS-010-SDS-010-SMS-100 requires per-lane route grouping with correct metadata (access, uplink,
 # direction) and no bare default-route catch-all on shared interfaces.
 # At NFM level: verify lane-scoped routes carry correct access/uplink metadata,
 # routes have direction for outbound vs return, and per-lane grouping exists.

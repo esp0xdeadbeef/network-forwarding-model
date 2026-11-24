@@ -34,7 +34,7 @@ let
 
   # Family-blind default presence. A caller that genuinely means "this uplink
   # has a default in some family" uses this; a caller that builds a per-family
-  # multipath member set must not (FS-315, SMS-010).
+  # multipath member set must not (FS-315-HDS-010-SDS-010-SMS-010).
   uplinkHasDefaultSet =
     nodes: links:
     let

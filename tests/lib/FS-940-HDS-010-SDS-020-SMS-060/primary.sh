@@ -2,7 +2,7 @@
 set -euo pipefail
 # GAMP-ID: FS-940-HDS-010-SDS-020-SMS-060
 # Construction test: Route Exception Layer
-# Tests SMS-060 module: exception-layer.nix
+# Tests FS-940-HDS-010-SDS-020-SMS-060 module: exception-layer.nix
 #
 # SMS Predicate Coverage Matrix:
 #   MR1: Apply one-off route exceptions after common route groups are built

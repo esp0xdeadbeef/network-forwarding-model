@@ -3,7 +3,7 @@ set -euo pipefail
 # GAMP-ID: FS-500-HDS-010-SDS-010-SMS-020
 # GAMP-SCOPE: software-module-test
 # Focused construction test: reachability decision type preservation.
-# SMS-020 verifies that each reachability decision preserves its type
+# FS-500-HDS-010-SDS-010-SMS-020 verifies that each reachability decision preserves its type
 # (payload, resolver, discovery, route, management) separately from
 # the allowed/denied/conditional class.
 # Seeded negatives are active.
@@ -173,7 +173,7 @@ start_ms="$(test_now_ms)"
 nix run "${repo_root}#compile-and-build-forwarding-model" -- "${input_nix}" >"${output_json}"
 pass_timed "fs-500-hds-010-sds-010-sms-020:compile" "${start_ms}"
 
-# SMS-020: Reachability Decision Type Preservation
+# FS-500-HDS-010-SDS-010-SMS-020: Reachability Decision Type Preservation
 #
 # P1/MR1: Each decision path preserves its type (relationId) separately from
 #         valid/invalid classification. Verified: validPaths and invalidPaths

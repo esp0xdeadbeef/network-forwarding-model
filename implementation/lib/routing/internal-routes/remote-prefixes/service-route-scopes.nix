@@ -161,7 +161,7 @@ in
                     map
                       (uplink: {
                         inherit access owner serviceName;
-                        # FS-260-SMS-050: the compiled traffic path is the
+                        # FS-260-HDS-010-SDS-010-SMS-050: the compiled traffic path is the
                         # traversal authority. Carry its node sequence so the
                         # route resolver takes the staged next hop (policy on
                         # the upward leg, the destination lane on the downward

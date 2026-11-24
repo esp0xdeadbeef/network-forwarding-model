@@ -2,9 +2,9 @@
 set -euo pipefail
 # GAMP-ID: FS-940-HDS-010-SDS-020-SMS-040
 # Construction test: Next-Hop Equivalence Table
-# Trace chain: URS → FS-940 → FS-940-HDS-010 → FS-940-HDS-010-SDS-020 → SMS-040
+# Trace chain: URS → FS-940 → FS-940-HDS-010 → FS-940-HDS-010-SDS-020 → FS-940-HDS-010-SDS-020-SMS-040
 #
-# Proves SMS-040 predicates via direct nix eval of the next-hop equivalence logic.
+# Proves FS-940-HDS-010-SDS-020-SMS-040 predicates via direct nix eval of the next-hop equivalence logic.
 # P1: Build interned next-hop identifiers (perNextHopKey + equivalenceKey records)
 # P2: Preserve link name, via address, hop node, selected scope, route intent class
 # NG1: Repeated next-hop resolution → structural dedup (groupBy prevents duplicates)
@@ -17,7 +17,7 @@ fail() { echo "FAIL next-hop-equivalence-table: $*" >&2; exit 1; }
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "${tmpdir}"' EXIT
 
-# Test the SMS-040 perNextHopKey logic and equivalenceKey construction directly.
+# Test the FS-940-HDS-010-SDS-020-SMS-040 perNextHopKey logic and equivalenceKey construction directly.
 # The resolve-groups module builds equivalenceKey records in buildRouteRow (lines 69-112).
 # The materialize module records nextHopEquivalence compliance (lines 112-130).
 # We verify both modules by running them against a synthetic but complete fixture.
@@ -27,7 +27,7 @@ let
   lib = import <nixpkgs/lib>;
   self = { outPath = builtins.getEnv "NFM_REPO_ROOT"; };
 
-  # SMS-040 core logic (extracted from resolve-groups.nix lines 60-112)
+  # FS-940-HDS-010-SDS-020-SMS-040 core logic (extracted from resolve-groups.nix lines 60-112)
   perNextHopKey = e:
     let routeScope = e.routeScope or {};
     in "${e.nodeName}|${e.linkName}|${toString e.family}|${toString (e.via4 or "")}|${toString (e.via6 or "")}|${e.kind}|${toString (e.overlay or "")}|${toString (e.peerSite or "")}|${toString (e.sourceFile or "")}|${toString (routeScope.access or "")}|${toString (routeScope.uplink or "")}|${toString (routeScope.serviceName or "")}";
@@ -72,7 +72,7 @@ let
       destinationOwner = "tenant-2"; }
   ];
 
-  # Group by perNextHopKey (SMS-040 structural dedup)
+  # Group by perNextHopKey (FS-940-HDS-010-SDS-020-SMS-040 structural dedup)
   groups = builtins.groupBy perNextHopKey rows;
   groupKeys = builtins.attrNames groups;
 
@@ -112,7 +112,7 @@ let
   # ── NG2: No incomplete identity fields ──
   ng2_noIncomplete = p2_allFieldsPresent;
 
-  # ── Verify materialize.nix SMS-040 record (import the actual module) ──
+  # ── Verify materialize.nix FS-940-HDS-010-SDS-020-SMS-040 record (import the actual module) ──
   materialize = import (self.outPath + "/implementation/lib/routing/internal-routes/site-plan/materialize.nix") { };
   # Build a minimal materialize call with our equivalence entries as routeRows
   fakeRouteRows = map (entry: {
@@ -184,4 +184,4 @@ echo "PASS: SMS reference correct (FS-940-HDS-010-SDS-020-SMS-040)"
 echo "PASS: resolvedOncePerDistinctTuple = true"
 
 echo ""
-echo "PASS all SMS-040 predicates verified at HEAD ($(git -C "${repo_root}" rev-parse --short HEAD))"
+echo "PASS all FS-940-HDS-010-SDS-020-SMS-040 predicates verified at HEAD ($(git -C "${repo_root}" rev-parse --short HEAD))"

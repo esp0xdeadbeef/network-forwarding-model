@@ -3,7 +3,7 @@
 # GAMP-SCOPE: software-module-test
 # Focused construction test: NFM naming-inference prevention scan.
 #
-# SMS-090: NFM must derive all forwarding meaning from explicit model data,
+# FS-260-HDS-010-SDS-010-SMS-090: NFM must derive all forwarding meaning from explicit model data,
 # not from parsing names, labels, or string tokens. Scans for forbidden
 # string-matching patterns (builtins.match, hasInfix, hasPrefix, hasSuffix)
 # used on names for forwarding behavior.
@@ -140,7 +140,7 @@ echo "--- Seeded Negative: Would detect injected naming inference ---"
 
 fake_file="${tmp_dir}/fake-naming-inference.nix"
 cat > "${fake_file}" << 'FAKE'
-# SEEDED-NEGATIVE: Name-based WAN classification for SMS-090 testing
+# SEEDED-NEGATIVE: Name-based WAN classification for FS-260-HDS-010-SDS-010-SMS-090 testing
 wanInterfaces = builtins.filter
   (iface: builtins.match "wan.*" iface.name != null)
   allInterfaces;

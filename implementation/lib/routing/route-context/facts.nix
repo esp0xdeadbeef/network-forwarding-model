@@ -56,7 +56,7 @@ let
   # carries peer prefixes (overlayReachability.<name>.routes4/routes6), never a
   # 0.0.0.0/0 or ::/0. Treating "is an overlay" as "has an executable default"
   # in both families admits an egress into a family's multipath member set even
-  # when the overlay carries no prefix in that family (FS-315, SMS-010).
+  # when the overlay carries no prefix in that family (FS-315-HDS-010-SDS-010-SMS-010).
   uplinkCoreNamesByUplink =
     nodes: links: uplinkCores:
     let

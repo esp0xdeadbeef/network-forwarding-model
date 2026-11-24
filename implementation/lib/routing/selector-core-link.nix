@@ -22,7 +22,8 @@ let
     uplinkHasDefault routeFacts uplinkName
     || builtins.hasAttr uplinkName (routeFacts.overlayUplinkNameSet or { });
 
-  # Per-family variants (FS-315, SMS-010): a route selection key carries one
+  # Per-family variants (FS-315-HDS-010-SDS-010-SMS-010): a route selection key
+  # carries one
   # address family, so a member is admissible only when it has a default for
   # that family. `uplinkHasExecutableDefault` ORs the families and would admit
   # an egress that only defaults in the other family, producing an IPv6 member

@@ -3,7 +3,7 @@ set -euo pipefail
 # GAMP-ID: FS-940-HDS-010-SDS-020-SMS-020
 # Construction test: Route Atom Index
 #
-# SMS-020 owns the route-atom-index submodule that builds per-site route atom
+# FS-940-HDS-010-SDS-020-SMS-020 owns the route-atom-index submodule that builds per-site route atom
 # records before later planner stages. Each atom preserves source/uplink/overlay/
 # runtime identity with explicit aggregationClass and exceptionClass.
 

@@ -3,7 +3,7 @@ set -euo pipefail
 # GAMP-ID: FS-500-HDS-010-SDS-010-SMS-010
 # GAMP-SCOPE: software-module-test
 # Focused construction test: reachability decision classification.
-# SMS-010 verifies that each accepted reachability question is classified
+# FS-500-HDS-010-SDS-010-SMS-010 verifies that each accepted reachability question is classified
 # as allowed, denied, or conditional, and that decision classification is
 # not changed by formatting.  Seeded negatives are active.
 
@@ -172,7 +172,7 @@ start_ms="$(test_now_ms)"
 nix run "${repo_root}#compile-and-build-forwarding-model" -- "${input_nix}" >"${output_json}"
 pass_timed "fs-500-hds-010-sds-010-sms-010:compile" "${start_ms}"
 
-# SMS-010: Reachability Decision Classification
+# FS-500-HDS-010-SDS-010-SMS-010: Reachability Decision Classification
 #
 # P1: Classify each accepted question as allowed, denied, or conditional.
 #     Verified via trafficPathValidation output: validPaths and invalidPaths.

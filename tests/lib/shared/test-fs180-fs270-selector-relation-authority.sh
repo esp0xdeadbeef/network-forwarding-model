@@ -9,9 +9,9 @@ set -euo pipefail
 # Focused construction test: selector lane-default routes carry relationIds
 # and direction from modeled allow relations, not from topology alone.
 #
-# SMS-010 (allow tuple validation): routes carry full relation identity
-# SMS-020 (adjacent denial): topology without matching relation produces no routes
-# SMS-040 (selector handoff): selector forwarding preserves relation identity
+# FS-180-HDS-010-SDS-010-SMS-010 (allow tuple validation): routes carry full relation identity
+# FS-180-HDS-010-SDS-010-SMS-020 (adjacent denial): topology without matching relation produces no routes
+# FS-180-HDS-010-SDS-010-SMS-040 (selector handoff): selector forwarding preserves relation identity
 #
 # Seeded negatives:
 #   - Lane topology exists but no trafficPath authorizes WAN egress for access unit

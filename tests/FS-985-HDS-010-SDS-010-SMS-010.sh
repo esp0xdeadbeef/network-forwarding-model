@@ -9,7 +9,7 @@ set -euo pipefail
 # `nix flake lock --update-input <input>` propagation: the command resolves the
 # pin in flake.nix, not the branch tip, so upstream fixes silently never arrive.
 #
-# `flake.lock` is the sole authoritative revision-pinning surface (SMS-985
+# `flake.lock` is the sole authoritative revision-pinning surface (FS-985-HDS-010-SDS-010-SMS-985
 # responsibility 3), so this module asserts flake.nix only.
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

@@ -134,11 +134,11 @@ echo "PASS SN1: no re-entry to planning"
 
 # Coordinator registration
 echo "--- Coordinator submodule registration ---"
-grep -qE '(FS-940-HDS-010-SDS-020-SMS-070|\$\{smsRoot\}-SMS-070)' "${coord_src}" || fail "CH4: SMS-070 missing from coordinator"
-echo "PASS CH4: SMS-070 in coordinator"
+grep -qE '(FS-940-HDS-010-SDS-020-SMS-070|\$\{smsRoot\}-SMS-070)' "${coord_src}" || fail "CH4: FS-940-HDS-010-SDS-020-SMS-070 missing from coordinator"
+echo "PASS CH4: FS-940-HDS-010-SDS-020-SMS-070 in coordinator"
 
-grep -qE 'FS-940-HDS-010-SDS-020-SMS-070' "${site_plan_src}" || fail "CH5: SMS-070 missing from site-plan.nix"
-echo "PASS CH5: SMS-070 in site-plan.nix"
+grep -qE 'FS-940-HDS-010-SDS-020-SMS-070' "${site_plan_src}" || fail "CH5: FS-940-HDS-010-SDS-020-SMS-070 missing from site-plan.nix"
+echo "PASS CH5: FS-940-HDS-010-SDS-020-SMS-070 in site-plan.nix"
 
 echo ""
 echo "======================================================================"

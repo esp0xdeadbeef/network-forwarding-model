@@ -142,7 +142,7 @@ jq -e '
     and ($pa.deniedGuaPlacementPreconditions["place-delegated-gua-on-policy-transit"].reason == "non-uplink-transit-gua-placement")
     and ($pa.deniedGuaPlacementPreconditions["place-public-ipv4-on-policy-transit"].reason == "not-ipv6-gua-placement")
 ' "${output_json}" >/dev/null || {
-  echo "FAIL fs360-gua-transit-placement-validation: SMS-030 GUA placement preconditions missing or incorrect" >&2
+  echo "FAIL fs360-gua-transit-placement-validation: FS-360-HDS-010-SDS-010-SMS-030 GUA placement preconditions missing or incorrect" >&2
   jq '.enterprise.acme.site.ams.prefixAuthority' "${output_json}" >&2
   exit 1
 }

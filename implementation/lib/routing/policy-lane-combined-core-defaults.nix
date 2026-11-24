@@ -29,7 +29,7 @@ rec {
   # The upstream-selector is the role that owns the multi-WAN choice, so it
   # emits one ECMP default across the permitted cores for every multi-uplink
   # access unit. The access unit's policy->upstream-selector lanes are emitted
-  # one per permitted uplink (FS-370-SMS-050 requires a non-null lane.uplink on
+  # one per permitted uplink (FS-370-HDS-010-SDS-010-SMS-050 requires a non-null lane.uplink on
   # every access-uplink lane), so the multi-uplink group is the set of those
   # per-uplink lanes that share one access unit, not a single uplink-less lane.
   policyLaneCombinedCoreDefaultPlan =
@@ -112,7 +112,7 @@ rec {
                 inherit uplinkName;
                 epTo = coreEpForUplink topo selectorNodeName uplinkName;
               };
-          # Per-family member sets (FS-315, SMS-010): a route selection key carries
+          # Per-family member sets (FS-315-HDS-010-SDS-010-SMS-010): a route selection key carries
           # one address family, so an egress joins a family's multipath group only
           # when it offers a default for THAT family. An uplink with an IPv4
           # default and no IPv6 default stays out of the IPv6 member set instead

@@ -3,7 +3,7 @@
 # GAMP-SCOPE: software-module-test
 # Focused construction test: NFM platform-independence scan.
 #
-# SMS-060: NFM must not depend on or leak renderer-specific concepts.
+# FS-260-HDS-010-SDS-010-SMS-060: NFM must not depend on or leak renderer-specific concepts.
 # Scans NFM implementation for renderer repository paths, module references,
 # and platform-specific paths (network-renderer, nixos/modules, systemd/network,
 # nftables).
@@ -84,9 +84,9 @@ echo "--- Seeded Negative: Would detect injected renderer path ---"
 fake_file="${tmp_dir}/fake-nfm-renderer-ref.nix"
 cat > "${fake_file}" << 'FAKE'
 {
-  # SEEDED-NEGATIVE: Injected renderer path reference for SMS-060 testing
+  # SEEDED-NEGATIVE: Injected renderer path reference for FS-260-HDS-010-SDS-010-SMS-060 testing
   rendererModule = import ./network-renderer-containerlab-linux-backend/modules/nftables.nix;
-  # SEEDED-NEGATIVE: Injected NixOS module path for SMS-060 testing
+  # SEEDED-NEGATIVE: Injected NixOS module path for FS-260-HDS-010-SDS-010-SMS-060 testing
   nixosModule = "${builtins.toString ./nixos/modules/networking.nix}";
 }
 FAKE

@@ -43,7 +43,7 @@
 # service routes it is handed.
 #
 # NOT YET ASSERTED, and deliberately so: a resolver-specific host route
-# (10.20.10.1/32, fd42:dead:beef:10::1/128). SMS-040 requires one, and the NFM
+# (10.20.10.1/32, fd42:dead:beef:10::1/128). FS-540-HDS-010-SDS-010-SMS-040 requires one, and the NFM
 # still only emits the requester-lane scope over the resolver's tenant prefix
 # (10.20.10.0/24). Asserting it here would make this case red against a feature
 # that does not exist yet, which hides the regression this case does guard.
