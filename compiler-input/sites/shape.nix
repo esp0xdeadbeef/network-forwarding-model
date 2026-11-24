@@ -1,0 +1,185 @@
+{ getAttrPathOr
+, hasAttrPath
+,
+}:
+
+let
+  siteAttachmentsFromTopology =
+    site:
+    let
+      nodes = getAttrPathOr [ "topology" "nodes" ] { } site;
+      nodeNames = builtins.attrNames nodes;
+    in
+    builtins.concatLists (
+      builtins.map
+        (
+          nodeName:
+          builtins.map (attachment: attachment // { unit = nodeName; }) (nodes.${nodeName}.attachments or [ ])
+        )
+        nodeNames
+    );
+
+  siteCoreNodeNamesFromTopology =
+    site:
+    let
+      nodes = getAttrPathOr [ "topology" "nodes" ] { } site;
+      nodeNames = builtins.attrNames nodes;
+    in
+    builtins.filter (nodeName: (nodes.${nodeName}.role or null) == "core") nodeNames;
+
+  normalizeCommunicationContract =
+    site:
+    let
+      cc = site.communicationContract or { };
+      normalizeCompilerRelation =
+        relation:
+        relation
+        // {
+          id = relation.id or relation.source.id;
+          priority = relation.priority or relation.source.priority or 0;
+        };
+      rawRelations =
+        if site ? relations && builtins.isList site.relations then
+          map normalizeCompilerRelation site.relations
+        else if cc ? allowedRelations then
+          cc.allowedRelations
+        else if cc ? relations then
+          cc.relations
+        else
+          [ ];
+    in
+    {
+      allowedRelations = builtins.map
+        (rel:
+          let
+            relationId = if builtins.isString (rel.id or null) && rel.id != "" then rel.id else "<unknown>";
+            topLevelPresent = rel ? returnBehavior;
+            topLevel = rel.returnBehavior or null;
+            publicIngressAuthority = rel.publicIngressTupleAuthority or null;
+            nestedPresent =
+              builtins.isAttrs publicIngressAuthority && publicIngressAuthority ? returnBehavior;
+            nested = if nestedPresent then publicIngressAuthority.returnBehavior else null;
+            validReturnBehavior = value: builtins.isString value && value != "";
+            # FS-180-HDS-010-SDS-010-SMS-040 Negative case 3: the recognized
+            # return-behavior vocabulary. Values outside this set (e.g.
+            # "asymmetric", "hairpin", "unknown") must be rejected with a
+            # diagnostic naming the value and relation ID, never silently
+            # treated as absent or one-way.
+            recognizedReturnBehaviors = [ "symmetric" "one-way" "stateful-return" ];
+            recognizedReturnBehavior = value: builtins.elem value recognizedReturnBehaviors;
+            fail = reason:
+              throw "FS-180-HDS-010-SDS-010-SMS-010: allow relation '${relationId}' ${reason}";
+            failUnrecognized = position: value:
+              throw "FS-180-HDS-010-SDS-010-SMS-040: allow relation '${relationId}' has an unrecognized ${position} returnBehavior '${value}'; recognized values: ${builtins.concatStringsSep ", " recognizedReturnBehaviors}";
+            # FS-230-HDS-010-SDS-010-SMS-020: preserve the structured
+            # public-ingress translation/source-preservation authority instead
+            # of leaving it opaque. translationMode = "none" is an explicit
+            # no-translation decision; any translation-capable mode must bind an
+            # explicit sourcePreservation so the return surface is not ambiguous.
+            translationModePresent =
+              builtins.isAttrs publicIngressAuthority && publicIngressAuthority ? translationMode;
+            translationMode = if translationModePresent then publicIngressAuthority.translationMode else null;
+            sourcePreservationPresent =
+              builtins.isAttrs publicIngressAuthority && publicIngressAuthority ? sourcePreservation;
+            sourcePreservation = if sourcePreservationPresent then publicIngressAuthority.sourcePreservation else null;
+            recognizedTranslationModes = [ "none" "napt" "nat" "nat66" "provider-port-forward" ];
+            recognizedSourcePreservations = [ "preserve-source" "provider-napt" "rewritten" ];
+            translationCapableMode = value: value != "none";
+            failTranslation = reason:
+              throw "FS-230-HDS-010-SDS-010-SMS-020: allow relation '${relationId}' ${reason}";
+          in
+          if (rel.action or null) != "allow" then
+            rel
+          else if translationModePresent && !validReturnBehavior translationMode then
+            failTranslation "has an invalid publicIngressTupleAuthority.translationMode"
+          else if translationModePresent && !builtins.elem translationMode recognizedTranslationModes then
+            failTranslation "has an unrecognized publicIngressTupleAuthority.translationMode '${translationMode}'; recognized values: ${builtins.concatStringsSep ", " recognizedTranslationModes}"
+          else if translationModePresent && translationCapableMode translationMode && !sourcePreservationPresent then
+            failTranslation "requests translationMode '${translationMode}' without an explicit publicIngressTupleAuthority.sourcePreservation (ambiguous source-address handling)"
+          else if sourcePreservationPresent && !translationModePresent then
+            failTranslation "declares publicIngressTupleAuthority.sourcePreservation without publicIngressTupleAuthority.translationMode (missing translation mode field; ambiguous translation binding)"
+          else if sourcePreservationPresent && !validReturnBehavior sourcePreservation then
+            failTranslation "has an invalid publicIngressTupleAuthority.sourcePreservation"
+          else if sourcePreservationPresent && !builtins.elem sourcePreservation recognizedSourcePreservations then
+            failTranslation "has an unrecognized publicIngressTupleAuthority.sourcePreservation '${sourcePreservation}'; recognized values: ${builtins.concatStringsSep ", " recognizedSourcePreservations}"
+          else if topLevelPresent && !validReturnBehavior topLevel then
+            fail "has an invalid top-level returnBehavior"
+          else if nestedPresent && !validReturnBehavior nested then
+            fail "has an invalid publicIngressTupleAuthority.returnBehavior"
+          else if topLevelPresent && !recognizedReturnBehavior topLevel then
+            failUnrecognized "top-level" topLevel
+          else if nestedPresent && !recognizedReturnBehavior nested then
+            failUnrecognized "publicIngressTupleAuthority" nested
+          else if topLevelPresent && nestedPresent && topLevel != nested then
+            fail "has conflicting returnBehavior values '${topLevel}' and '${nested}'"
+          else if topLevelPresent then
+            rel
+          else if nestedPresent then
+            rel // { returnBehavior = nested; }
+          else
+            fail "missing returnBehavior on allow relation (must be explicitly declared as symmetric, one-way, or stateful-return; nested publicIngressTupleAuthority.returnBehavior also accepted)"
+        )
+        rawRelations;
+      # The compiler output is the forwarding model's authority. It carries the
+      # declared communicationContract services (with modeled ownership such as
+      # publicIpv4/publicIngress) alongside a compiled routing-shape service
+      # list. Prefer the declared contract services so modeled ownership is not
+      # lost, and fall back to the compiled list only when no contract exists.
+      services =
+        if cc ? services && builtins.isList cc.services && cc.services != [ ] then
+          cc.services
+        else if site ? services && builtins.isList site.services then
+          site.services
+        else
+          [ ];
+      trafficTypes = cc.trafficTypes or [ ];
+    };
+
+  normalizeAddressPools =
+    site:
+    let
+      explicitAddressPools = site.addressPools or null;
+      explicitLocal = if explicitAddressPools == null then null else explicitAddressPools.local or null;
+      explicitP2p = if explicitAddressPools == null then null else explicitAddressPools.p2p or null;
+
+      derivedLocal =
+        if hasAttrPath [ "pools" "loopback" ] site then
+          site.pools.loopback
+        else if hasAttrPath [ "pools" "local" ] site then
+          site.pools.local
+        else
+          { };
+
+      derivedP2p = if hasAttrPath [ "pools" "p2p" ] site then site.pools.p2p else { };
+    in
+    {
+      local = if explicitLocal != null && explicitLocal != { } then explicitLocal else derivedLocal;
+      p2p = if explicitP2p != null && explicitP2p != { } then explicitP2p else derivedP2p;
+    };
+
+  normalizeTopology =
+    site:
+    let
+      topology = site.topology or { };
+    in
+    {
+      nodes = topology.nodes or { };
+      links = topology.links or [ ];
+    };
+
+  normalizeLinks = site: if site ? links then site.links else { };
+
+  normalizeNodes = site: if site ? nodes then site.nodes else { };
+
+in
+{
+  inherit
+    normalizeAddressPools
+    normalizeCommunicationContract
+    normalizeLinks
+    normalizeNodes
+    normalizeTopology
+    siteAttachmentsFromTopology
+    siteCoreNodeNamesFromTopology
+    ;
+}
