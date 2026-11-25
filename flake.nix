@@ -413,6 +413,18 @@
       );
 
       apps = forAll (system: {
+        # Every repository in this fleet exposes `default` among its apps, so a
+        # consumer (CI, another flake) has one name it can rely on without knowing
+        # this repository's vocabulary. The rest of the names stay as they are.
+        default = {
+          type = "app";
+          # `meta.mainProgram`, not a hardcoded binary name: this repository's
+          # packages.default installs `network-forwarding-model-debug`, and a second
+          # place that spells it would drift.
+          program = "${self.packages.${system}.default}/bin/${
+            self.packages.${system}.default.meta.mainProgram
+          }";
+        };
         debug = {
           type = "app";
           program = "${self.packages.${system}.debug}/bin/network-forwarding-model-debug";
