@@ -11,6 +11,9 @@ set -euo pipefail
 # NG2: Incomplete next-hop identity → required fields verified non-null in all entries
 
 repo_root="${SMS_TEST_REPO_ROOT:-$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)}"
+# The fixture below writes `import <nixpkgs/lib>`; that is the committed pin.
+source "${repo_root}/tests/lib/pinned-nixpkgs.sh"
+pin_nixpkgs "${repo_root}"
 
 fail() { echo "FAIL next-hop-equivalence-table: $*" >&2; exit 1; }
 

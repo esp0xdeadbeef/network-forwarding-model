@@ -21,6 +21,9 @@ set -euo pipefail
 #   SN2: Empty entries produce clean zero output
 
 repo_root="${SMS_TEST_REPO_ROOT:-$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)}"
+# The fixtures below write `import <nixpkgs/lib>`; that is the committed pin.
+source "${repo_root}/tests/lib/pinned-nixpkgs.sh"
+pin_nixpkgs "${repo_root}"
 
 fail() {
   echo "FAIL forwarding-equivalence-group-planner: $*" >&2

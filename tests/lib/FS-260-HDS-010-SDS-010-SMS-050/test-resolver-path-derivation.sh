@@ -9,6 +9,9 @@
 set -euo pipefail
 
 repo_root="${SMS_TEST_REPO_ROOT:-$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)}"
+# `<nixpkgs>` below is the pin this commit ships, not the ambient NIX_PATH.
+source "${repo_root}/tests/lib/pinned-nixpkgs.sh"
+pin_nixpkgs "${repo_root}"
 
 out="$(nix eval --impure --json --expr "
 let

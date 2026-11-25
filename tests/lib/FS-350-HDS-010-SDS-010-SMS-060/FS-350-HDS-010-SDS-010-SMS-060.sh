@@ -4,6 +4,10 @@ set -euo pipefail
 # Focused construction regression: protected parent-prefix derivation identity
 
 repo_root="${SMS_TEST_REPO_ROOT:-$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)}"
+# eval.nix writes `import <nixpkgs/lib>`; that is the committed pin, not the
+# ambient NIX_PATH and not `nixpkgs#path` (today's registry, not this lock).
+source "${repo_root}/tests/lib/pinned-nixpkgs.sh"
+pin_nixpkgs "${repo_root}"
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "${tmp_dir}"' EXIT
 
@@ -91,7 +95,7 @@ in
 }
 NIX
 
-result="$(NIX_PATH="nixpkgs=$(nix eval --raw nixpkgs#path)" nix eval --impure --json -f "${tmp_dir}/eval.nix" 2>&1)" \
+result="$(nix eval --impure --json -f "${tmp_dir}/eval.nix" 2>&1)" \
   || fail "Nix evaluation failed: ${result}"
 
 jq -e '
