@@ -483,7 +483,8 @@ exceptionLayer.build {
     }
   ];
 }
-' 2>&1)" || fail "SN1 recovery: valid p2p route should be accepted"
+'
+  )" || fail "SN1 recovery: valid p2p route should be accepted"
 
 sn1_fix_valid="$(jq -r '.diagnostics.validated' <<<"${sn1_fix_output}")"
 [ "${sn1_fix_valid}" = "true" ] || fail "SN1 recovery: fixed route should validate, got ${sn1_fix_valid}"
@@ -546,7 +547,8 @@ exceptionLayer.build {
     }
   ];
 }
-' 2>&1)" || fail "SN2 recovery: valid src-file route should be accepted"
+'
+  )" || fail "SN2 recovery: valid src-file route should be accepted"
 
 sn2_fix_valid="$(jq -r '.diagnostics.validated' <<<"${sn2_fix_output}")"
 [ "${sn2_fix_valid}" = "true" ] || fail "SN2 recovery: fixed route should validate, got ${sn2_fix_valid}"
