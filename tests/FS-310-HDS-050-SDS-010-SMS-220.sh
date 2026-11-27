@@ -57,7 +57,7 @@ scan_dir() {
 
 if [[ -s "${tmpdir}/violations.txt" ]]; then
   echo "FAIL FS-310-HDS-050-SDS-010-SMS-220: cross-repo references must use pinned flake inputs." >&2
-  echo "FAIL FS-310-HDS-050-SDS-010-SMS-220: resolve siblings with 'nix flake archive' + inputs[\"<name>\"].path." >&2
+  echo "FAIL FS-310-HDS-050-SDS-010-SMS-220: resolve siblings with 'flake-archive-offline' + inputs[\"<name>\"].path." >&2
   sed "s#${repo_root}/##; s/^/FAIL FS-310-HDS-050-SDS-010-SMS-220:   /" "${tmpdir}/violations.txt" >&2
   exit 1
 fi

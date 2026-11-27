@@ -21,7 +21,7 @@ excluded_runtime_stages="nix-build,container-image-build,vm-deployment,container
 archive_json="$(mktemp)"
 trap 'rm -f "${archive_json}"' EXIT
 
-nix flake archive --json "path:${repo_root}" >"${archive_json}"
+flake-archive-offline --json "path:${repo_root}" >"${archive_json}"
 labs_root="$(jq -er '.inputs["network-labs"].path' "${archive_json}")"
 compiler_root="$(jq -er '.inputs["network-compiler"].path' "${archive_json}")"
 

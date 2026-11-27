@@ -13,7 +13,7 @@ archive_json="${tmp_dir}/archive.json"
 compiler_actual="${tmp_dir}/compiler.json"
 nfm_actual="${tmp_dir}/nfm.json"
 
-nix flake archive --json "path:${repo_root}" >"${archive_json}"
+flake-archive-offline --json "path:${repo_root}" >"${archive_json}"
 paths_json="$(
   ARCHIVE_JSON="${archive_json}" nix eval --impure --json --expr '
     let

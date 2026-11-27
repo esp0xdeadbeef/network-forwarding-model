@@ -17,7 +17,7 @@ nfm_json="${tmp_dir}/nfm.json"
 compiler_projection="${tmp_dir}/compiler-projection.json"
 nfm_projection="${tmp_dir}/nfm-projection.json"
 
-nix flake archive --json "path:${repo_root}" >"${archive_json}"
+flake-archive-offline --json "path:${repo_root}" >"${archive_json}"
 compiler_path="$(
   ARCHIVE_JSON="${archive_json}" nix eval --impure --raw --expr '
     let

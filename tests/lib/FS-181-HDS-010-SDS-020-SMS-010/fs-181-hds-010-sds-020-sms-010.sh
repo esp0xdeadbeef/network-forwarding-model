@@ -9,7 +9,7 @@ tmpd="$(mktemp -d)"
 trap 'rm -rf "$tmpd"' EXIT
 
 archive_json="$tmpd/archive.json"
-nix flake archive --json "path:$repo_root" >"$archive_json"
+flake-archive-offline --json "path:$repo_root" >"$archive_json"
 compiler_path="$(ARCHIVE_JSON="$archive_json" nix eval --impure --raw --expr '
   let a=builtins.fromJSON(builtins.readFile(builtins.getEnv "ARCHIVE_JSON"));
   in a.inputs."network-compiler".path or (throw "missing network-compiler")

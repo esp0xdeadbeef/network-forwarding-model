@@ -34,7 +34,7 @@ tmpdir="$(mktemp -d)"
 trap 'rm -rf "${tmpdir}"' EXIT
 
 archive_json="${tmpdir}/archive.json"
-nix flake archive --json "path:${repo_root}" >"${archive_json}"
+flake-archive-offline --json "path:${repo_root}" >"${archive_json}"
 
 compiler_path="$(
   ARCHIVE_JSON="${archive_json}" nix eval --impure --raw --expr '

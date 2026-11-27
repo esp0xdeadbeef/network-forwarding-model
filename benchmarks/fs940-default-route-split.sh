@@ -15,7 +15,7 @@ compiler_json="$(mktemp --suffix=.json)"
 expr_nix="$(mktemp)"
 trap 'rm -f "${archive_json}" "${compiler_json}" "${expr_nix}"' EXIT
 
-nix flake archive --json "path:${repo_root}" >"${archive_json}"
+flake-archive-offline --json "path:${repo_root}" >"${archive_json}"
 labs_root="$(jq -er '.inputs["network-labs"].path' "${archive_json}")"
 intent="${labs_root}/examples/${example}/intent.nix"
 

@@ -22,7 +22,7 @@ fi
 default_intents() {
   local archive_json labs_path
   archive_json="$(mktemp)"
-  nix flake archive --json "path:${repo_root}" >"${archive_json}"
+  flake-archive-offline --json "path:${repo_root}" >"${archive_json}"
   labs_path="$(
     ARCHIVE_JSON="${archive_json}" nix eval --impure --raw --expr '
       let

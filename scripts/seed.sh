@@ -85,7 +85,7 @@ fi
 # Use nix flake archive to resolve the network-compiler path
 ARCHIVE_JSON="$(mktemp)"
 trap 'rm -f "${ARCHIVE_JSON}"' RETURN
-nix flake archive --json "path:${REPO_ROOT}" > "${ARCHIVE_JSON}"
+flake-archive-offline --json "path:${REPO_ROOT}" > "${ARCHIVE_JSON}"
 COMPILER_PATH="$(jq -er '.inputs["network-compiler"].path // empty' "${ARCHIVE_JSON}")"
 
 if [[ -n "$COMPILER_PATH" ]]; then
