@@ -3,7 +3,13 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    nixpkgs-network.url = "github:NixOS/nixpkgs/ac56c456ebe4901c561d3ebf1c98fbd970aea753";
+    # NO `nixpkgs-network`. This repository carried a second nixpkgs -- an absolute rev,
+    # github:NixOS/nixpkgs/ac56c456... (2024-07-27) -- solely to reach
+    # `lib.network.ipv6`. An absolute rev is a pin no consumer can move: `nix flake
+    # update` has no branch to advance and a `follows` reaches a different graph, so the
+    # fleet kept two nixpkgs revisions with two stdenvs, and a warm could cover one.
+    # `network-compiler` owns that library (it vendors it at ./lib/network) and exports
+    # it as `lib.network`, so it is taken from there.
     network-compiler.url = "github:esp0xdeadbeef/network-compiler";
     network-compiler.inputs.nixpkgs.follows = "nixpkgs";
     network-compiler.inputs.network-labs.follows = "network-labs";
@@ -14,7 +20,6 @@
     {
       self,
       nixpkgs,
-      nixpkgs-network,
       network-compiler,
       network-labs,
     }:
@@ -53,7 +58,7 @@
           applyForwardingModel = import ./s88/build.nix {
             inherit self;
             lib = nixpkgs.lib // {
-              network = nixpkgs-network.lib.network;
+              network = network-compiler.lib.network;
             };
           };
 
@@ -298,12 +303,13 @@
                   let
                     system = "'${system}'";
                     pkgs = import ${nixpkgs} { inherit system; };
-                    patched = import ${nixpkgs-network} { inherit system; };
 
                     applyForwardingModel = import ${self.outPath}/s88/build.nix {
                       self = { outPath = ${self.outPath}; };
                       lib = pkgs.lib // {
-                        network = patched.lib.network;
+                        network = import ${network-compiler.outPath}/lib/network {
+                          lib = pkgs.lib;
+                        };
                       };
                     };
 
