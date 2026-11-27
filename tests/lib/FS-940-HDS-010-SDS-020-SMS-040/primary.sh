@@ -151,7 +151,9 @@ in {
 NIXEOF
 
 export NFM_REPO_ROOT="${repo_root}"
-result="$(nix eval --impure --json -f "${tmpdir}/test-sms040.nix" 2>&1)" || {
+# STDOUT ONLY, for the same reason as FS-350-...-060: merging stderr put Nix's offline
+# warning in front of the JSON and jq reported "Invalid numeric literal at line 1, column 8".
+result="$(nix eval --impure --json -f "${tmpdir}/test-sms040.nix")" || {
   echo "FAIL nix eval failed:" >&2
   echo "${result}" >&2
   exit 1

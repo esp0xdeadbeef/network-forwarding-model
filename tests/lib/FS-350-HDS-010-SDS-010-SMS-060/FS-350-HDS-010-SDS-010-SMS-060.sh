@@ -95,7 +95,12 @@ in
 }
 NIX
 
-result="$(nix eval --impure --json -f "${tmp_dir}/eval.nix" 2>&1)" \
+# STDOUT ONLY. Merging stderr put Nix's "warning: you don't have Internet access;
+# disabling some network-dependent features" in front of the JSON, and jq then failed with
+# "Invalid numeric literal at line 1" -- which the case reported as
+# "runtime routes did not preserve exact tenant derivation metadata", i.e. as a wrong
+# answer rather than as unparseable input. Measured with the network namespace removed.
+result="$(nix eval --impure --json -f "${tmp_dir}/eval.nix")" \
   || fail "Nix evaluation failed: ${result}"
 
 jq -e '
