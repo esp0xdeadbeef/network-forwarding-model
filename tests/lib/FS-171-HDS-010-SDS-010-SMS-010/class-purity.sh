@@ -24,7 +24,10 @@ normalize_sites() {
     let
       repoRoot = builtins.getEnv "NFM_REPO_ROOT";
       input = builtins.fromJSON (builtins.readFile (builtins.getEnv "NFM_INPUT_FILE"));
-      lib = (import (builtins.getFlake "github:NixOS/nixpkgs/0182a361324364ae3f436a63005877674cf45efb") { }).lib;
+      # The pinned nixpkgs from this flake, not a literal revision.
+      # A literal rev is not the pin, is not warmed with it, and fetched during the test
+      # (measured: unable to download nixpkgs/archive/0182a361...tar.gz).
+      lib = (builtins.getFlake ("path:" + repoRoot)).inputs.nixpkgs.lib;
       normalizeSites = import (repoRoot + "/compiler-input/sites/build.nix") { inherit lib; self = { outPath = repoRoot; }; };
     in normalizeSites { config = input; }
   ' 2>&1
