@@ -14,6 +14,7 @@
     network-compiler.inputs.nixpkgs.follows = "nixpkgs";
     network-compiler.inputs.network-labs.follows = "network-labs";
     network-labs.url = "github:esp0xdeadbeef/network-labs";
+    network-labs.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs =
