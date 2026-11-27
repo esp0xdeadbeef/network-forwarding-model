@@ -86,7 +86,7 @@ in
 }
 HEREDOC_END
 
-eval_json=$(nix eval --json -f "${tmp_dir}/eval.nix" 2>&1) || fail "eval failed: $eval_json"
+eval_json=$(nix eval --json -f "${tmp_dir}/eval.nix" 2>&1 | grep -vF "you don't have Internet access") || fail "eval failed: $eval_json"
 
 # P2 - byNode output
 nodeCount=$(echo "$eval_json" | jq '.byNodeKeys | length')
