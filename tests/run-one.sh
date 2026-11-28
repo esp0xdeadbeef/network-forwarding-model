@@ -29,6 +29,19 @@ test_path="$1"
 
 timeout_seconds="${TEST_TIMEOUT_SECONDS:-1800}"
 
+# The repository's own test tooling (`flake-archive-offline` and friends) lives
+# in `tests/lib/bin` and the cases call it by bare name. The local runner exports
+# it; this one did not, so a case that passed in the matrix -- whose workflow
+# brings its own PATH -- died here with
+#
+#   line 25: flake-archive-offline: command not found
+#
+# The two entry points must agree on what the suite is, so both export it.
+if [[ -d "${repo_root}/tests/lib/bin" ]]; then
+  PATH="${repo_root}/tests/lib/bin:${PATH}"
+  export PATH
+fi
+
 case "${test_path}" in
   *.py)
     exec timeout "${timeout_seconds}" python3 "${test_path}"

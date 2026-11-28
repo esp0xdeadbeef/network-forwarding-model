@@ -45,6 +45,27 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 repo_name="$(basename "${repo_root}")"
 test_dir="${repo_root}/tests"
 
+# THE REPOSITORY'S OWN TEST TOOLING GOES ON PATH.
+#
+# Every repository ships helpers under `tests/lib/bin` -- `flake-archive-offline`
+# above all -- and the cases CALL them by bare name. Nothing put that directory on
+# PATH, so on a developer machine 14 of this repository's 98 entrypoints died with
+#
+#   tests/test-sat-wireguard-host128-core-split.sh: line 25:
+#     flake-archive-offline: command not found
+#   FAIL tests/test-sat-wireguard-host128-core-split.sh (exit 127)
+#
+# while CI passed the same cases: the workflow exports a PATH of its own. A runner
+# that only works when someone else configured the environment is not a gate --
+# the local sweep and the matrix must agree on what the suite is.
+#
+# Prepended, not replaced: the helpers shadow nothing, and the store paths CI
+# needs stay behind them.
+if [[ -d "${test_dir}/lib/bin" ]]; then
+  PATH="${test_dir}/lib/bin:${PATH}"
+  export PATH
+fi
+
 # --- configuration ---
 default_jobs="$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || printf '1')"
 jobs="${TEST_JOBS:-${default_jobs}}"
